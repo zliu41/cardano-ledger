@@ -13,6 +13,8 @@ int ref_exp(mpz_t, const mpz_t);
 void ref_pow(mpz_t, const mpz_t, const mpz_t);
 void scale(mpz_t);
 void ref_div(mpz_t, const mpz_t, const mpz_t);
+void arctan(mpz_t, const mpz_t);
+void sine(mpz_t, const mpz_t);
 
 typedef enum { GT, LT, UNKNOWN } estimation;
 

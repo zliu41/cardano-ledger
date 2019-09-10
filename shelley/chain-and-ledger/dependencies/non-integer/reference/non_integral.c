@@ -5,6 +5,7 @@
 
 mpz_t one;
 mpz_t zero;
+mpz_t two;
 mpz_t precision;
 mpz_t e;
 mpz_t eps;
@@ -15,6 +16,7 @@ void initialize(const mpz_t _precision, const mpz_t epsilon)
 {
   mpz_init_set(precision, _precision);
   mpz_init_set_ui(one, 1); mpz_mul(one, one, precision);
+  mpz_init_set_ui(two, 2); mpz_mul(two, two, precision);
   mpz_init_set_ui(zero, 0);
   mpz_init_set(eps, epsilon);
 
@@ -70,6 +72,7 @@ void scale(mpz_t rop)
 void cleanup()
 {
   mpz_clear(one);
+  mpz_clear(two);
   mpz_clear(zero);
   mpz_clear(precision);
   mpz_clear(eps);
@@ -191,6 +194,182 @@ void mp_lnN(mpz_t rop, const int maxN, const mpz_t x, const mpz_t epsilon)
   mpz_clear(A); mpz_clear(B); mpz_clear(convergent); mpz_clear(last);
   mpz_clear(curr_n); mpz_clear(a); mpz_clear(b);
   mpz_clear(diff); mpz_clear(temp_q); mpz_clear(temp_r);
+}
+
+/* Compute an approximation of 'arctan(x)' via continued fractions. Either for a
+   maximum of 'maxN' iterations or until the absolute difference between two
+   succeeding convergents is smaller than 'eps'.
+*/
+void mp_atanN(mpz_t rop, const int maxN, const mpz_t x, const mpz_t epsilon)
+{
+  mpz_t AnM2, BnM2, AnM1, BnM1, ba, aa, A, bb, ab, B, convergent, last, a, b, sq;
+  mpz_t curr_n, diff, temp_q, temp_r;
+  bool first = true;
+  int n = 1;
+
+  /* initialize all MP variables */
+  mpz_init(AnM2); mpz_init(BnM2); mpz_init(AnM1); mpz_init(BnM1);
+  mpz_init(ba); mpz_init(aa); mpz_init(bb); mpz_init(ab);
+  mpz_init(A); mpz_init(B); mpz_init(convergent); mpz_init(last);
+  mpz_init(curr_n); mpz_init(a); mpz_init(b);
+  mpz_init(diff); mpz_init(temp_q); mpz_init(temp_r);
+  mpz_init(sq);
+  // 430356660279671034437865493884613
+  mpz_set(a, x);
+  mpz_set(b, one);
+
+  mpz_set(AnM2, one);
+  mpz_set_ui(BnM2, 0);
+  mpz_set_ui(AnM1, 0);
+  mpz_set(BnM1, one);
+
+  mpz_mul(sq, x, x); scale(sq);
+
+  size_t curr_a = 1;
+
+  while(n <= maxN + 2)
+    {
+      mpz_mul(ba, b, AnM1); scale(ba);
+      mpz_mul(aa, a, AnM2); scale(aa);
+      mpz_add(A, ba, aa);
+
+      mpz_mul(bb, b, BnM1); scale(bb);
+      mpz_mul(ab, a, BnM2); scale(ab);
+      mpz_add(B, bb, ab);
+
+      div(convergent, A, B);
+
+      if(first)
+        first = false;
+      else
+        {
+          mpz_sub(diff, convergent, last);
+          if(mpz_cmpabs(diff, epsilon) < 0)
+            break;
+        }
+
+      if(n > 1)
+        curr_a++;
+
+      mpz_set(last, convergent);
+      n++;
+      mpz_set(AnM2, AnM1);
+      mpz_set(BnM2, BnM1);
+      mpz_set(AnM1, A);
+      mpz_set(BnM1, B);
+
+      mpz_mul_si(a, sq, curr_a * curr_a);
+      mpz_add(b, b, two);
+    }
+
+  mpz_set(rop, convergent);
+
+  /* clear all MP values */
+  mpz_clear(AnM2); mpz_clear(BnM2); mpz_clear(AnM1); mpz_clear(BnM1);
+  mpz_clear(ba); mpz_clear(aa); mpz_clear(bb); mpz_clear(ab);
+  mpz_clear(A); mpz_clear(B); mpz_clear(convergent); mpz_clear(last);
+  mpz_clear(curr_n); mpz_clear(a); mpz_clear(b);
+  mpz_clear(diff); mpz_clear(temp_q); mpz_clear(temp_r);
+  mpz_clear(sq);
+}
+
+void arctan(mpz_t rop, const mpz_t x)
+{
+  mp_atanN(rop, 1000, x, eps);
+}
+
+/* Calculate sine using continued fractions.
+ */
+void mp_sineN(mpz_t rop, const int maxN, const mpz_t x, const mpz_t epsilon)
+{
+  mpz_t AnM2, BnM2, AnM1, BnM1, ba, aa, A, bb, ab, B, convergent, last, a, b, sq;
+  mpz_t curr_n, diff, temp_q, temp_r;
+  bool first = true;
+  int n = 1;
+
+  /* initialize all MP variables */
+  mpz_init(AnM2); mpz_init(BnM2); mpz_init(AnM1); mpz_init(BnM1);
+  mpz_init(ba); mpz_init(aa); mpz_init(bb); mpz_init(ab);
+  mpz_init(A); mpz_init(B); mpz_init(convergent); mpz_init(last);
+  mpz_init(curr_n); mpz_init(a); mpz_init(b);
+  mpz_init(diff); mpz_init(temp_q); mpz_init(temp_r);
+  mpz_init(sq);
+
+  mpz_set(a, x);
+  mpz_set(b, one);
+
+  mpz_set(AnM2, one);
+  mpz_set_ui(BnM2, 0);
+  mpz_set_ui(AnM1, 0);
+  mpz_set(BnM1, one);
+
+  mpz_mul(sq, x, x); scale(sq);
+
+  size_t curr_a = 1;
+  size_t curr_b1 = 1;
+  size_t curr_b2 = 1;
+
+  while(n <= maxN + 2)
+    {
+      mpz_mul(ba, b, AnM1); scale(ba);
+      mpz_mul(aa, a, AnM2); scale(aa);
+      mpz_add(A, ba, aa);
+
+      mpz_mul(bb, b, BnM1); scale(bb);
+      mpz_mul(ab, a, BnM2); scale(ab);
+      mpz_add(B, bb, ab);
+
+      div(convergent, A, B);
+      /* gmp_printf("convergent %Zd\n", convergent); */
+
+      if(first)
+        first = false;
+      else
+        {
+          mpz_sub(diff, convergent, last);
+          if(mpz_cmpabs(diff, epsilon) < 0)
+            break;
+        }
+
+      curr_a = curr_b1 * curr_b2;
+      mpz_mul_si(a, sq, curr_a);
+
+      if(n == 1)
+        {
+          curr_b1 = 2;
+          curr_b2 = 3;
+        }
+      else
+        {
+          curr_b1 += 2;
+          curr_b2 += 2;
+        }
+
+      mpz_mul_si(b, one, curr_b1 * curr_b2);
+      mpz_sub(b, b, sq);
+
+      mpz_set(last, convergent);
+      n++;
+      mpz_set(AnM2, AnM1);
+      mpz_set(BnM2, BnM1);
+      mpz_set(AnM1, A);
+      mpz_set(BnM1, B);
+    }
+
+  mpz_set(rop, convergent);
+
+  /* clear all MP values */
+  mpz_clear(AnM2); mpz_clear(BnM2); mpz_clear(AnM1); mpz_clear(BnM1);
+  mpz_clear(ba); mpz_clear(aa); mpz_clear(bb); mpz_clear(ab);
+  mpz_clear(A); mpz_clear(B); mpz_clear(convergent); mpz_clear(last);
+  mpz_clear(curr_n); mpz_clear(a); mpz_clear(b);
+  mpz_clear(diff); mpz_clear(temp_q); mpz_clear(temp_r);
+  mpz_clear(sq);
+}
+
+void sine(mpz_t rop, const mpz_t x)
+{
+  mp_sineN(rop, 1000, x, eps);
 }
 
 /* Entry point for 'exp' approximation. First does the scaling of 'x' to [0,1]

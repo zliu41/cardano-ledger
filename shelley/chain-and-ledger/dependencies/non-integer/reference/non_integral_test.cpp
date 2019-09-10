@@ -47,9 +47,13 @@ int main()
     std::chrono::duration<double>::zero();
   std::chrono::duration<double> total_cmp =
     std::chrono::duration<double>::zero();
+  std::chrono::duration<double> total_cmp_linear =
+    std::chrono::duration<double>::zero();
   std::chrono::duration<double> maximal =
     std::chrono::duration<double>::zero();
   std::chrono::duration<double> maximal_cmp =
+    std::chrono::duration<double>::zero();
+  std::chrono::duration<double> maximal_cmp_linear =
     std::chrono::duration<double>::zero();
 
   // format is "sigma p"
@@ -110,9 +114,8 @@ int main()
             std::cout << " " << print_fixedp(one - threshold_b, precision, 34);
           }
 
-          // do Taylor approximation for
-          //  a < 1 - (1 - f) *** b <=> 1/(1-a) < exp(-b * ln' (1 - f))
-          // using Lagrange error term calculation
+          // as above, but use linear approximation first, then go for Taylor
+          // series
           {
             mpz_class temp;
             mpz_class c;
@@ -127,6 +130,8 @@ int main()
             ref_div(q.get_mpz_t(), one.get_mpz_t(), q_.get_mpz_t());
 
             auto before = std::chrono::high_resolution_clock::now();
+
+
             // 3 is used as bound, might need to be adapted for other use cases
             res =
               ref_exp_cmp(approx.get_mpz_t(), 1000, alpha.get_mpz_t(), 3, q.get_mpz_t());
@@ -161,6 +166,118 @@ int main()
                       << " " << res.iterations << std::endl;
           }
 
+          // calculate arctan(x)
+          {
+            // distance is
+            // -(-f + 1)^(log(-f/log(-f + 1))/log(-f + 1)) - f*log(-f/log(-f + 1))/log(-f + 1) + 1
+
+            mpz_class oneMf = one - f;
+            mpz_class logfp1;
+            ref_ln(logfp1.get_mpz_t(), oneMf.get_mpz_t()); // log(1 - f)
+
+            // -f/log(1 - f)
+            mpz_class tmp;
+            ref_div(tmp.get_mpz_t(), f.get_mpz_t(), logfp1.get_mpz_t());
+            tmp = -tmp;
+
+            // log(-f/log(-f + 1))/log(-f + 1)
+            mpz_class tmp2;
+            ref_ln(tmp2.get_mpz_t(), tmp.get_mpz_t());
+            mpz_class logTerm;
+            ref_div(logTerm.get_mpz_t(), tmp2.get_mpz_t(), logfp1.get_mpz_t());
+
+            mpz_class fLogTerm = f*logTerm;
+            scale(fLogTerm.get_mpz_t());
+
+            mpz_class powLogTerm;
+            ref_pow(powLogTerm.get_mpz_t(), oneMf.get_mpz_t(), logTerm.get_mpz_t());
+
+            mpz_class distance = one - fLogTerm - powLogTerm;
+
+            mpz_class angle;
+            arctan(angle.get_mpz_t(), f.get_mpz_t());
+
+            mpz_class s;
+            sine(s.get_mpz_t(), angle.get_mpz_t());
+
+            // calculate y-axis displacement
+            mpz_class y0, y, r;
+            y0 = distance * f;
+            scale(y0.get_mpz_t());
+            ref_div(y.get_mpz_t(), y0.get_mpz_t(), s.get_mpz_t());
+
+            mpz_class temp;
+            mpz_class c;
+            c = one - f;
+            ref_ln(temp.get_mpz_t(), c.get_mpz_t());
+            mpz_class alpha = b * temp;
+            scale(alpha.get_mpz_t());
+            alpha = -alpha;     // negate after scale
+
+            mpz_class q_ = one - a;
+            mpz_class q;
+            ref_div(q.get_mpz_t(), one.get_mpz_t(), q_.get_mpz_t());
+
+            mpz_class cmp;
+
+            auto before = std::chrono::high_resolution_clock::now();
+
+            // first check for a < f * b as linear approximation, if true ->
+            // leader
+            cmp = f * b;
+            scale(cmp.get_mpz_t());
+
+            if (a > cmp + y)
+              {
+                //std::cout << "YAY";
+                res.iterations = 0;
+                res.estimate = GT;
+              }
+            else if (a < cmp)
+              {
+                //std::cout << "YAY";
+                res.iterations = 0;
+                res.estimate = LT;
+              }
+            else
+              {
+                // // 3 is used as bound, might need to be adapted for other use cases
+                //std::cout << "NAY";
+                res =
+                  ref_exp_cmp(approx.get_mpz_t(), 1000, alpha.get_mpz_t(), 3, q.get_mpz_t());
+              }
+            auto after = std::chrono::high_resolution_clock::now();
+
+            diff = after - before;
+            total_cmp_linear += diff;
+            if(maximal_cmp_linear < diff)
+              maximal_cmp_linear = diff;
+
+            // we compare 1/(1-p) < e^-(1-(1-f)^sigma)
+            if(a < (one - threshold_b) && res.estimate != LT)
+              {
+                std::cout << "linear wrong result should be leader "
+                          << print_fixedp(temp, precision, 34)
+                          << " should be more like "
+                          << print_fixedp(one - threshold_b, precision, 34)
+                          << std::endl;
+              }
+
+            if(!(a < (one - threshold_b)) && res.estimate != GT)
+              {
+                std::cout << "linear wrong result should not be leader "
+                          << print_fixedp(temp, precision, 34)
+                          << " should be more like "
+                          << print_fixedp(one - threshold_b, precision, 34)
+                          << std::endl;
+              }
+
+            std::cout << " " << print_fixedp(approx, precision, 34)
+                      << " " << (res.estimate == LT ? "LT" : "GT")
+                      << " " << res.iterations << std::endl;
+          }
+
+
           n++;
         }
       else
@@ -172,6 +289,10 @@ int main()
             << std::endl;
   std::cerr << "Taylor error estimation avg: " << (total_cmp.count() / n)
             << " maximal time: " << maximal_cmp.count()
+            << std::endl;
+  std::cerr << "Taylor error estimation with linear approx avg: "
+            << (total_cmp_linear.count() / n)
+            << " maximal time: " << maximal_cmp_linear.count()
             << std::endl;
 
   cleanup();
