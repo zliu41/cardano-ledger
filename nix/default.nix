@@ -26,16 +26,21 @@ let
     ++ iohKNix.overlays.iohkNix
     # our own overlays:
     ++ [
-      (pkgs: _: with pkgs; {
+      (pkgs: _: {
 
         # commonLib: mix pkgs.lib with iohk-nix utils and our own:
-        commonLib = lib // iohkNix
-          // import ./util.nix { inherit haskell-nix; }
+        commonLib = pkgs.lib // pkgs.iohkNix
+        // import ./util.nix { inherit (pkgs) haskell-nix; }
           # also expose our sources and overlays
-          // { inherit overlays sources; };
+        // { inherit (pkgs) sources; inherit overlays; };
+      })
+      (import ./pkgs.nix)
+      (self: super: let
+        kesOverlay = (import (super.cardanoLedgerSpecsHaskellPackages.cardano-crypto-class.src + "/../nix" ) { inherit system crossSystem config sourcesOverride; }).kesOverlay;
+        result =  kesOverlay self super;
+      in { inherit (result) kes_mmm_sumed25519_c;
       })
       # And, of course, our haskell-nix-ified cabal project:
-      (import ./pkgs.nix)
     ];
 
   pkgs = import nixpkgs {

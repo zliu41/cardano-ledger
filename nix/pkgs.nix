@@ -1,10 +1,6 @@
 # our packages overlay
-pkgs: _:
-with pkgs; {
-  cardanoLedgerSpecsHaskellPackages = import ./haskell.nix {
-    inherit config lib stdenv pkgs haskell-nix buildPackages;
-  };
-
+pkgs: _: {
+  cardanoLedgerSpecsHaskellPackages = pkgs.callPackage ./haskell.nix { };
   cbor-diag = pkgs.callPackage ./pkgs/cbor-diag { };
   cddl = pkgs.callPackage ./pkgs/cddl { };
 }
