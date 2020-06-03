@@ -36,9 +36,9 @@ let
       })
       (import ./pkgs.nix)
       (self: super: let
-        kesOverlay = (import (super.cardanoLedgerSpecsHaskellPackages.cardano-crypto-class.src + "/../nix" ) { inherit system crossSystem config sourcesOverride; }).kesOverlay;
-        result =  kesOverlay self super;
-      in { inherit (result) kes_mmm_sumed25519_c;
+        baseSrc = super.cardanoLedgerSpecsHaskellPackages.cardano-crypto-class.src + "/..";
+      in {
+        kes_mmm_sumed25519_c = self.callPackage (baseSrc + "/nix/kes_mmm_sumed25519_c.nix") {};
       })
       # And, of course, our haskell-nix-ified cabal project:
     ];
