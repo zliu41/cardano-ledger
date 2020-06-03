@@ -38,7 +38,7 @@ let
       (self: super: let
         baseSrc = super.cardanoLedgerSpecsHaskellPackages.cardano-crypto-class.src + "/..";
       in {
-        kes_mmm_sumed25519_c = self.callPackage (baseSrc + "/nix/kes_mmm_sumed25519_c.nix") {};
+        kes_mmm_sumed25519_c = self.callPackage (baseSrc + "/nix/kes_mmm_sumed25519_c.nix") { cardanoBaseHaskellPackages = self.cardanoLedgerSpecsHaskellPackages; };
       })
       # And, of course, our haskell-nix-ified cabal project:
     ];
