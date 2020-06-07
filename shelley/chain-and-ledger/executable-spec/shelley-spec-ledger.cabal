@@ -136,6 +136,9 @@ test-suite shelley-spec-ledger-test
                          Test.Shelley.Spec.Ledger.ConcreteCryptoTypes
                          Test.Shelley.Spec.Ledger.Examples
                          Test.Shelley.Spec.Ledger.Fees
+                         Test.Shelley.Spec.Ledger.Genesis
+                         Test.Shelley.Spec.Ledger.Genesis.Example
+                         Test.Shelley.Spec.Ledger.Genesis.Gen
                          Test.Shelley.Spec.Ledger.Generator.Block
                          Test.Shelley.Spec.Ledger.Generator.Constants
                          Test.Shelley.Spec.Ledger.Generator.Core
@@ -189,6 +192,7 @@ test-suite shelley-spec-ledger-test
         -Werror
     build-depends:
       QuickCheck,
+      aeson,
       base,
       base16-bytestring,
       binary,
@@ -201,6 +205,7 @@ test-suite shelley-spec-ledger-test
       cardano-ledger,
       cardano-ledger-test,
       cardano-prelude,
+      cardano-prelude-test,
       cardano-slotting,
       cborg,
       containers,
@@ -220,4 +225,5 @@ test-suite shelley-spec-ledger-test
       tasty-hunit,
       tasty-quickcheck,
       text,
+      time,
       transformers
