@@ -15,7 +15,7 @@ module Data.AbstractSize
   ) where
 
 import qualified Crypto.Hash as Crypto
-import qualified Data.ByteString as BS
+import qualified Data.ByteString.Short as SBS
 import           Data.Map.Strict (Map)
 import qualified Data.Map.Strict as Map
 import           Data.Sequence (Seq, empty, (<|), (><))
@@ -208,7 +208,7 @@ instance HasTypeReps (SignedDSIGN MockDSIGN a) where
   -- and a 'Word64'. For the 'ByteString' representation we return one character
   -- per byte.
   typeReps (SignedDSIGN (SigMockDSIGN (UnsafeHash bs) i)) =
-    typeOf i <| Seq.replicate (BS.length bs) (typeOf (undefined :: Char))
+    typeOf i <| Seq.replicate (SBS.length bs) (typeOf (undefined :: Char))
 
 instance HasTypeReps (VerKeyDSIGN MockDSIGN) where
   -- A mock verification key is just an 'Int'.
