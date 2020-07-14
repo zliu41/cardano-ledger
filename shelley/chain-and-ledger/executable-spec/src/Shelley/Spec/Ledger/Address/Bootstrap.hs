@@ -64,6 +64,7 @@ import Cardano.Prelude
     panic,
   )
 import qualified Data.ByteString.Lazy as LBS
+import qualified Data.ByteString.Short as SBS
 import Data.Ord (comparing)
 import Quiet
 import Shelley.Spec.Ledger.Crypto (ADDRHASH, Crypto, DSIGN)
@@ -165,7 +166,7 @@ bootstrapWitKeyHash ::
   BootstrapWitness crypto ->
   KeyHash 'Witness crypto
 bootstrapWitKeyHash (BootstrapWitness (VKey key) _ (ChainCode cc) (KeyPadding prefix suffix)) =
-  KeyHash . Hash.UnsafeHash . hash_crypto . hash_SHA3_256 $ bytes
+  KeyHash . Hash.UnsafeHash . SBS.toShort . hash_crypto . hash_SHA3_256 $ bytes
   where
     -- Here we are reserializing something that we have previously deserialized.
     -- This is normally naughty. However, this is a blob of bytes -- serializing it
@@ -234,7 +235,7 @@ verifyBootstrapWit ::
   BootstrapWitness crypto ->
   Bool
 verifyBootstrapWit txbodyHash witness =
-  WC.verify xpub (Hash.getHash txbodyHash) xsig
+  WC.verify xpub (Hash.hashToBytes txbodyHash) xsig
   where
     xpub = WC.XPub (DSIGN.rawSerialiseVerKeyDSIGN k) (WC.ChainCode mempty)
     (VKey k) = (bwKey witness)
@@ -258,4 +259,4 @@ makeBootstrapWitness txBodyHash byronSigningKey byronAddress =
       WC.sign
         (mempty :: ByteString)
         (Byron.unSigningKey byronSigningKey)
-        (Hash.getHash txBodyHash)
+        (Hash.hashToBytes txBodyHash)

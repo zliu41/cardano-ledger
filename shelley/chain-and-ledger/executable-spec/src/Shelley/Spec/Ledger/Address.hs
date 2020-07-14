@@ -69,6 +69,7 @@ import Data.Bits (setBit, shiftL, shiftR, testBit, (.&.), (.|.))
 import Data.ByteString (ByteString)
 import qualified Data.ByteString.Base16 as Base16
 import qualified Data.ByteString.Lazy as BSL
+import qualified Data.ByteString.Short as SBS
 import Data.Foldable (foldl')
 import Data.String (fromString)
 import qualified Data.Text.Encoding as Text
@@ -137,7 +138,7 @@ serialiseAddr = BSL.toStrict . B.runPut . putAddr
 
 -- | Deserialise an address from the external format. This will fail if the
 -- input data is not in the right format (or if there is trailing data).
-deserialiseAddr :: Crypto crypto => ByteString -> Maybe (Addr crypto)
+deserialiseAddr :: ByteString -> Maybe (Addr crypto)
 deserialiseAddr bs = case B.runGetOrFail getAddr (BSL.fromStrict bs) of
   Left (_remaining, _offset, _message) -> Nothing
   Right (_remaining, _offset, result) -> Just result
@@ -148,7 +149,7 @@ serialiseRewardAcnt = BSL.toStrict . B.runPut . putRewardAcnt
 
 -- | Deserialise an reward account from the external format. This will fail if the
 -- input data is not in the right format (or if there is trailing data).
-deserialiseRewardAcnt :: Crypto crypto => ByteString -> Maybe (RewardAcnt crypto)
+deserialiseRewardAcnt :: ByteString -> Maybe (RewardAcnt crypto)
 deserialiseRewardAcnt bs = case B.runGetOrFail getRewardAcnt (BSL.fromStrict bs) of
   Left (_remaining, _offset, _message) -> Nothing
   Right (_remaining, _offset, result) -> Just result
@@ -207,7 +208,7 @@ addrToText :: Addr crypto -> Text
 addrToText =
   Text.decodeLatin1 . Base16.encode . serialiseAddr
 
-parseAddr :: Crypto crypto => Text -> Aeson.Parser (Addr crypto)
+parseAddr :: Text -> Aeson.Parser (Addr crypto)
 parseAddr t = do
   bytes <- either badHex return (parseBase16 t)
   maybe badFormat return (deserialiseAddr bytes)
@@ -259,7 +260,7 @@ putAddr (Addr network pc sr) =
           B.putWord8 header
           putCredential pc
 
-getAddr :: forall crypto. Crypto crypto => Get (Addr crypto)
+getAddr :: forall crypto. Get (Addr crypto)
 getAddr = do
   header <- B.lookAhead B.getWord8
   if testBit header byron
@@ -285,7 +286,7 @@ putRewardAcnt (RewardAcnt network cred) = do
   B.putWord8 header
   putCredential cred
 
-getRewardAcnt :: forall crypto. Crypto crypto => Get (RewardAcnt crypto)
+getRewardAcnt :: forall crypto. Get (RewardAcnt crypto)
 getRewardAcnt = do
   header <- B.getWord8
   let rewardAcntPrefix = 0xE0 -- 0b1110000 are always set for reward accounts
@@ -302,24 +303,24 @@ getRewardAcnt = do
         False -> getKeyHash
       pure $ RewardAcnt network cred
 
-getHash :: forall h a. Hash.HashAlgorithm h => Get (Hash.Hash h a)
-getHash = Hash.UnsafeHash <$> B.getByteString (fromIntegral $ Hash.sizeHash ([] @h))
+getHash :: forall h a. Get (Hash.Hash h a)
+getHash = Hash.UnsafeHash <$> B.get
 
 putHash :: Hash.Hash h a -> Put
-putHash (Hash.UnsafeHash b) = B.putByteString b
+putHash (Hash.UnsafeHash b) = B.put b
 
-getPayCred :: Crypto crypto => Word8 -> Get (PaymentCredential crypto)
+getPayCred :: Word8 -> Get (PaymentCredential crypto)
 getPayCred header = case testBit header payCredIsScript of
   True -> getScriptHash
   False -> getKeyHash
 
-getScriptHash :: Crypto crypto => Get (Credential kr crypto)
+getScriptHash :: Get (Credential kr crypto)
 getScriptHash = ScriptHashObj . ScriptHash <$> getHash
 
-getKeyHash :: (Crypto crypto) => Get (Credential kr crypto)
+getKeyHash :: Get (Credential kr crypto)
 getKeyHash = KeyHashObj . KeyHash <$> getHash
 
-getStakeReference :: Crypto crypto => Word8 -> Get (StakeReference crypto)
+getStakeReference :: Word8 -> Get (StakeReference crypto)
 getStakeReference header = case testBit header notBaseAddr of
   True -> case testBit header isEnterpriseAddr of
     True -> pure StakeRefNull
@@ -427,4 +428,4 @@ bootstrapKeyHash (BootstrapAddress byronAddress) =
   -- from Hash.Blake2b_224)
   let root = Byron.addrRoot byronAddress
       bytes = Byron.abstractHashToBytes root
-   in KeyHash (Hash.UnsafeHash bytes)
+   in KeyHash (Hash.UnsafeHash . SBS.toShort $ bytes)
