@@ -10,6 +10,7 @@
 
 module Test.Shelley.Spec.Ledger.Address
   ( addressTests,
+    ShelleyCrypto
   )
 where
 

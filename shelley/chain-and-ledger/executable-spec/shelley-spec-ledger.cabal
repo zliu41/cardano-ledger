@@ -73,9 +73,10 @@ library
                      Shelley.Spec.Ledger.Crypto
 
                      Shelley.Spec.Ledger.API
-  other-modules:     Shelley.Spec.Ledger.API.Validation
-                     Shelley.Spec.Ledger.API.Mempool
                      Shelley.Spec.Ledger.API.Protocol
+                     Shelley.Spec.Ledger.API.Validation
+  other-modules:     Shelley.Spec.Ledger.API.Mempool
+                     -- Shelley.Spec.Ledger.API.Protocol
                      Shelley.Spec.Ledger.API.Wallet
   hs-source-dirs: src
   ghc-options:
@@ -235,7 +236,8 @@ benchmark mainbench
   hs-source-dirs:   bench,
                     test
   main-is:          Main.hs
-  other-modules:    Test.Shelley.Spec.Ledger.BenchmarkFunctions,
+  other-modules:    Test.Shelley.Spec.Ledger.Address
+                    Test.Shelley.Spec.Ledger.BenchmarkFunctions,
                     Test.Shelley.Spec.Ledger.ConcreteCryptoTypes,
                     Test.Shelley.Spec.Ledger.Examples,
                     Test.Shelley.Spec.Ledger.Generator.Constants,
@@ -243,7 +245,10 @@ benchmark mainbench
                     Test.Shelley.Spec.Ledger.Orphans,
                     Test.Shelley.Spec.Ledger.Utils,
                     Test.Cardano.Crypto.VRF.Fake
+                    UpdateChainBench
   build-depends:    base,
+                    base16-bytestring,
+                    binary,
                     shelley-spec-ledger,
                     cardano-binary,
                     cardano-crypto,
@@ -269,7 +274,8 @@ benchmark mainbench
                     containers,
                     MonadRandom,
                     deepseq,
-                    scientific
+                    scientific,
+                    mtl
   ghc-options:
       -threaded
       -rtsopts
