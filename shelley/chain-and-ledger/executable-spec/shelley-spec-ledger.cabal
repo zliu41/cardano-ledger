@@ -235,7 +235,8 @@ benchmark mainbench
   hs-source-dirs:   bench,
                     test
   main-is:          Main.hs
-  other-modules:    Test.Shelley.Spec.Ledger.BenchmarkFunctions,
+  other-modules:    Test.Shelley.Spec.Ledger.Address
+                    Test.Shelley.Spec.Ledger.BenchmarkFunctions,
                     Test.Shelley.Spec.Ledger.ConcreteCryptoTypes,
                     Test.Shelley.Spec.Ledger.Examples,
                     Test.Shelley.Spec.Ledger.Generator.Constants,
@@ -243,7 +244,10 @@ benchmark mainbench
                     Test.Shelley.Spec.Ledger.Orphans,
                     Test.Shelley.Spec.Ledger.Utils,
                     Test.Cardano.Crypto.VRF.Fake
+                    UpdateChainBench
   build-depends:    base,
+                    base16-bytestring,
+                    binary,
                     shelley-spec-ledger,
                     cardano-binary,
                     cardano-crypto,
@@ -269,7 +273,8 @@ benchmark mainbench
                     containers,
                     MonadRandom,
                     deepseq,
-                    scientific
+                    scientific,
+                    mtl
   ghc-options:
       -threaded
       -rtsopts
