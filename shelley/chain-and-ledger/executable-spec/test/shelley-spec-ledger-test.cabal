@@ -25,6 +25,7 @@ library
                      Test.Shelley.Spec.Ledger.Generator.Block
                      Test.Shelley.Spec.Ledger.Generator.Constants
                      Test.Shelley.Spec.Ledger.Generator.Core
+                     Test.Shelley.Spec.Ledger.Generator.Core2
                      Test.Shelley.Spec.Ledger.Generator.Delegation
                      Test.Shelley.Spec.Ledger.Generator.Genesis
                      Test.Shelley.Spec.Ledger.Generator.Presets
@@ -43,6 +44,7 @@ library
                      Test.Shelley.Spec.Ledger.Shrinkers
                      Test.Shelley.Spec.Ledger.Orphans
                      Test.Shelley.Spec.Ledger.Utils
+                     Test.Shelley.Spec.Ledger.Utils2
                      Test.Shelley.Spec.Ledger.SetAlgTests
   ghc-options:
     -Wall
