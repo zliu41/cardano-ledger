@@ -7,7 +7,7 @@
 module UpdateChainBench where
 
 import Cardano.Crypto.DSIGN
-import Cardano.Crypto.Hash (Blake2b_256, Blake2b_224)
+import Cardano.Crypto.Hash (Blake2b_224, Blake2b_256)
 import Cardano.Crypto.KES
 import Cardano.Crypto.VRF.Praos
 import Control.State.Transition.Trace
@@ -33,6 +33,7 @@ import Shelley.Spec.Ledger.STS.Tickn (TicknState (..))
 import Test.QuickCheck (generate)
 import Test.Shelley.Spec.Ledger.ConcreteCryptoTypes (CHAIN, ConcreteCrypto)
 import Test.Shelley.Spec.Ledger.Generator.Core (geConstants)
+import Test.Shelley.Spec.Ledger.Generator.Genesis (genPParams)
 import Test.Shelley.Spec.Ledger.Generator.Presets (genEnv)
 import Test.Shelley.Spec.Ledger.Generator.Trace.Chain (mkGenesisChainState)
 import Test.Shelley.Spec.Ledger.Utils (testGlobals)
@@ -62,29 +63,19 @@ go state = update testGlobals (currentLedgerView state) undefined undefined
 
 -- =======================================================================
 
-type TracePair =
-  ( ChainState ShelleyCrypto,
-    Shelley.Spec.Ledger.BlockChain.Block ShelleyCrypto
-  )
+chainState :: ChainDepState crypto
+chainState = ChainDepState tickNState prtclState NeutralNonce
+  where
+    tickNState :: TicknState
+    tickNState = TicknState NeutralNonce NeutralNonce
 
-traceM :: IO (TracePair, TracePair)
-traceM = do
-  let p :: Proxy ShortHash
-      p = Proxy
-  trace <- generate $ traceFromInitState @(CHAIN ShortHash) testGlobals 2 (genEnv p) (Just $ mkGenesisChainState (geConstants (genEnv p)))
-  case preStatesAndSignals OldestFirst trace of
-    (pair1 : pair2 : _) -> pure (pair1, pair2)
-    _other -> error ("Impossible we should always get 2 pairs.")
+    prtclState :: PrtclState crypto
+    prtclState = PrtclState (Map.empty) NeutralNonce NeutralNonce
 
-main :: IO (ChainDepState ShelleyCrypto)
-main = do
-  pairs <- traceM
-  let ((_state, (Block preheader _txs1)), (state2, (Block bheader _txs2))) = pairs
-      prevNonce = prevHashToNonce (bheaderPrev (bhbody preheader))
-      (ChainState newepochState cs eta0 etaV etaC etaH _lab) = state2
-      prtclState = PrtclState cs eta0 etaV
-      ticknState = TicknState etaC etaH
-      chainstate = ChainDepState prtclState ticknState prevNonce
-  case (updateChainDepState testGlobals (currentLedgerView newepochState) bheader chainstate) of
-    Right x -> pure x
-    Left x -> error (show x)
+genLedgerView :: Gen (LedgerView ShelleyCrypto)
+genLedgerView = LedgerView
+  <$> genPParams
+  <*> undefined
+  <*> undefined
+  <*> undefined
+  <*> undefined
