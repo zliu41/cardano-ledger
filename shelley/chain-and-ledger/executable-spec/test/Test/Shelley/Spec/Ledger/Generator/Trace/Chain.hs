@@ -41,7 +41,7 @@ import Shelley.Spec.Ledger.BlockChain
 import Shelley.Spec.Ledger.Keys (KeyRole (BlockIssuer), coerceKeyRole)
 import Shelley.Spec.Ledger.LedgerState (esAccountState, nesEs, overlaySchedule, _treasury)
 import Shelley.Spec.Ledger.STS.Chain (chainNes, initialShelleyState)
-import qualified Shelley.Spec.Ledger.STS.Chain as STS (CHAIN, ChainState (ChainState))
+import qualified Shelley.Spec.Ledger.STS.Chain as STS (ChainState (ChainState))
 import Shelley.Spec.Ledger.Slot (BlockNo (..), EpochNo (..), SlotNo (..))
 import Shelley.Spec.Ledger.UTxO (balance)
 import Test.QuickCheck (Gen)
