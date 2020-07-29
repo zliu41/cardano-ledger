@@ -814,7 +814,7 @@ witsVKeyNeeded utxo' tx@(Tx txbody _ _) genDelegs =
         accum txin ans =
           case txinLookup txin utxo' of
             Just (TxOut (Addr _ (KeyHashObj pay) _) _) -> Set.insert (asWitness pay) ans
-            Just (TxOut (AddrBootstrap bootAddr) _) -> Set.insert (asWitness (bootstrapKeyHash bootAddr)) ans
+            Just (TxOut (AddrBootstrap bootAddr) _) -> ans `asTypeOf` Set.insert (asWitness (bootstrapKeyHash bootAddr)) ans
             _other -> ans
     wdrlAuthors :: Set (KeyHash 'Witness crypto)
     wdrlAuthors = Map.foldrWithKey accum Set.empty (unWdrl (_wdrls txbody))
