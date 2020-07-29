@@ -25,6 +25,7 @@ module Shelley.Spec.Ledger.Address
     BootstrapAddress (..),
     bootstrapAddressAttrsSize,
     getNetwork,
+    addrUsesScript,
     RewardAcnt (..),
     serialiseRewardAcnt,
     deserialiseRewardAcnt,
@@ -36,6 +37,7 @@ module Shelley.Spec.Ledger.Address
     stakeCredIsScript,
 
     -- * internals exported for testing
+    rewardAcntUsesScript,
     getAddr,
     getKeyHash,
     bootstrapKeyHash,
@@ -94,6 +96,8 @@ import Shelley.Spec.Ledger.Credential
     PaymentCredential,
     Ptr (..),
     StakeReference (..),
+    credentialUsesScript,
+    stakeReferenceUsesScript,
   )
 import Shelley.Spec.Ledger.Crypto
 import Shelley.Spec.Ledger.Keys
@@ -234,6 +238,15 @@ parseAddr t = do
   where
     badHex h = fail $ "Addresses are expected in hex encoding for now: " ++ show h
     badFormat = fail "Address is not in the right format"
+
+addrUsesScript :: Addr crypto -> Bool
+addrUsesScript (AddrBootstrap _) = False
+addrUsesScript (Addr _ pc sr) =
+  credentialUsesScript pc
+    || stakeReferenceUsesScript sr
+
+rewardAcntUsesScript :: RewardAcnt crypto -> Bool
+rewardAcntUsesScript = credentialUsesScript . getRwdCred
 
 byron :: Int
 byron = 7
