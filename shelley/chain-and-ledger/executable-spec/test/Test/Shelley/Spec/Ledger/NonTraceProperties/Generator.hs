@@ -106,6 +106,7 @@ import Test.Shelley.Spec.Ledger.ConcreteCryptoTypes
     LEDGER,
     LedgerState,
     Mock,
+    NumDSIGN,
     StakeReference,
     Tx,
     TxIn,
@@ -150,7 +151,7 @@ utxoMap :: UTxO h -> Map (TxIn h) (TxOut h)
 utxoMap (UTxO m) = m
 
 -- | Generates a list of '(pay, stake)' key pairs.
-genKeyPairs :: Mock c => Int -> Int -> Gen (KeyPairs c)
+genKeyPairs :: NumDSIGN c => Int -> Int -> Gen (KeyPairs c)
 genKeyPairs lower upper = do
   xs <-
     Gen.list (Range.linear lower upper) $
@@ -202,7 +203,7 @@ defPCs = emptyPParams
 
 -- | Generator of a non-empty genesis ledger state, i.e., at least one valid
 -- address and non-zero UTxO.
-genNonemptyGenesisState :: Mock c => proxy c -> Gen (LedgerState c)
+genNonemptyGenesisState :: (Mock c, NumDSIGN c) => proxy c -> Gen (LedgerState c)
 genNonemptyGenesisState _ = do
   keyPairs <- genKeyPairs 1 10
   (genesisState Map.empty . genesisCoins) <$> genTxOut (addrTxins keyPairs)
@@ -275,7 +276,7 @@ genLedgerStateTx keyList (SlotNo _slot) sourceState = do
 -- initial ledger state and the final ledger state or the validation error if an
 -- invalid transaction has been generated.
 genNonEmptyAndAdvanceTx ::
-  Mock c => proxy c -> Gen (KeyPairs c, Natural, Coin, LedgerState c, [Tx c], Either [ValidationError] (LedgerState c))
+  (Mock c, NumDSIGN c) => proxy c -> Gen (KeyPairs c, Natural, Coin, LedgerState c, [Tx c], Either [ValidationError] (LedgerState c))
 genNonEmptyAndAdvanceTx _ = do
   keyPairs <- genKeyPairs 1 10
   steps <- genNatural 1 10
@@ -285,7 +286,7 @@ genNonEmptyAndAdvanceTx _ = do
 
 -- | Mutated variant of above, collects validation errors in 'LedgerValidation'.
 genNonEmptyAndAdvanceTx' ::
-  Mock c => proxy c -> Gen (KeyPairs c, Natural, Coin, LedgerState c, [Tx c], LedgerValidation c)
+  (Mock c, NumDSIGN c) => proxy c -> Gen (KeyPairs c, Natural, Coin, LedgerState c, [Tx c], LedgerValidation c)
 genNonEmptyAndAdvanceTx' _ = do
   keyPairs <- genKeyPairs 1 10
   steps <- genNatural 1 10
@@ -343,7 +344,7 @@ getTxOutAddr (TxOut addr _) = addr
 
 -- | Generator for arbitrary valid ledger state, discarding any generated
 -- invalid one.
-genValidLedgerState :: Mock c => proxy c -> Gen (KeyPairs c, Natural, [Tx c], LedgerState c)
+genValidLedgerState :: (Mock c, NumDSIGN c) => proxy c -> Gen (KeyPairs c, Natural, [Tx c], LedgerState c)
 genValidLedgerState p = do
   (keyPairs, steps, _, _, txs, newState) <- genNonEmptyAndAdvanceTx p
   case newState of
@@ -362,18 +363,18 @@ genValidSuccessorState keyPairs _slot sourceState = do
     Left _ -> Gen.discard
     Right ls -> pure (txfee', entry, ls)
 
-genValidStateTx :: Mock c => proxy c -> Gen (LedgerState c, Natural, Coin, Tx c, LedgerState c)
+genValidStateTx :: (Mock c, NumDSIGN c) => proxy c -> Gen (LedgerState c, Natural, Coin, Tx c, LedgerState c)
 genValidStateTx p = do
   (ls, steps, txfee', entry, ls', _) <- genValidStateTxKeys p
   pure (ls, steps, txfee', entry, ls')
 
-genValidStateTxKeys :: Mock c => proxy c -> Gen (LedgerState c, Natural, Coin, Tx c, LedgerState c, KeyPairs c)
+genValidStateTxKeys :: (Mock c, NumDSIGN c) => proxy c -> Gen (LedgerState c, Natural, Coin, Tx c, LedgerState c, KeyPairs c)
 genValidStateTxKeys p = do
   (keyPairs, steps, _, ls) <- genValidLedgerState p
   (txfee', entry, ls') <- genValidSuccessorState keyPairs (SlotNo $ fromIntegral steps + 1) ls
   pure (ls, steps, txfee', entry, ls', keyPairs)
 
-genStateTx :: Mock c => proxy c -> Gen (LedgerState c, Natural, Coin, Tx c, LedgerValidation c)
+genStateTx :: (Mock c, NumDSIGN c) => proxy c -> Gen (LedgerState c, Natural, Coin, Tx c, LedgerValidation c)
 genStateTx p = do
   (keyPairs, steps, _, ls) <- genValidLedgerState p
   (txfee', entry, lv) <- genLedgerStateTx' keyPairs ls

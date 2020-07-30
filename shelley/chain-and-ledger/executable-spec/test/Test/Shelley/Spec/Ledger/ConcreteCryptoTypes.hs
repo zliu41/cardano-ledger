@@ -55,10 +55,13 @@ type C = ConcreteCrypto ShortHash
 
 data ConcreteCrypto (h :: *)
 
+type NumDSIGN c =
+  ( Num (DSIGN.SignKeyDSIGN (DSIGN c)),
+    Num (VerKeyDSIGN (DSIGN c))
+  )
+
 type Mock c =
   ( Crypto c,
-    Num (DSIGN.SignKeyDSIGN (DSIGN c)),
-    Num (VerKeyDSIGN (DSIGN c)),
     (VRF c) ~ FakeVRF,
     KES.Signable (KES c) ~ SignableRepresentation,
     DSIGN.Signable (DSIGN c) ~ SignableRepresentation

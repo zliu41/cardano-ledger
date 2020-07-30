@@ -114,7 +114,7 @@ import Test.Shelley.Spec.Ledger.Address.Bootstrap
   ( genSignature,
   )
 import qualified Test.Shelley.Spec.Ledger.ConcreteCryptoTypes as Mock
-import Test.Shelley.Spec.Ledger.ConcreteCryptoTypes (Mock)
+import Test.Shelley.Spec.Ledger.ConcreteCryptoTypes (Mock, NumDSIGN)
 import Test.Shelley.Spec.Ledger.Generator.Core
   ( KeySpace (KeySpace_),
     NatNonce (..),
@@ -145,7 +145,7 @@ mkDummyHash = coerce . hashWithSerialiser @h toCBOR
 type MockGen c = (Mock c, Arbitrary (VerKeyDSIGN (DSIGN c)))
 
 instance
-  Mock c =>
+  (Mock c, NumDSIGN c) =>
   Arbitrary (Mock.Block c)
   where
   arbitrary = do
@@ -178,7 +178,7 @@ instance
       p :: Proxy c
       p = Proxy
 
-instance Mock c => Arbitrary (Mock.BHeader c) where
+instance (Mock c, NumDSIGN c) => Arbitrary (Mock.BHeader c) where
   arbitrary = do
     res <- arbitrary :: Gen (Mock.Block c)
     return $ case res of
@@ -201,7 +201,7 @@ instance MockGen c => Arbitrary (Mock.BootstrapWitness c) where
 instance Crypto c => Arbitrary (HashHeader c) where
   arbitrary = HashHeader <$> genHash
 
-instance Mock c => Arbitrary (Mock.Tx c) where
+instance (Mock c, NumDSIGN c) => Arbitrary (Mock.Tx c) where
   arbitrary = do
     (_ledgerState, _steps, _txfee, tx, _lv) <- hedgehog (genStateTx (Proxy @c))
     return tx
@@ -356,12 +356,12 @@ instance Crypto c => Arbitrary (STS.PrtclState c) where
   arbitrary = genericArbitraryU
   shrink = genericShrink
 
-instance Mock c => Arbitrary (Mock.LedgerState c) where
+instance (Mock c, NumDSIGN c) => Arbitrary (Mock.LedgerState c) where
   arbitrary = do
     (_ledgerState, _steps, _txfee, _tx, ledgerState) <- hedgehog (genValidStateTx (Proxy @c))
     return ledgerState
 
-instance Mock c => Arbitrary (Mock.NewEpochState c) where
+instance (Mock c, NumDSIGN c) => Arbitrary (Mock.NewEpochState c) where
   arbitrary = genericArbitraryU
   shrink = genericShrink
 
@@ -375,7 +375,7 @@ instance Crypto c => Arbitrary (PoolDistr c) where
     where
       genVal = IndividualPoolStake <$> arbitrary <*> genHash
 
-instance Mock c => Arbitrary (Mock.EpochState c) where
+instance (Mock c, NumDSIGN c) => Arbitrary (Mock.EpochState c) where
   arbitrary =
     EpochState
       <$> arbitrary
