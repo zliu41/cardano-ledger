@@ -10,6 +10,7 @@
 {-# LANGUAGE PatternSynonyms #-}
 {-# LANGUAGE ScopedTypeVariables #-}
 {-# LANGUAGE TypeApplications #-}
+{-# LANGUAGE BangPatterns #-}
 
 module Shelley.Spec.Ledger.Address
   ( mkVKeyRwdAcnt,
@@ -62,6 +63,7 @@ import Cardano.Binary
     FromCBOR (..),
     ToCBOR (..),
     decodeFull,
+    decodeFull',
     serialize,
   )
 import qualified Cardano.Chain.Common as Byron
@@ -79,10 +81,13 @@ import qualified Data.Binary.Put as B
 import Data.Bits (setBit, shiftL, shiftR, testBit, (.&.), (.|.))
 import Data.ByteString (ByteString)
 import qualified Data.ByteString as BS
+import qualified Data.ByteString.Unsafe as BS
 import qualified Data.ByteString.Base16 as Base16
 import qualified Data.ByteString.Lazy as BSL
+import qualified Data.ByteString.Short as SBS
 import Data.Foldable (foldl')
 import Data.Maybe (fromMaybe)
+import Data.Proxy (Proxy(..))
 import Data.String (fromString)
 import qualified Data.Text.Encoding as Text
 import GHC.Generics (Generic)
@@ -150,12 +155,14 @@ scriptsToAddr n (payScript, stakeScript) =
 serialiseAddr :: Addr crypto -> ByteString
 serialiseAddr = BSL.toStrict . B.runPut . putAddr
 
+{-
 -- | Deserialise an address from the external format. This will fail if the
 -- input data is not in the right format (or if there is trailing data).
 deserialiseAddr :: Crypto crypto => ByteString -> Maybe (Addr crypto)
 deserialiseAddr bs = case B.runGetOrFail getAddr (BSL.fromStrict bs) of
   Left (_remaining, _offset, _message) -> Nothing
   Right (_remaining, _offset, result) -> Just result
+-}
 
 -- | Deserialise a stake refence from a address. This will fail if this
 -- is a Bootstrap address (or malformed).
@@ -177,8 +184,8 @@ deserialiseRewardAcnt bs = case B.runGetOrFail getRewardAcnt (BSL.fromStrict bs)
 
 -- | An address for UTxO.
 data Addr crypto
-  = Addr !Network !(PaymentCredential crypto) !(StakeReference crypto)
-  | AddrBootstrap !(BootstrapAddress crypto)
+  = Addr !Network (PaymentCredential crypto) (StakeReference crypto)
+  | AddrBootstrap (BootstrapAddress crypto)
   deriving (Show, Eq, Generic, NFData, Ord)
 
 getNetwork :: Addr crypto -> Network
@@ -290,6 +297,68 @@ putAddr (Addr network pc sr) =
           B.putWord8 header
           putCredential pc
 
+deserialiseAddr :: forall crypto.
+                   Crypto crypto
+                => ByteString
+                -> Maybe (Addr crypto)
+deserialiseAddr =
+    getAddr hsz
+  where
+    hsz :: Int
+    hsz = fromIntegral (Hash.sizeHash (Proxy :: Proxy (HASH crypto)))
+
+getAddr :: Int -> ByteString -> Maybe (Addr crypto)
+getAddr !hsz !bs | BS.length bs >= 1 + hsz =
+    let header = BS.unsafeHead bs in
+    if testBit header byron
+      then getByronAddr bs
+      else getShelleyAddr hsz header (BS.unsafeTail bs)
+getAddr _ _ = Nothing
+
+getByronAddr :: ByteString -> Maybe (Addr crypto)
+getByronAddr bs =
+    case decodeFull' bs of
+      Left _ -> Nothing
+      Right !addr -> Just (AddrBootstrap (BootstrapAddress addr))
+
+getShelleyAddr :: Int -> Word8 -> ByteString -> Maybe (Addr crypto)
+getShelleyAddr hsz header bs = do
+    nw <- word8ToNetwork addrNetId
+    let pc = getPayCred     hsz header (BS.unsafeTail bs)
+    sr <- getStakeReference hsz header (BS.unsafeDrop hsz (BS.unsafeTail bs))
+    return $! Addr nw pc sr
+  where
+    addrNetId :: Word8
+    !addrNetId = header .&. 0x0F
+    -- 0b00001111 is the mask for the network id
+
+getPayCred :: Int -> Word8 -> ByteString -> PaymentCredential crypto
+getPayCred !hsz !header !bs
+  | testBit header payCredIsScript = ScriptHashObj (ScriptHash (grabHash bs))
+  | otherwise                      = KeyHashObj    (KeyHash    (grabHash bs))
+  where
+    grabHash :: ByteString -> Hash.Hash h a
+    grabHash = Hash.UnsafeHash . SBS.toShort . BS.unsafeTake hsz
+
+getStakeReference :: Int -> Word8 -> ByteString -> Maybe (StakeReference crypto)
+getStakeReference !hsz !header !bs =
+    case (testBit header isEnterpriseAddr, testBit header stakeCredIsScript) of
+      (True,  True)
+        | BS.null bs          -> Just StakeRefNull
+      (True,  False)          -> getStakeRefPtr hsz header bs
+      (False, True)
+        | BS.length bs == hsz -> Just (StakeRefBase (ScriptHashObj (ScriptHash (grabHash bs))))
+      (False, False)
+        | BS.length bs == hsz -> Just (StakeRefBase (KeyHashObj    (KeyHash    (grabHash bs))))
+      _                       -> Nothing
+  where
+    grabHash :: ByteString -> Hash.Hash h a
+    grabHash = Hash.UnsafeHash . SBS.toShort
+
+getStakeRefPtr :: Int -> Word8 -> ByteString -> Maybe (StakeReference crypto)
+getStakeRefPtr = undefined
+
+{-
 getAddr :: forall crypto. Crypto crypto => Get (Addr crypto)
 getAddr = do
   header <- B.lookAhead B.getWord8
@@ -313,6 +382,7 @@ getAddrStakeReference = do
   if testBit header byron
     then pure Nothing
     else skipHash ([] @(HASH crypto)) >> Just <$> getStakeReference header
+-}
 
 putRewardAcnt :: RewardAcnt crypto -> Put
 putRewardAcnt (RewardAcnt network cred) = do
@@ -355,10 +425,12 @@ getHash = do
 putHash :: Hash.Hash h a -> Put
 putHash = B.putByteString . Hash.hashToBytes
 
+{-
 getPayCred :: Crypto crypto => Word8 -> Get (PaymentCredential crypto)
 getPayCred header = case testBit header payCredIsScript of
   True -> getScriptHash
   False -> getKeyHash
+-}
 
 getScriptHash :: Crypto crypto => Get (Credential kr crypto)
 getScriptHash = ScriptHashObj . ScriptHash <$> getHash
@@ -366,6 +438,7 @@ getScriptHash = ScriptHashObj . ScriptHash <$> getHash
 getKeyHash :: (Crypto crypto) => Get (Credential kr crypto)
 getKeyHash = KeyHashObj . KeyHash <$> getHash
 
+{-
 getStakeReference :: Crypto crypto => Word8 -> Get (StakeReference crypto)
 getStakeReference header = case testBit header notBaseAddr of
   True -> case testBit header isEnterpriseAddr of
@@ -374,6 +447,7 @@ getStakeReference header = case testBit header notBaseAddr of
   False -> case testBit header stakeCredIsScript of
     True -> StakeRefBase <$> getScriptHash
     False -> StakeRefBase <$> getKeyHash
+-}
 
 putCredential :: Credential kr crypto -> Put
 putCredential (ScriptHashObj (ScriptHash h)) = putHash h
