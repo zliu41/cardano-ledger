@@ -96,7 +96,7 @@ instance
   initialRules = []
   transitionRules = [bbodyTransition]
 
-instance (Crypto crypto) => NoUnexpectedThunks (PredicateFailure (BBODY crypto))
+--instance (Crypto crypto) => NoUnexpectedThunks (PredicateFailure (BBODY crypto))
 
 bbodyTransition ::
   forall crypto.

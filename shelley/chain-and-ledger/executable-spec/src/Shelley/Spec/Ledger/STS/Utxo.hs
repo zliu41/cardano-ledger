@@ -158,7 +158,7 @@ instance
             )
     ]
 
-instance NoUnexpectedThunks (PredicateFailure (UTXO crypto))
+--instance NoUnexpectedThunks (PredicateFailure (UTXO crypto))
 
 instance
   (Typeable crypto, Crypto crypto) =>

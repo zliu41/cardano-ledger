@@ -103,7 +103,7 @@ newtype BlockTransitionError crypto
   = BlockTransitionError [STS.PredicateFailure (STS.BBODY crypto)]
   deriving (Eq, Generic, Show)
 
-instance (Crypto crypto) => NoUnexpectedThunks (BlockTransitionError crypto)
+--instance (Crypto crypto) => NoUnexpectedThunks (BlockTransitionError crypto)
 
 -- | Apply the block level ledger transition.
 applyBlockTransition ::

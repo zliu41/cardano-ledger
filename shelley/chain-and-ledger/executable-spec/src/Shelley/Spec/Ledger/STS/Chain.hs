@@ -221,7 +221,7 @@ instance
   initialRules = []
   transitionRules = [chainTransition]
 
-instance Crypto crypto => NoUnexpectedThunks (PredicateFailure (CHAIN crypto))
+--instance Crypto crypto => NoUnexpectedThunks (PredicateFailure (CHAIN crypto))
 
 chainChecks ::
   (Crypto crypto, MonadError (PredicateFailure (CHAIN crypto)) m) =>

@@ -106,7 +106,7 @@ data ShelleyGenesis c = ShelleyGenesis
     sgStaking :: !(ShelleyGenesisStaking c)
   }
   deriving stock (Eq, Show, Generic)
-  deriving anyclass (NoUnexpectedThunks)
+--  deriving anyclass (NoUnexpectedThunks)
 
 sgActiveSlotCoeff :: ShelleyGenesis c -> ActiveSlotCoeff
 sgActiveSlotCoeff =

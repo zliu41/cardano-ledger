@@ -70,7 +70,7 @@ instance
   initialRules = [pure emptyLedgerState]
   transitionRules = [ledgersTransition]
 
-instance (Crypto crypto) => NoUnexpectedThunks (PredicateFailure (LEDGERS crypto))
+--instance (Crypto crypto) => NoUnexpectedThunks (PredicateFailure (LEDGERS crypto))
 
 instance
   (Typeable crypto, Crypto crypto) =>

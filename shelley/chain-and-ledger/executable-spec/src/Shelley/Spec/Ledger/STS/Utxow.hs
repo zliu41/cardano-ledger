@@ -124,7 +124,7 @@ instance
   transitionRules = [utxoWitnessed]
   initialRules = [initialLedgerStateUTXOW]
 
-instance (Crypto crypto) => NoUnexpectedThunks (PredicateFailure (UTXOW crypto))
+--instance (Crypto crypto) => NoUnexpectedThunks (PredicateFailure (UTXOW crypto))
 
 instance
   (Typeable crypto, Crypto crypto) =>

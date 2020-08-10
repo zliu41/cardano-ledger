@@ -188,7 +188,7 @@ getNetwork (AddrBootstrap (BootstrapAddress byronAddr)) =
     Byron.NetworkMainOrStage -> Mainnet
     Byron.NetworkTestnet _ -> Testnet
 
-instance NoUnexpectedThunks (Addr crypto)
+--instance NoUnexpectedThunks (Addr crypto)
 
 -- | An account based address for rewards
 data RewardAcnt crypto = RewardAcnt
