@@ -1,38 +1,55 @@
 {-# LANGUAGE DataKinds #-}
 {-# LANGUAGE EmptyDataDecls #-}
+{-# LANGUAGE FlexibleContexts #-}
 {-# LANGUAGE NamedFieldPuns #-}
 {-# LANGUAGE OverloadedStrings #-}
 {-# LANGUAGE PatternSynonyms #-}
 {-# LANGUAGE ScopedTypeVariables #-}
+{-# LANGUAGE TupleSections #-}
 {-# LANGUAGE TypeApplications #-}
 {-# LANGUAGE TypeFamilies #-}
 
 module Test.Shelley.Spec.Ledger.UnitTests (unitTests) where
 
 import qualified Cardano.Crypto.VRF as VRF
+import Control.Iterate.SetAlgebra
+  ( Bimap,
+    biMapFromList,
+    forwards,
+  )
 import Control.State.Transition.Extended (PredicateFailure, TRC (..))
 import Control.State.Transition.Trace (checkTrace, (.-), (.->))
 import qualified Data.ByteString.Char8 as BS (pack)
+import qualified Data.ByteString.Short as SBS
+import Data.Map.Strict (Map)
 import qualified Data.Map.Strict as Map
-import Data.Maybe (fromJust)
+import Data.Maybe (fromJust, mapMaybe)
 import Data.Proxy (Proxy (..))
 import Data.Ratio ((%))
+import qualified Data.Sequence as Seq
 import Data.Sequence.Strict (StrictSeq (..))
 import qualified Data.Sequence.Strict as StrictSeq
 import qualified Data.Set as Set
 import Numeric.Natural (Natural)
-import Shelley.Spec.Ledger.Address (getRwdCred, mkVKeyRwdAcnt, pattern Addr)
+import Shelley.Spec.Ledger.Address
+  ( getRwdCred,
+    mkVKeyRwdAcnt,
+    serialiseAddr,
+    pattern Addr,
+  )
 import Shelley.Spec.Ledger.BaseTypes hiding ((==>))
 import Shelley.Spec.Ledger.BlockChain (checkLeaderValue)
 import Shelley.Spec.Ledger.Coin
-import qualified Shelley.Spec.Ledger.Credential as Credential (Credential (KeyHashObj), pattern StakeRefBase)
+import Shelley.Spec.Ledger.Credential (Credential)
+import qualified Shelley.Spec.Ledger.Credential as Credential
 import Shelley.Spec.Ledger.Crypto
 import Shelley.Spec.Ledger.Delegation.Certificates (pattern RegPool)
+import Shelley.Spec.Ledger.EpochBoundary (aggregateUtxoCoinByCredential)
 import Shelley.Spec.Ledger.Hashing (hashAnnotated)
-import Shelley.Spec.Ledger.Keys (KeyRole (..), asWitness, hashKey, vKey)
-import Shelley.Spec.Ledger.Keys (KeyPair (..))
+import Shelley.Spec.Ledger.Keys (KeyHash, KeyPair (..), KeyRole (..), asWitness, hashKey, vKey)
 import Shelley.Spec.Ledger.LedgerState
   ( AccountState (..),
+    InstantaneousRewards (..),
     WitHashes (..),
     emptyDState,
     emptyPPUPState,
@@ -41,6 +58,8 @@ import Shelley.Spec.Ledger.LedgerState
     _dstate,
     _rewards,
     pattern DPState,
+    pattern DState,
+    pattern PState,
     pattern UTxOState,
   )
 import Shelley.Spec.Ledger.PParams
@@ -63,9 +82,11 @@ import Shelley.Spec.Ledger.Tx
     pattern TxBody,
     pattern TxIn,
     pattern TxOut,
+    pattern TxOutCompact,
   )
 import Shelley.Spec.Ledger.TxData
   ( PoolMetaData (..),
+    TxId (..),
     Wdrl (..),
     _poolCost,
     _poolMD,
@@ -82,15 +103,17 @@ import Shelley.Spec.Ledger.TxData
     pattern PoolParams,
     pattern RewardAcnt,
   )
-import Shelley.Spec.Ledger.UTxO (makeWitnessVKey, makeWitnessesVKey)
+import Shelley.Spec.Ledger.UTxO (makeWitnessVKey, makeWitnessesVKey, pattern UTxO)
 import qualified Test.QuickCheck.Gen as Gen
-import Test.Shelley.Spec.Ledger.ConcreteCryptoTypes
+import Test.Shelley.Spec.Ledger.ConcreteCryptoTypes hiding (Credential)
+import Test.Shelley.Spec.Ledger.Examples.Cast (alicePoolParams)
 import Test.Shelley.Spec.Ledger.Fees (sizeTests)
 import Test.Shelley.Spec.Ledger.Generator.Core
   ( genesisCoins,
     genesisId,
   )
 import Test.Shelley.Spec.Ledger.Orphans ()
+import Test.Shelley.Spec.Ledger.Serialisation.Generators (mkDummyHash)
 import Test.Shelley.Spec.Ledger.Utils
 import Test.Tasty
 import Test.Tasty.HUnit
@@ -375,7 +398,7 @@ utxoState =
 dpState :: DPState C
 dpState = DPState emptyDState emptyPState
 
-addReward :: DPState C -> Credential C 'Staking -> Coin -> DPState C
+addReward :: DPState C -> Credential 'Staking C -> Coin -> DPState C
 addReward dp ra c = dp {_dstate = ds {_rewards = rewards}}
   where
     ds = _dstate dp
@@ -697,6 +720,116 @@ testPoolCostTooSmall =
             )
         }
 
+newtype StakeCalculation = StakeCalculation (DState C, PState C, UTxO C)
+  deriving (Show)
+
+instance Arbitrary StakeCalculation where
+  arbitrary = StakeCalculation <$> genTestCase 100 50
+    where
+      genTestCase ::
+        Int -> -- The size of the utxo
+        Int -> -- the number of addresses
+        Gen (DState C, PState C, UTxO C)
+      genTestCase numUTxO numAddr = do
+        addrs <- (sequence $ replicate numAddr arbitrary) :: Gen [Addr C]
+        let packedAddrs = Seq.fromList addrs
+        txOuts <- sequence $
+          replicate numUTxO $ do
+            i <- choose (0, numAddr -1)
+            let addr = Seq.index packedAddrs i
+            pure $ TxOutCompact (SBS.toShort $ serialiseAddr addr) (fromIntegral i)
+        let mktxid i = TxId $ mkDummyHash (Proxy @C) i
+        let mktxin i = TxIn (mktxid i) (fromIntegral i)
+        let utxo = Map.fromList $ zip (mktxin <$> [1 ..]) txOuts
+            liveptrs :: [Credential.Ptr]
+            liveptrs = [p | (TxOut (Addr _ _ (Credential.StakeRefPtr p)) _) <- txOuts]
+            m = length liveptrs `div` 2
+        moreptrs <- (sequence $ replicate m arbitrary) :: Gen [Credential.Ptr]
+        creds <- (sequence $ replicate (m + m) arbitrary) :: Gen [Credential 'Staking C]
+        let ptrs' :: Bimap Credential.Ptr (Credential 'Staking C)
+            ptrs' = biMapFromList (\new _old -> new) (zip (liveptrs ++ moreptrs) creds)
+        rewards <- sequence (replicate (3 * (numUTxO `div` 4)) arbitrary) :: Gen [(Credential 'Staking C, Coin)]
+        let rewards' :: Map (Credential 'Staking C) Coin
+            rewards' = Map.fromList rewards
+
+        keyhash <- sequence (replicate 400 arbitrary) :: Gen [KeyHash 'StakePool C]
+        let delegs = Map.fromList (zip creds (cycle (take 200 keyhash)))
+        let pp' = alicePoolParams
+        let poolParams = Map.fromList (zip keyhash (replicate 400 pp'))
+        let (dstate, pstate) = makeStatePair rewards' delegs ptrs' poolParams
+        pure (dstate, pstate, UTxO utxo)
+
+      makeStatePair ::
+        Map (Credential 'Staking crypto) Coin ->
+        Map (Credential 'Staking crypto) (KeyHash 'StakePool crypto) ->
+        Bimap Credential.Ptr (Credential 'Staking crypto) ->
+        Map (KeyHash 'StakePool crypto) (PoolParams crypto) ->
+        (DState crypto, PState crypto)
+      makeStatePair rewards' delegs ptrs' poolParams =
+        ( DState rewards' delegs ptrs' Map.empty (GenDelegs Map.empty) (InstantaneousRewards Map.empty Map.empty),
+          PState poolParams Map.empty Map.empty
+        )
+
+testNewStakeCalculation :: TestTree
+testNewStakeCalculation = testProperty "testNewStakeCalculation" $
+  \(StakeCalculation (ds, _, u)) ->
+    let DState rewards' _ ptrs' _ _ _ = ds
+        outs = aggregateOuts u
+
+        new = aggregateUtxoCoinByCredential (forwards ptrs') u rewards'
+        old =
+          Map.fromListWith (+) $
+            ( baseStake outs
+                ++ ptrStake outs (forwards ptrs')
+                ++ rewardStake rewards'
+            )
+
+        -- Old stake computation functions
+
+        getStakeHK :: Addr crypto -> Maybe (Credential 'Staking crypto)
+        getStakeHK (Addr _ _ (Credential.StakeRefBase hk)) = Just hk
+        getStakeHK _ = Nothing
+
+        aggregateOuts :: Crypto crypto => UTxO crypto -> Map (Addr crypto) Coin
+        aggregateOuts (UTxO u') =
+          Map.fromListWith (+) (map (\(_, TxOut a c) -> (a, c)) $ Map.toList u')
+        baseStake ::
+          Map (Addr crypto) Coin ->
+          [(Credential 'Staking crypto, Coin)]
+        baseStake vals =
+          mapMaybe convert $ Map.toList vals
+          where
+            convert ::
+              (Addr crypto, Coin) ->
+              Maybe (Credential 'Staking crypto, Coin)
+            convert (a, c) =
+              (,c) <$> getStakeHK a
+        getStakePtr :: Addr crypto -> Maybe Credential.Ptr
+        getStakePtr (Addr _ _ (Credential.StakeRefPtr ptr)) = Just ptr
+        getStakePtr _ = Nothing
+        ptrStake ::
+          forall crypto.
+          Map (Addr crypto) Coin ->
+          Map Credential.Ptr (Credential 'Staking crypto) ->
+          [(Credential 'Staking crypto, Coin)]
+        ptrStake vals pointers =
+          mapMaybe convert $ Map.toList vals
+          where
+            convert ::
+              (Addr crypto, Coin) ->
+              Maybe (Credential 'Staking crypto, Coin)
+            convert (a, c) =
+              case getStakePtr a of
+                Nothing -> Nothing
+                Just s -> (,c) <$> Map.lookup s pointers
+
+        rewardStake ::
+          forall crypto.
+          Map (Credential 'Staking crypto) Coin ->
+          [(Credential 'Staking crypto, Coin)]
+        rewardStake = Map.toList
+     in new === old
+
 testsInvalidLedger :: TestTree
 testsInvalidLedger =
   testGroup
@@ -723,5 +856,6 @@ unitTests =
       testsPParams,
       sizeTests,
       testTruncateUnitInterval,
-      testCheckLeaderVal
+      testCheckLeaderVal,
+      testNewStakeCalculation
     ]
