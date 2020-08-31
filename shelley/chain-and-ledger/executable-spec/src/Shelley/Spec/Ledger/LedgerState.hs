@@ -668,7 +668,7 @@ produced ::
   (Era era) =>
   PParams ->
   Map (KeyHash 'StakePool era) (PoolParams era) ->
-  TxBody era ->
+  TxBody era hole ->
   Coin
 produced pp stakePools tx =
   balance (txouts tx) + _txfee tx + totalDeposits pp stakePools (toList $ _certs tx)
@@ -683,15 +683,18 @@ keyRefunds pp tx = (_keyDeposit pp) * (fromIntegral $ length deregistrations)
   where
     deregistrations = filter isDeRegKey (toList $ _certs tx)
 
+class Bal hole era where
+  getForge :: hole -> ValueType era
+
 -- | Compute the lovelace which are destroyed by the transaction
 consumed ::
-  Era era =>
+  (Bal hole era, Era era) =>
   PParams ->
   UTxO era ->
-  TxBody era ->
+  TxBody era hole ->
   Coin
 consumed pp u tx =
-  balance (eval (txins tx ◁ u)) + refunds + withdrawals
+  balance (eval (txins tx ◁ u)) + refunds + withdrawals + (getForge tx)
   where
     -- balance (UTxO (Map.restrictKeys v (txins tx))) + refunds + withdrawals
     refunds = keyRefunds pp tx

@@ -363,7 +363,7 @@ instance Era era => FromJSON (PoolParams era) where
         <*> obj .: "metadata"
 
 -- | A unique ID of a transaction, which is computable from the transaction.
-newtype TxId era = TxId {_unTxId :: Hash era txbody}
+newtype TxId era = TxId {_unTxId :: Hash era (TxBody era)}
   deriving (Show, Eq, Ord, Generic)
   deriving newtype (NFData, NoUnexpectedThunks)
 
@@ -418,7 +418,7 @@ pattern TxOut addr coin <-
 
 {-# COMPLETE TxOut #-}
 
-viewCompactTxOut :: forall era. Era era => TxOut era -> (Addr era, Coin)
+viewCompactTxOut :: forall era. Era era => TxOut era -> (Addr era, ValueType era)
 viewCompactTxOut (TxOutCompact bs c) = (addr, coin)
   where
     addr = case decompactAddr bs of

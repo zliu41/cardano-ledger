@@ -161,6 +161,9 @@ import Shelley.Spec.Ledger.Slot (EpochNo (..), SlotNo (..))
 
 import Shelley.Spec.Ledger.TxDataCommon
 
+type instance TxBodyForge Shelley = Unit
+type instance TxBodyForge ShelleyMA = ValueType ShelleyMA
+
 -- | A raw transaction
 data TxBody era = TxBody'
   { _inputs' :: !(Set (TxIn era)),
@@ -172,12 +175,31 @@ data TxBody era = TxBody'
     _txUpdate' :: !(StrictMaybe (Update era)),
     _mdHash' :: !(StrictMaybe (MetaDataHash era)),
     bodyBytes :: LByteString,
-    extraSize :: !Int64 -- This is the contribution of inputs, outputs, and fees to the size of the transaction
+    extraSize :: !Int64, -- This is the contribution of inputs, outputs, and fees to the size of the transaction
+    _txforge :: !TxBodyForge era, -- (ValueType era)
+    _txvotes :: !TxBodyVotes era
   }
   deriving (Show, Eq, Generic)
   deriving
     (NoUnexpectedThunks)
     via AllowThunksIn '["bodyBytes"] (TxBody era)
+
+-- | A raw transaction
+data TxBody era hole = TxBody'
+  { _inputs' :: !(Set (TxIn era)),
+    _outputs' :: !(StrictSeq (TxOut era)),
+    _certs' :: !(StrictSeq (DCert era)),
+    _wdrls' :: !(Wdrl era),
+    _txfee' :: !Coin,
+    _ttl' :: !SlotNo,
+    _txUpdate' :: !(StrictMaybe (Update era)),
+    _mdHash' :: !(StrictMaybe (MetaDataHash era)),
+    bodyBytes :: LByteString,
+    extraSize :: !Int64, -- This is the contribution of inputs, outputs, and fees to the size of the transaction
+    _txextra :: hole
+  }
+
+forgebalance :: 
 
 instance Era era => HashAnnotated (TxBody era) era
 
@@ -254,8 +276,8 @@ instance
   toCBOR = encodePreEncoded . BSL.toStrict . bodyBytes
 
 instance
-  (Era era) =>
-  FromCBOR (Annotator (TxBody era))
+  (FromCBOR TxBodyExtraStuff era, Era era) =>
+  FromCBOR (Annotator (TxBody era hole))
   where
   fromCBOR = annotatorSlice $ do
     mapParts <-
@@ -281,6 +303,7 @@ instance
           5 -> f 5 fromCBOR $ \_ x t -> t {_wdrls' = x}
           6 -> f 6 fromCBOR $ \_ x t -> t {_txUpdate' = SJust x}
           7 -> f 7 fromCBOR $ \_ x t -> t {_mdHash' = SJust x}
+          8 -> f 8 fromCBOR $ \_ x t -> t {_forge' = x}
           k -> invalidKey k
     let requiredFields :: Map Int String
         requiredFields =

@@ -23,3 +23,18 @@ class
   where
   type Crypto e :: Type
   type ValueType e :: Type
+
+class (Era era) => MA era where
+  getForge :: TxBodyExtra era -> ValueType era
+
+class (MA era) => VotingMA era where
+  getVotes :: TxBodyExtra era -> Votes era
+
+instance MA Shelley
+
+  
+
+type family TxBody era
+type family TxBodyExtra era
+instance Bal (TxBodyExtra era) => Era Shelley where
+  getForge = vzero

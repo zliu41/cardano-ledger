@@ -177,8 +177,11 @@ pattern WitnessSet {addrWits, msigWits, bootWits} <-
 
 {-# COMPLETE WitnessSet #-}
 
+type instance TxBody ShelleyEra = TxDataShelley.TxBody Unit
+type instance TxBody ShelleyMAEra = TxDataShelley.TxBody (ValueType ShelleyMAEra)
+
 -- | A fully formed transaction.
-data Tx era = Tx'
+data () => Tx era = Tx'
   { _body' :: !(TxBody era),
     _witnessSet' :: !(WitnessSet era),
     _metadata' :: !(StrictMaybe MetaData),
