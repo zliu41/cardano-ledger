@@ -71,8 +71,13 @@ library
     Shelley.Spec.Ledger.STS.Utxo
     Shelley.Spec.Ledger.STS.Utxow
     Shelley.Spec.Ledger.Tx
-    Shelley.Spec.Ledger.TxData
     Shelley.Spec.Ledger.UTxO
+    Shelley.Spec.Ledger.Value
+    Shelley.Spec.Ledger.Val
+
+    Shelley.Spec.Ledger.TxDataShelleyMA
+    Shelley.Spec.Ledger.TxDataShelley
+    Shelley.Spec.Ledger.TxDataCommon
   other-modules:     Shelley.Spec.Ledger.API.Mempool
                      Shelley.Spec.Ledger.API.Wallet
                      Shelley.Spec.Ledger.API.Types

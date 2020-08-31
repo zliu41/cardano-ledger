@@ -19,7 +19,7 @@
 {-# LANGUAGE TypeFamilies #-}
 {-# LANGUAGE ViewPatterns #-}
 
-module Shelley.Spec.Ledger.TxData
+module Shelley.Spec.Ledger.TxDataCommon
   ( DCert (..),
     DelegCert (..),
     Delegation (..),
@@ -34,18 +34,6 @@ module Shelley.Spec.Ledger.TxData
     RewardAcnt (..),
     StakeCreds (..),
     StakePoolRelay (..),
-    TxBody
-      ( TxBody,
-        _inputs,
-        _outputs,
-        _certs,
-        _wdrls,
-        _txfee,
-        _ttl,
-        _txUpdate,
-        _mdHash,
-        extraSize
-      ),
     TxId (..),
     TxIn (TxIn),
     pattern TxInCompact,
@@ -375,7 +363,7 @@ instance Era era => FromJSON (PoolParams era) where
         <*> obj .: "metadata"
 
 -- | A unique ID of a transaction, which is computable from the transaction.
-newtype TxId era = TxId {_unTxId :: Hash era (TxBody era)}
+newtype TxId era = TxId {_unTxId :: Hash era txbody}
   deriving (Show, Eq, Ord, Generic)
   deriving newtype (NFData, NoUnexpectedThunks)
 
@@ -409,7 +397,7 @@ instance NoUnexpectedThunks (TxIn era)
 data TxOut era
   = TxOutCompact
       {-# UNPACK #-} !BSS.ShortByteString
-      {-# UNPACK #-} !Word64
+      (ValueType era)
   deriving (Show, Eq, Ord)
 
 instance NFData (TxOut era) where
@@ -521,94 +509,10 @@ instance NoUnexpectedThunks (MIRCert era)
 
 instance NoUnexpectedThunks (DCert era)
 
--- | A raw transaction
-data TxBody era = TxBody'
-  { _inputs' :: !(Set (TxIn era)),
-    _outputs' :: !(StrictSeq (TxOut era)),
-    _certs' :: !(StrictSeq (DCert era)),
-    _wdrls' :: !(Wdrl era),
-    _txfee' :: !Coin,
-    _ttl' :: !SlotNo,
-    _txUpdate' :: !(StrictMaybe (Update era)),
-    _mdHash' :: !(StrictMaybe (MetaDataHash era)),
-    bodyBytes :: LByteString,
-    extraSize :: !Int64 -- This is the contribution of inputs, outputs, and fees to the size of the transaction
-  }
-  deriving (Show, Eq, Generic)
-  deriving
-    (NoUnexpectedThunks)
-    via AllowThunksIn '["bodyBytes"] (TxBody era)
-
-instance Era era => HashAnnotated (TxBody era) era
-
-pattern TxBody ::
-  Era era =>
-  Set (TxIn era) ->
-  StrictSeq (TxOut era) ->
-  StrictSeq (DCert era) ->
-  Wdrl era ->
-  Coin ->
-  SlotNo ->
-  StrictMaybe (Update era) ->
-  StrictMaybe (MetaDataHash era) ->
-  TxBody era
-pattern TxBody {_inputs, _outputs, _certs, _wdrls, _txfee, _ttl, _txUpdate, _mdHash} <-
-  TxBody'
-    { _inputs' = _inputs,
-      _outputs' = _outputs,
-      _certs' = _certs,
-      _wdrls' = _wdrls,
-      _txfee' = _txfee,
-      _ttl' = _ttl,
-      _txUpdate' = _txUpdate,
-      _mdHash' = _mdHash
-    }
-  where
-    TxBody _inputs _outputs _certs _wdrls _txfee _ttl _txUpdate _mdHash =
-      let encodeMapElement ix enc x = Just (encodeWord ix <> enc x)
-          encodeMapElementUnless condition ix enc x =
-            if condition x
-              then Nothing
-              else encodeMapElement ix enc x
-          l =
-            catMaybes
-              [ encodeMapElement 0 encodePreEncoded inputBytes,
-                encodeMapElement 1 encodePreEncoded outputBytes,
-                encodeMapElement 2 encodePreEncoded feeBytes,
-                encodeMapElement 3 toCBOR _ttl,
-                encodeMapElementUnless null 4 encodeFoldable _certs,
-                encodeMapElementUnless (null . unWdrl) 5 toCBOR _wdrls,
-                encodeMapElement 6 toCBOR =<< strictMaybeToMaybe _txUpdate,
-                encodeMapElement 7 toCBOR =<< strictMaybeToMaybe _mdHash
-              ]
-          inputBytes = serializeEncoding' $ encodeFoldable _inputs
-          outputBytes = serializeEncoding' $ encodeFoldable _outputs
-          feeBytes = serializeEncoding' $ toCBOR _txfee
-          es =
-            fromIntegral $
-              BS.length inputBytes
-                + BS.length outputBytes
-                + BS.length feeBytes
-          n = fromIntegral $ length l
-          bytes = serializeEncoding $ encodeMapLen n <> fold l
-       in TxBody'
-            _inputs
-            _outputs
-            _certs
-            _wdrls
-            _txfee
-            _ttl
-            _txUpdate
-            _mdHash
-            bytes
-            es
-
-{-# COMPLETE TxBody #-}
-
 -- | Proof/Witness that a transaction is authorized by the given key holder.
 data WitVKey era kr = WitVKey'
   { wvkKey' :: !(VKey kr era),
-    wvkSig' :: !(SignedDSIGN era (Hash era (TxBody era))),
+    wvkSig' :: !(SignedDSIGN era (Hash era txbody)),
     -- | Hash of the witness vkey. We store this here to avoid repeated hashing
     --   when used in ordering.
     wvkKeyHash :: KeyHash 'Witness era,
@@ -622,7 +526,7 @@ instance (Era era, Typeable k) => HashAnnotated (WitVKey era k) era
 pattern WitVKey ::
   (Typeable kr, Era era) =>
   VKey kr era ->
-  SignedDSIGN era (Hash era (TxBody era)) ->
+  SignedDSIGN era (Hash era txbody) ->
   WitVKey era kr
 pattern WitVKey k s <-
   WitVKey' k s _ _
@@ -754,29 +658,6 @@ instance
       pure $ TxInCompact a b
 
 instance
-  (Typeable era, Era era) =>
-  ToCBOR (TxOut era)
-  where
-  toCBOR (TxOutCompact addr coin) =
-    encodeListLen 2
-      <> toCBOR addr
-      <> toCBOR coin
-
-instance
-  (Era era) =>
-  FromCBOR (TxOut era)
-  where
-  fromCBOR = decodeRecordNamed "TxOut" (const 2) $ do
-    bs <- fromCBOR
-    coin <- fromCBOR
-    -- Check that the address is valid by decompacting it instead of decoding
-    -- it as an address, as that would require compacting (re-encoding) it
-    -- afterwards.
-    case decompactAddr bs of
-      Just (_ :: Addr era) -> pure $ TxOutCompact bs coin
-      Nothing -> cborError $ DecoderErrorCustom "TxOut" "invalid address"
-
-instance
   (Typeable kr, Era era) =>
   ToCBOR (WitVKey era kr)
   where
@@ -793,83 +674,6 @@ instance
           mkWitVKey <$> fromCBOR <*> decodeSignedDSIGN
     where
       mkWitVKey k sig = WitVKey' k sig (asWitness $ hashKey k)
-
-instance
-  (Era era) =>
-  ToCBOR (TxBody era)
-  where
-  toCBOR = encodePreEncoded . BSL.toStrict . bodyBytes
-
-instance
-  (Era era) =>
-  FromCBOR (Annotator (TxBody era))
-  where
-  fromCBOR = annotatorSlice $ do
-    mapParts <-
-      decodeMapContents $
-        decodeWord >>= \case
-          0 -> f 0 (decodeSet fromCBOR) $ \bytes x t ->
-            t
-              { _inputs' = x,
-                extraSize = extraSize t + BSL.length bytes
-              }
-          1 -> f 1 (decodeStrictSeq fromCBOR) $ \bytes x t ->
-            t
-              { _outputs' = x,
-                extraSize = extraSize t + BSL.length bytes
-              }
-          2 -> f 2 fromCBOR $ \bytes x t ->
-            t
-              { _txfee' = x,
-                extraSize = extraSize t + BSL.length bytes
-              }
-          3 -> f 3 fromCBOR $ \_ x t -> t {_ttl' = x}
-          4 -> f 4 (decodeStrictSeq fromCBOR) $ \_ x t -> t {_certs' = x}
-          5 -> f 5 fromCBOR $ \_ x t -> t {_wdrls' = x}
-          6 -> f 6 fromCBOR $ \_ x t -> t {_txUpdate' = SJust x}
-          7 -> f 7 fromCBOR $ \_ x t -> t {_mdHash' = SJust x}
-          k -> invalidKey k
-    let requiredFields :: Map Int String
-        requiredFields =
-          Map.fromList $
-            [ (0, "inputs"),
-              (1, "outputs"),
-              (2, "fee"),
-              (3, "ttl")
-            ]
-        fields = fst <$> mapParts
-        missingFields = Map.filterWithKey (\k _ -> notElem k fields) requiredFields
-    unless
-      (null missingFields)
-      (fail $ "missing required transaction component(s): " <> show missingFields)
-    pure $
-      Annotator $
-        \fullbytes bytes ->
-          (foldr ($) basebody (flip runAnnotator fullbytes . snd <$> mapParts)) {bodyBytes = bytes}
-    where
-      f ::
-        Int ->
-        Decoder s a ->
-        (LByteString -> a -> TxBody era -> TxBody era) ->
-        Decoder s (Int, Annotator (TxBody era -> TxBody era))
-      f key decoder updater = do
-        (x, annBytes) <- withSlice decoder
-        let result = Annotator $ \fullbytes txbody ->
-              updater (runAnnotator annBytes fullbytes) x txbody
-        pure (key, result)
-      basebody =
-        TxBody'
-          { _inputs' = Set.empty,
-            _outputs' = StrictSeq.empty,
-            _txfee' = Coin 0,
-            _ttl' = SlotNo 0,
-            _certs' = StrictSeq.empty,
-            _wdrls' = Wdrl Map.empty,
-            _txUpdate' = SNothing,
-            _mdHash' = SNothing,
-            bodyBytes = mempty,
-            extraSize = 0
-          }
 
 instance ToCBOR PoolMetaData where
   toCBOR (PoolMetaData u h) =

@@ -217,10 +217,10 @@ makeWitnessesFromScriptKeys txbodyHash hashKeyMap scriptHashes =
    in makeWitnessesVKey txbodyHash (Map.elems witKeys)
 
 -- | Determine the total balance contained in the UTxO.
-balance :: UTxO era -> Coin
-balance (UTxO utxo) = fromIntegral $ Map.foldl' addCoins 0 utxo
+balance :: (Val (ValueType era)) => UTxO era -> ValueType era
+balance (UTxO utxo) = fromIntegral $ Map.foldl' addCoins vzero utxo
   where
-    addCoins !b (TxOutCompact _ a) = a + b
+    addCoins !b (TxOutCompact _ a) = vplus a b
 
 -- | Determine the total deposit amount needed.
 -- The block may (legitimately) contain multiple registration certificates
