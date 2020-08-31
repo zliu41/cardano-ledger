@@ -35,6 +35,13 @@ newtype Coin = Coin {unCoin :: Integer}
     )
   deriving (Show) via Quiet Coin
 
+instance Semigroup Coin where
+  (<>) = (+)
+
+instance Monoid Coin where
+  mempty = Coin 0
+  mappend = (<>)
+
 word64ToCoin :: Word64 -> Coin
 word64ToCoin w = Coin $ fromIntegral w
 
