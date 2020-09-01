@@ -90,6 +90,7 @@ import GHC.Generics (Generic)
 import Numeric.Natural (Natural)
 import Shelley.Spec.Ledger.Serialization (decodeRecordSum, ratioFromCBOR, ratioToCBOR)
 import Shelley.Spec.NonIntegral (ln')
+import Shelley.Spec.Ledger.Coin (Coin)
 
 data E34
 
@@ -463,3 +464,4 @@ data Shelley c
 
 instance Cardano.Ledger.Crypto.Crypto c => Era (Shelley c) where
   type Crypto (Shelley c) = c
+  type ValueType (Shelley c) = Coin

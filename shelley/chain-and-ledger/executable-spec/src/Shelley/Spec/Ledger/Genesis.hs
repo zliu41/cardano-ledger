@@ -320,6 +320,7 @@ validateGenesis
 -------------------------------------------------------------------------------}
 
 mkShelleyGlobals ::
+  (Era c) =>
   ShelleyGenesis c ->
   EpochInfo Identity ->
   Natural ->
