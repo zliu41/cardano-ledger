@@ -61,11 +61,11 @@ import Shelley.Spec.Ledger.Coin (Coin (..))
 import Shelley.Spec.Ledger.Keys (GenDelegs, KeyHash, KeyRole (..))
 import Shelley.Spec.Ledger.LedgerState
   ( UTxOState (..),
-    consumed,
     emptyPPUPState,
     keyRefunds,
     minfee,
     produced,
+    consumed,
     txsize,
   )
 import Shelley.Spec.Ledger.PParams (PParams, PParams' (..))

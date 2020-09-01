@@ -43,6 +43,7 @@ module Shelley.Spec.Ledger.TxData
         _ttl,
         _txUpdate,
         _mdHash,
+        _txforge,
         extraSize
       ),
     TxId (..),
@@ -574,13 +575,13 @@ data TxBody era = TxBody'
     _ttl' :: !SlotNo,
     _txUpdate' :: !(StrictMaybe (Update era)),
     _mdHash' :: !(StrictMaybe (MetaDataHash era)),
+    _txforge' :: !(Forge era), -- adding for experiment
     bodyBytes :: LByteString,
     extraSize :: !Int64 -- This is the contribution of inputs, outputs, and fees to the size of the transaction
   }
   deriving (Show, Eq, Generic)
-  deriving
-    (NoUnexpectedThunks)
-    via AllowThunksIn '["bodyBytes"] (TxBody era)
+
+deriving via AllowThunksIn '["bodyBytes"] (TxBody era) instance Era era => NoUnexpectedThunks (TxBody era)
 
 instance Era era => HashAnnotated (TxBody era) era
 
@@ -594,8 +595,9 @@ pattern TxBody ::
   SlotNo ->
   StrictMaybe (Update era) ->
   StrictMaybe (MetaDataHash era) ->
+  Forge era ->
   TxBody era
-pattern TxBody {_inputs, _outputs, _certs, _wdrls, _txfee, _ttl, _txUpdate, _mdHash} <-
+pattern TxBody {_inputs, _outputs, _certs, _wdrls, _txfee, _ttl, _txUpdate, _mdHash, _txforge} <-
   TxBody'
     { _inputs' = _inputs,
       _outputs' = _outputs,
@@ -604,10 +606,11 @@ pattern TxBody {_inputs, _outputs, _certs, _wdrls, _txfee, _ttl, _txUpdate, _mdH
       _txfee' = _txfee,
       _ttl' = _ttl,
       _txUpdate' = _txUpdate,
-      _mdHash' = _mdHash
+      _mdHash' = _mdHash,
+      _txforge' = _txforge
     }
   where
-    TxBody _inputs _outputs _certs _wdrls _txfee _ttl _txUpdate _mdHash =
+    TxBody _inputs _outputs _certs _wdrls _txfee _ttl _txUpdate _mdHash _txforge =
       let encodeMapElement ix enc x = Just (encodeWord ix <> enc x)
           encodeMapElementUnless condition ix enc x =
             if condition x
@@ -622,7 +625,8 @@ pattern TxBody {_inputs, _outputs, _certs, _wdrls, _txfee, _ttl, _txUpdate, _mdH
                 encodeMapElementUnless null 4 encodeFoldable _certs,
                 encodeMapElementUnless (null . unWdrl) 5 toCBOR _wdrls,
                 encodeMapElement 6 toCBOR =<< strictMaybeToMaybe _txUpdate,
-                encodeMapElement 7 toCBOR =<< strictMaybeToMaybe _mdHash
+                encodeMapElement 7 toCBOR =<< strictMaybeToMaybe _mdHash,
+                encodeMapElement 8 toCBOR _txforge
               ]
           inputBytes = serializeEncoding' $ encodeFoldable _inputs
           outputBytes = serializeEncoding' $ encodeFoldable _outputs
@@ -643,6 +647,7 @@ pattern TxBody {_inputs, _outputs, _certs, _wdrls, _txfee, _ttl, _txUpdate, _mdH
             _ttl
             _txUpdate
             _mdHash
+            _txforge
             bytes
             es
 
@@ -871,6 +876,7 @@ instance
           5 -> f 5 fromCBOR $ \_ x t -> t {_wdrls' = x}
           6 -> f 6 fromCBOR $ \_ x t -> t {_txUpdate' = SJust x}
           7 -> f 7 fromCBOR $ \_ x t -> t {_mdHash' = SJust x}
+          8 -> f 8 fromCBOR $ \_ x t -> t {_txforge' = x} -- TODO I dont think this is right
           k -> invalidKey k
     let requiredFields :: Map Int String
         requiredFields =
@@ -910,6 +916,7 @@ instance
             _wdrls' = Wdrl Map.empty,
             _txUpdate' = SNothing,
             _mdHash' = SNothing,
+            _txforge' = defaultV,
             bodyBytes = mempty,
             extraSize = 0
           }
