@@ -94,7 +94,7 @@ import Cardano.Binary
     ToCBOR (..),
     encodeListLen,
   )
-import Cardano.Ledger.Era (Era)
+import Cardano.Ledger.Era (Era, ValueType(..))
 import Cardano.Prelude (NFData, NoUnexpectedThunks (..))
 import Control.Iterate.SetAlgebra (Bimap, biMapEmpty, dom, eval, forwards, range, (∈), (∪+), (▷), (◁))
 import Control.Monad.Trans.Reader (asks)
@@ -205,6 +205,7 @@ import Shelley.Spec.Ledger.UTxO
     txup,
     verifyWitVKey,
   )
+import Shelley.Spec.Ledger.Val
 
 -- | Representation of a list of pairs of key pairs, e.g., pay and stake keys
 type KeyPairs era = [(KeyPair 'Payment era, KeyPair 'Staking era)]
@@ -416,7 +417,7 @@ data EpochState era = EpochState
 
 instance NoUnexpectedThunks (EpochState era)
 
-instance NFData (EpochState era)
+instance (Era era) => NFData (EpochState era)
 
 instance Era era => ToCBOR (EpochState era) where
   toCBOR (EpochState a s l r p n) =
@@ -550,7 +551,7 @@ data NewEpochState era = NewEpochState
   }
   deriving (Show, Eq, Generic)
 
-instance NFData (NewEpochState era)
+instance (Era era) => NFData (NewEpochState era)
 
 instance NoUnexpectedThunks (NewEpochState era)
 
@@ -601,7 +602,7 @@ data LedgerState era = LedgerState
 
 instance NoUnexpectedThunks (LedgerState era)
 
-instance NFData (LedgerState era)
+instance (Era era) => NFData (LedgerState era)
 
 instance Era era => ToCBOR (LedgerState era) where
   toCBOR (LedgerState u dp) =
@@ -669,9 +670,9 @@ produced ::
   PParams ->
   Map (KeyHash 'StakePool era) (PoolParams era) ->
   TxBody era ->
-  Coin
+  ValueType era
 produced pp stakePools tx =
-  balance (txouts tx) + _txfee tx + totalDeposits pp stakePools (toList $ _certs tx)
+  vplus (balance (txouts tx)) (vinject $ _txfee tx + totalDeposits pp stakePools (toList $ _certs tx))
 
 -- | Compute the key deregistration refunds in a transaction
 keyRefunds ::
@@ -689,9 +690,9 @@ consumed ::
   PParams ->
   UTxO era ->
   TxBody era ->
-  Coin
+  ValueType era
 consumed pp u tx =
-  balance (eval (txins tx ◁ u)) + refunds + withdrawals
+  vplus (balance (eval (txins tx ◁ u))) (vinject $ refunds + withdrawals)
   where
     -- balance (UTxO (Map.restrictKeys v (txins tx))) + refunds + withdrawals
     refunds = keyRefunds pp tx

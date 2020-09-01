@@ -1,6 +1,5 @@
 {-# LANGUAGE BangPatterns #-}
 {-# LANGUAGE DataKinds #-}
-{-# LANGUAGE DeriveAnyClass #-}
 {-# LANGUAGE DeriveGeneric #-}
 {-# LANGUAGE DerivingStrategies #-}
 {-# LANGUAGE FlexibleInstances #-}
@@ -9,6 +8,8 @@
 {-# LANGUAGE ScopedTypeVariables #-}
 {-# LANGUAGE TypeApplications #-}
 {-# LANGUAGE UndecidableInstances #-}
+{-# LANGUAGE StandaloneDeriving #-}
+{-# LANGUAGE DerivingVia #-}
 
 module Shelley.Spec.Ledger.Genesis
   ( ShelleyGenesisStaking (..),
@@ -28,7 +29,7 @@ import qualified Cardano.Crypto.Hash.Class as Crypto
 import Cardano.Crypto.KES.Class (totalPeriodsKES)
 import Cardano.Ledger.Crypto (HASH, KES)
 import Cardano.Ledger.Era
-import Cardano.Prelude (NoUnexpectedThunks, forceElemsToWHNF)
+import Cardano.Prelude (NoUnexpectedThunks, forceElemsToWHNF, UseIsNormalFormNamed (..))
 import Cardano.Slotting.EpochInfo
 import Cardano.Slotting.Slot (EpochSize (..))
 import Data.Aeson (FromJSON (..), ToJSON (..), (.!=), (.:), (.:?), (.=))
@@ -47,7 +48,6 @@ import GHC.Generics (Generic)
 import GHC.Natural (Natural)
 import Shelley.Spec.Ledger.Address
 import Shelley.Spec.Ledger.BaseTypes
-import Shelley.Spec.Ledger.Coin
 import Shelley.Spec.Ledger.Keys
 import Shelley.Spec.Ledger.PParams
 import Shelley.Spec.Ledger.StabilityWindow
@@ -78,7 +78,8 @@ data ShelleyGenesisStaking c = ShelleyGenesisStaking
     sgsStake :: !(Map (KeyHash 'Staking c) (KeyHash 'StakePool c))
   }
   deriving stock (Eq, Show, Generic)
-  deriving anyclass (NoUnexpectedThunks)
+
+instance NoUnexpectedThunks (ShelleyGenesisStaking era)
 
 -- | Empty genesis staking
 emptyGenesisStaking :: ShelleyGenesisStaking c
@@ -94,7 +95,7 @@ emptyGenesisStaking =
 -- defined here rather than in its own module. In mainnet, Shelley will
 -- transition naturally from Byron, and thus will never have its own genesis
 -- information.
-data ShelleyGenesis c = ShelleyGenesis
+data (Era era) => ShelleyGenesis era = ShelleyGenesis
   { sgSystemStart :: !UTCTime,
     sgNetworkMagic :: !Word32,
     sgNetworkId :: !Network,
@@ -107,14 +108,14 @@ data ShelleyGenesis c = ShelleyGenesis
     sgUpdateQuorum :: !Word64,
     sgMaxLovelaceSupply :: !Word64,
     sgProtocolParams :: !PParams,
-    sgGenDelegs :: !(Map (KeyHash 'Genesis c) (GenDelegPair c)),
-    sgInitialFunds :: !(Map (Addr c) Coin),
-    sgStaking :: !(ShelleyGenesisStaking c)
+    sgGenDelegs :: !(Map (KeyHash 'Genesis era) (GenDelegPair era)),
+    sgInitialFunds :: !(Map (Addr era) (ValueType era)),
+    sgStaking :: !(ShelleyGenesisStaking era)
   }
-  deriving stock (Eq, Show, Generic)
-  deriving anyclass (NoUnexpectedThunks)
+  deriving stock (Eq, Show)
+  deriving NoUnexpectedThunks via UseIsNormalFormNamed "ShelleyGenesis" (ShelleyGenesis era)
 
-sgActiveSlotCoeff :: ShelleyGenesis c -> ActiveSlotCoeff
+sgActiveSlotCoeff :: Era era => ShelleyGenesis era -> ActiveSlotCoeff
 sgActiveSlotCoeff =
   mkActiveSlotCoeff
     . unitIntervalFromRational

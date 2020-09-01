@@ -17,6 +17,7 @@ module Shelley.Spec.Ledger.Val
 import           Cardano.Prelude (NoUnexpectedThunks(..), NFData ())
 import           Data.Typeable (Typeable)
 import           Cardano.Binary (ToCBOR, FromCBOR)
+import           Data.Aeson (FromJSON (..), ToJSON (..), FromJSONKey, ToJSONKey)
 
 import           Shelley.Spec.Ledger.Coin (Coin (..))
 import           Data.Map.Strict(Map)
@@ -29,7 +30,7 @@ General function and type class definitions used in Value
 
 data Op = Gt | Lt | Gteq | Lteq | Neq | Equal
 
-class (NFData t, Show t, Eq t, Typeable t, ToCBOR t, FromCBOR t, NoUnexpectedThunks t)
+class (NFData t, Show t, Eq t, Typeable t, ToCBOR t, FromCBOR t, NoUnexpectedThunks t, FromJSON t, ToJSON t)
       => Val t  where
   vzero :: t                          -- This is an identity of vplus
   vplus :: t -> t -> t                -- This must be associative and commutative
@@ -64,7 +65,7 @@ instance Val Integer where
   vinject (Coin x) = x
   vsize _ = 1
 
-instance (Ord k,Val t, NFData k, Show k, NoUnexpectedThunks k, Typeable k, ToCBOR k, FromCBOR k)
+instance (Ord k,Val t, NFData k, Show k, NoUnexpectedThunks k, Typeable k, ToCBOR k, FromCBOR k, FromJSONKey k, ToJSONKey k)
       => Val (Map k t) where
   vzero = Map.empty
   vplus x y = unionWithV vplus x y  -- There is an assumption that if the range is vzero, it is not stored in the Map
