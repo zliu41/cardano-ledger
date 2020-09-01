@@ -17,6 +17,7 @@
 {-# LANGUAGE TypeApplications #-}
 {-# LANGUAGE TypeFamilies #-}
 {-# LANGUAGE ViewPatterns #-}
+{-# LANGUAGE FlexibleContexts #-}
 
 module Shelley.Spec.Ledger.TxData
   ( DCert (..),
@@ -33,6 +34,8 @@ module Shelley.Spec.Ledger.TxData
     RewardAcnt (..),
     StakeCreds (..),
     StakePoolRelay (..),
+    TxBody, -- importedfro Era
+{-
     TxBody
       ( TxBody,
         _inputs,
@@ -45,6 +48,7 @@ module Shelley.Spec.Ledger.TxData
         _mdHash,
         extraSize
       ),
+-}
     TxId (..),
     TxIn (TxIn),
     pattern TxInCompact,
@@ -63,7 +67,6 @@ where
 import Cardano.Binary
   ( Annotator (..),
     Case (..),
-    Decoder,
     DecoderError (..),
     FromCBOR (fromCBOR),
     Size,
@@ -71,13 +74,9 @@ import Cardano.Binary
     annotatorSlice,
     decodeWord,
     encodeListLen,
-    encodeMapLen,
     encodePreEncoded,
-    encodeWord,
     serializeEncoding,
-    serializeEncoding',
     szCases,
-    withSlice,
   )
 import Cardano.Ledger.Era
 import Cardano.Prelude
@@ -88,24 +87,19 @@ import Cardano.Prelude
     UseIsNormalFormNamed (..),
     Word64,
     asum,
-    catMaybes,
     cborError,
     panic,
   )
 import Control.Iterate.SetAlgebra (BaseRep (MapR), Embed (..), Exp (Base), HasExp (toExp))
-import Control.Monad (unless)
 import Data.Aeson (FromJSON (..), ToJSON (..), (.!=), (.:), (.:?), (.=))
 import qualified Data.Aeson as Aeson
 import Data.Aeson.Types (explicitParseField)
 import Data.ByteString (ByteString)
-import qualified Data.ByteString as BS
 import qualified Data.ByteString.Base16 as Base16
 import qualified Data.ByteString.Char8 as Char8
 import qualified Data.ByteString.Lazy as BSL
 import qualified Data.ByteString.Short as BSS
-import Data.Foldable (fold)
 import Data.IP (IPv4, IPv6)
-import Data.Int (Int64)
 import Data.Map.Strict (Map)
 import qualified Data.Map.Strict as Map
 import Data.Ord (comparing)
@@ -114,7 +108,6 @@ import Data.Relation (Relation (..))
 import Data.Sequence.Strict (StrictSeq)
 import qualified Data.Sequence.Strict as StrictSeq
 import Data.Set (Set)
-import qualified Data.Set as Set
 import qualified Data.Text.Encoding as Text
 import Data.Typeable (Typeable)
 import Data.Word (Word8)
@@ -158,15 +151,12 @@ import Shelley.Spec.Ledger.Keys
     encodeSignedDSIGN,
     hashKey,
   )
-import Shelley.Spec.Ledger.MetaData (MetaDataHash)
 import Shelley.Spec.Ledger.Orphans ()
-import Shelley.Spec.Ledger.PParams (Update)
 import Shelley.Spec.Ledger.Serialization
   ( CBORGroup (..),
     CborSeq (..),
     FromCBORGroup (..),
     ToCBORGroup (..),
-    decodeMapContents,
     decodeNullMaybe,
     decodeRecordNamed,
     decodeRecordSum,
@@ -563,6 +553,7 @@ instance NoUnexpectedThunks (MIRCert era)
 
 instance NoUnexpectedThunks (DCert era)
 
+{-
 -- | A raw transaction
 data TxBody era = TxBody'
   { _inputs' :: !(Set (TxIn era)),
@@ -646,6 +637,7 @@ pattern TxBody {_inputs, _outputs, _certs, _wdrls, _txfee, _ttl, _txUpdate, _mdH
             es
 
 {-# COMPLETE TxBody #-}
+-}
 
 -- | Proof/Witness that a transaction is authorized by the given key holder.
 data WitVKey era kr = WitVKey'
@@ -836,82 +828,6 @@ instance
     where
       mkWitVKey k sig = WitVKey' k sig (asWitness $ hashKey k)
 
-instance
-  (Era era) =>
-  ToCBOR (TxBody era)
-  where
-  toCBOR = encodePreEncoded . BSL.toStrict . bodyBytes
-
-instance
-  (Era era) =>
-  FromCBOR (Annotator (TxBody era))
-  where
-  fromCBOR = annotatorSlice $ do
-    mapParts <-
-      decodeMapContents $
-        decodeWord >>= \case
-          0 -> f 0 (decodeSet fromCBOR) $ \bytes x t ->
-            t
-              { _inputs' = x,
-                extraSize = extraSize t + BSL.length bytes
-              }
-          1 -> f 1 (decodeStrictSeq fromCBOR) $ \bytes x t ->
-            t
-              { _outputs' = x,
-                extraSize = extraSize t + BSL.length bytes
-              }
-          2 -> f 2 fromCBOR $ \bytes x t ->
-            t
-              { _txfee' = x,
-                extraSize = extraSize t + BSL.length bytes
-              }
-          3 -> f 3 fromCBOR $ \_ x t -> t {_ttl' = x}
-          4 -> f 4 (decodeStrictSeq fromCBOR) $ \_ x t -> t {_certs' = x}
-          5 -> f 5 fromCBOR $ \_ x t -> t {_wdrls' = x}
-          6 -> f 6 fromCBOR $ \_ x t -> t {_txUpdate' = SJust x}
-          7 -> f 7 fromCBOR $ \_ x t -> t {_mdHash' = SJust x}
-          k -> invalidKey k
-    let requiredFields :: Map Int String
-        requiredFields =
-          Map.fromList $
-            [ (0, "inputs"),
-              (1, "outputs"),
-              (2, "fee"),
-              (3, "ttl")
-            ]
-        fields = fst <$> mapParts
-        missingFields = Map.filterWithKey (\k _ -> notElem k fields) requiredFields
-    unless
-      (null missingFields)
-      (fail $ "missing required transaction component(s): " <> show missingFields)
-    pure $
-      Annotator $
-        \fullbytes bytes ->
-          (foldr ($) basebody (flip runAnnotator fullbytes . snd <$> mapParts)) {bodyBytes = bytes}
-    where
-      f ::
-        Int ->
-        Decoder s a ->
-        (LByteString -> a -> TxBody era -> TxBody era) ->
-        Decoder s (Int, Annotator (TxBody era -> TxBody era))
-      f key decoder updater = do
-        (x, annBytes) <- withSlice decoder
-        let result = Annotator $ \fullbytes txbody ->
-              updater (runAnnotator annBytes fullbytes) x txbody
-        pure (key, result)
-      basebody =
-        TxBody'
-          { _inputs' = Set.empty,
-            _outputs' = StrictSeq.empty,
-            _txfee' = Coin 0,
-            _ttl' = SlotNo 0,
-            _certs' = StrictSeq.empty,
-            _wdrls' = Wdrl Map.empty,
-            _txUpdate' = SNothing,
-            _mdHash' = SNothing,
-            bodyBytes = mempty,
-            extraSize = 0
-          }
 
 instance ToCBOR PoolMetaData where
   toCBOR (PoolMetaData u h) =

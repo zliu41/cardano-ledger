@@ -69,9 +69,7 @@ import Shelley.Spec.Ledger.Keys
   )
 import qualified Shelley.Spec.Ledger.Keys as Keys
 import Shelley.Spec.Ledger.Serialization (decodeRecordNamed)
-import Shelley.Spec.Ledger.TxData
-  ( TxBody,
-  )
+-- import Cardano.Ledger.Era(Era(TxBody))
 
 newtype ChainCode = ChainCode {unChainCode :: ByteString}
   deriving (Eq, Generic)

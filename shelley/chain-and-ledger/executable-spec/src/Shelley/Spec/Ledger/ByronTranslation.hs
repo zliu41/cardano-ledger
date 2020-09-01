@@ -34,6 +34,7 @@ import Shelley.Spec.Ledger.OverlaySchedule
 import Shelley.Spec.Ledger.Rewards
 import Shelley.Spec.Ledger.Slot
 import Shelley.Spec.Ledger.UTxO
+import Shelley.Spec.Ledger.Val(Val(vcoin,vinject),vminus)
 
 -- | We use the same hashing algorithm so we can unwrap and rewrap the bytes.
 -- We don't care about the type that is hashed, which will differ going from
@@ -56,11 +57,11 @@ hashFromShortBytesE sbs = fromMaybe (error msg) $ Crypto.hashFromBytesShort sbs
       "hashFromBytesShort called with ShortByteString of the wrong length: "
         <> show sbs
 
-translateCompactTxOutByronToShelley :: Byron.CompactTxOut -> TxOut era
+translateCompactTxOutByronToShelley :: Era era => Byron.CompactTxOut -> TxOut era
 translateCompactTxOutByronToShelley (Byron.CompactTxOut compactAddr amount) =
   TxOutCompact
     (Byron.unsafeGetCompactAddress compactAddr)
-    (Byron.unsafeGetLovelace amount)
+    (vinject (Coin (fromIntegral (Byron.unsafeGetLovelace amount))))
 
 translateCompactTxInByronToShelley ::
   (Era era, ADDRHASH (Crypto era) ~ Crypto.Blake2b_224) =>
@@ -120,14 +121,14 @@ translateToShelleyLedgerState genesisShelley globals epochNo cvs =
     genDelegs :: GenDelegs era
     genDelegs = GenDelegs $ sgGenDelegs genesisShelley
 
-    reserves :: Coin
+    reserves :: ValueType era
     reserves =
-      fromIntegral (sgMaxLovelaceSupply genesisShelley) - balance utxoShelley
+      vinject (Coin (fromIntegral (sgMaxLovelaceSupply genesisShelley))) `vminus` balance utxoShelley
 
     epochState :: EpochState era
     epochState =
       EpochState
-        { esAccountState = AccountState (Coin 0) reserves,
+        { esAccountState = AccountState (Coin 0) (vcoin reserves),
           esSnapshots = emptySnapShots,
           esLState = ledgerState,
           esPrevPp = pparams,
@@ -168,7 +169,7 @@ translateToShelleyLedgerState genesisShelley globals epochNo cvs =
 -- | We construct a 'LedgerView' using the Shelley genesis config in the same
 -- way as 'translateToShelleyLedgerState'.
 mkInitialShelleyLedgerView ::
-  forall era.
+  forall era. Era era =>
   ShelleyGenesis era ->
   Globals ->
   EpochNo ->

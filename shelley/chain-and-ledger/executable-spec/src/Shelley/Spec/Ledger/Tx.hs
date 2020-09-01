@@ -14,6 +14,7 @@
 {-# LANGUAGE StandaloneDeriving #-}
 {-# LANGUAGE TemplateHaskell #-}
 {-# LANGUAGE TypeFamilies #-}
+{-# LANGUAGE FlexibleContexts #-}
 
 module Shelley.Spec.Ledger.Tx
   ( -- transaction
@@ -24,7 +25,7 @@ module Shelley.Spec.Ledger.Tx
         _metadata,
         txFullBytes
       ),
-    TxBody (..),
+    TxBody,
     TxOut (..),
     TxIn (..),
     TxId (..),
@@ -102,8 +103,7 @@ import Shelley.Spec.Ledger.Serialization
     encodeNullMaybe,
   )
 import Shelley.Spec.Ledger.TxData
-  ( TxBody (..),
-    TxId (..),
+  ( TxId (..),
     TxIn (..),
     TxOut (..),
     WitVKey (..),
@@ -184,13 +184,11 @@ data Tx era = Tx'
     _metadata' :: !(StrictMaybe MetaData),
     txFullBytes :: LByteString
   }
-  deriving (Show, Eq, Generic)
-  deriving
-    (NoUnexpectedThunks)
-    via AllowThunksIn
-          '[ "txFullBytes"
-           ]
-          (Tx era)
+  deriving (Generic,Show,Eq)
+
+deriving via AllowThunksIn  '[ "txFullBytes"] (Tx era)
+         instance Era era => NoUnexpectedThunks (Tx era)
+
 
 pattern Tx ::
   Era era =>
