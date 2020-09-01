@@ -303,7 +303,7 @@ utxoInductive = do
   -- process Protocol Parameter Update Proposals
   ppup' <- trans @(PPUP era) $ TRC (PPUPEnv slot pp genDelegs, ppup, txup tx)
 
-  let outputs = Map.elems $ unUTxO (txouts txb)
+  let outputs = Map.elems $ unUTxO (txouts txb) -- Set.toList (eval (rng (txouts txb))) to coorespond with Specification -- Requires a unneeded Ord instance
       minUTxOValue = _minUTxOValue pp
       outputsTooSmall = [out | out@(TxOut _ vl) <- outputs, voper Lt vl (vinject $ scaledMinDeposit vl minUTxOValue)]
   null outputsTooSmall ?! OutputTooSmallUTxO outputsTooSmall

@@ -563,6 +563,7 @@ instance NoUnexpectedThunks (MIRCert era)
 
 instance NoUnexpectedThunks (DCert era)
 
+
 -- | A raw transaction
 data TxBody era = TxBody'
   { _inputs' :: !(Set (TxIn era)),
