@@ -90,6 +90,7 @@ import Shelley.Spec.Ledger.TxData
     pattern Delegate,
     pattern Delegation,
   )
+import Shelley.Spec.Ledger.Val
 
 instance HasExp (UTxO era) (Map (TxIn era) (TxOut era)) where
   toExp (UTxO x) = Base MapR x
@@ -100,7 +101,7 @@ instance Embed (UTxO era) (Map (TxIn era) (TxOut era)) where
 
 -- | The unspent transaction outputs.
 newtype UTxO era = UTxO {unUTxO :: Map (TxIn era) (TxOut era)}
-  deriving (Eq, Ord, ToCBOR, FromCBOR, NoUnexpectedThunks, Generic, NFData)
+  deriving (Eq, ToCBOR, FromCBOR, NoUnexpectedThunks, Generic, NFData)
   deriving (Show) via Quiet (UTxO era)
 
 instance Relation (UTxO era) where
@@ -217,10 +218,10 @@ makeWitnessesFromScriptKeys txbodyHash hashKeyMap scriptHashes =
    in makeWitnessesVKey txbodyHash (Map.elems witKeys)
 
 -- | Determine the total balance contained in the UTxO.
-balance :: UTxO era -> Coin
-balance (UTxO utxo) = fromIntegral $ Map.foldl' addCoins 0 utxo
+balance :: Era era => UTxO era -> ValueType era
+balance (UTxO utxo) = Map.foldl' addCoins vzero utxo
   where
-    addCoins !b (TxOutCompact _ a) = a + b
+    addCoins !b (TxOutCompact _ a) = vplus a b
 
 -- | Determine the total deposit amount needed.
 -- The block may (legitimately) contain multiple registration certificates

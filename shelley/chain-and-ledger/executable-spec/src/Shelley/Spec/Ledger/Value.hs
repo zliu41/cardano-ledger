@@ -180,61 +180,6 @@ instance ValTest (Value era) where
       (coins, remainder) = vsplit coin m
   vmodify f (Value coin assets) = do { coin2 <- f coin; pure(Value coin2 assets)}
 
--- ===============================================================
--- constraint used for all parametrized functions
-
-
--- type CV c v = (Val v, Crypto c, Typeable c, Typeable v, FromCBOR v, ToCBOR v,ValTest v)
--- type CVNC c v = (Val v, Typeable c, Typeable v, FromCBOR v, ToCBOR v,ValTest v)
-
--- Linear Map instance
-
---
--- -- | Get the quantity of the given currency in the 'Value'.
--- valueOf :: Value era -> PolicyID era -> AssetID -> Quantity
--- valueOf (Value mp) cur tn =
---     case Data.Map.Strict.lookup cur mp of
---         Nothing -> (Quantity 0)
---         Just i  -> case Data.Map.Strict.lookup tn i of
---             Nothing -> (Quantity 0)
---             Just v  -> v
---
--- -- | The list of 'PolicyID's of a 'Value'.
--- policyIDs :: Value era -> [PolicyID era]
--- policyIDs (Value mp) = keys mp
---
--- -- | Make a 'Value' containing only the given quantity of the given currency.
--- singleType :: PolicyID era -> AssetID -> Quantity -> Value era
--- singleType c tn i = Value (singleton c (singleton tn i))
-
-
--- Num operations
-
-
---
--- vinsert:: PolicyID era -> AssetID -> Quantity -> Value era -> Value era
--- vinsert pid aid q old = vplus old (Value (Map.singleton pid (Map.singleton aid q)))
-
--- | Split a value into its positive and negative parts. The first element of
---   the tuple contains the negative parts of the value, the second element
---   contains the positive parts.
---
---   @negate (fst (split a)) `plus` (snd (split a)) == a@
--- TODO
--- split :: Value era -> (Value era, Value era)
--- split (Value mp) = (negate (Value neg), Value pos) where
---   (neg, pos) = Map.mapThese splitIntl mp
---
---     splitIntl :: Map.Map TokenName Integer -> These (Map.Map TokenName Integer) (Map.Map TokenName Integer)
---     splitIntl mp' = These l r where
---       (l, r) = Map.mapThese (\i -> if i <= 0 then This i else That i) mp'
-
--- TODO do this right - is this supposed to add up to v?
--- splitValueFee :: Value era -> Integer -> (Value era, Coin)
--- splitValueFee (Value v) n
---     | n <= 0 = error "must split coins into positive parts"
---     | otherwise = (Value $ fmap (fmap (Quantity . (div n) . unInt)) v, getAdaAmount (Value v))
-
 -- CBOR
 
 
@@ -248,7 +193,7 @@ instance
            <> toCBOR v
 
 -- filter out 0s right at deserialization
---
+-- TODO
 instance
   (Era era)
   => FromCBOR (Value era)
