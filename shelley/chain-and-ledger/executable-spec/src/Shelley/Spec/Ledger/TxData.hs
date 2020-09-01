@@ -444,11 +444,14 @@ instance (Era era) => NFData (TxIn era) where
   rnf (TxInCompact i ind) = seq (rnf i) (rnf ind)
 
 -- | The output of a UTxO.
-data (Era era) => TxOut era
+
+data TxOut era
   = TxOutCompact
       {-# UNPACK #-} !BSS.ShortByteString
       (ValueType era)
-  deriving (Show, Eq)
+
+deriving instance (Era era) => Show (TxOut era)
+deriving instance (Era era) => Eq (TxOut era)
 
 instance NFData (TxOut era) where
   rnf = (`seq` ())

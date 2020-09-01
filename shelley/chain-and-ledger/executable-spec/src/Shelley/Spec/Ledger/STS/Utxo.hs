@@ -92,6 +92,8 @@ import Shelley.Spec.Ledger.UTxO
     txouts,
     txup,
   )
+import Shelley.Spec.Ledger.Val
+import Shelley.Spec.Ledger.Value
 
 data UTXO era
 
@@ -125,8 +127,8 @@ instance
         !Coin -- the minimum fee for this transaction
         !Coin -- the fee supplied in this transaction
     | ValueNotConservedUTxO
-        !Coin -- the Coin consumed by this transaction
-        !Coin -- the Coin produced by this transaction
+        !(ValueType era) -- the Coin consumed by this transaction
+        !(ValueType era) -- the Coin produced by this transaction
     | WrongNetwork
         !Network -- the expected network id
         !(Set (Addr era)) -- the set of addresses with incorrect network IDs
@@ -159,7 +161,7 @@ instance
       PostCondition
         "Deposit pot must not be negative (post)"
         (\_ st' -> _deposited st' >= 0),
-      let utxoBalance us = _deposited us + _fees us + balance (_utxo us)
+      let utxoBalance us = vplus (vinject $ _deposited us + _fees us) (balance (_utxo us))
           withdrawals txb = foldl' (+) (Coin 0) $ unWdrl $ _wdrls txb
        in PostCondition
             "Should preserve ADA in the UTxO state"
@@ -303,7 +305,7 @@ utxoInductive = do
 
   let outputs = Set.toList (eval (rng (txouts txb)))
       minUTxOValue = _minUTxOValue pp
-      outputsTooSmall = [out | out@(TxOut _ c) <- outputs, c < minUTxOValue]
+      outputsTooSmall = [out | out@(TxOut _ vl) <- outputs, Op Lt vl (vinject $ scaledMinDeposit vl minUTxOValue)]
   null outputsTooSmall ?! OutputTooSmallUTxO outputsTooSmall
 
   -- Bootstrap (i.e. Byron) addresses have variable sized attributes in them.

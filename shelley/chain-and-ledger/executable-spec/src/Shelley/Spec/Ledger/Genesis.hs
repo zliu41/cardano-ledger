@@ -121,7 +121,7 @@ sgActiveSlotCoeff =
     . unitIntervalFromRational
     . sgActiveSlotsCoeff
 
-instance Era era => ToJSON (ShelleyGenesis era) where
+instance (Era era, ToJSON (ValueType era)) => ToJSON (ShelleyGenesis era) where
   toJSON sg =
     Aeson.object
       [ "systemStart" .= sgSystemStart sg,
@@ -141,7 +141,7 @@ instance Era era => ToJSON (ShelleyGenesis era) where
         "staking" .= sgStaking sg
       ]
 
-instance Era era => FromJSON (ShelleyGenesis era) where
+instance (Era era, FromJSON (ValueType era)) => FromJSON (ShelleyGenesis era) where
   parseJSON =
     Aeson.withObject "ShelleyGenesis" $ \obj ->
       ShelleyGenesis

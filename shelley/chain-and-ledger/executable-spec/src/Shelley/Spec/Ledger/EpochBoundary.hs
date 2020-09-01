@@ -6,6 +6,7 @@
 {-# LANGUAGE ScopedTypeVariables #-}
 {-# LANGUAGE TemplateHaskell #-}
 {-# LANGUAGE TupleSections #-}
+{-# LANGUAGE ScopedTypeVariables #-}
 
 -- |
 -- Module      : EpochBoundary
@@ -45,7 +46,7 @@ import Shelley.Spec.Ledger.PParams (PParams, PParams' (..), _a0, _nOpt)
 import Shelley.Spec.Ledger.Serialization (decodeRecordNamed)
 import Shelley.Spec.Ledger.TxData (PoolParams, TxOut (TxOutCompact))
 import Shelley.Spec.Ledger.UTxO (UTxO (..))
-import Shelley.Spec.Ledger.Val 
+import Shelley.Spec.Ledger.Val
 
 -- | Blocks made
 newtype BlocksMade era = BlocksMade
@@ -73,7 +74,7 @@ newtype Stake era = Stake
 
 -- | Sum up all the Coin for each staking Credential
 aggregateUtxoCoinByCredential ::
-  Era era =>
+  forall era. Era era => 
   Map Ptr (Credential 'Staking era) ->
   UTxO era ->
   Map (Credential 'Staking era) Coin ->
@@ -81,6 +82,7 @@ aggregateUtxoCoinByCredential ::
 aggregateUtxoCoinByCredential ptrs (UTxO u) initial =
   Map.foldr accum initial u
   where
+    accum :: TxOut era -> Map (Credential 'Staking era) Coin -> Map (Credential 'Staking era) Coin
     accum (TxOutCompact addr vl) ans = case deserialiseAddrStakeRef addr of
       Just (StakeRefPtr p) -> case Map.lookup p ptrs of
         Just cred -> Map.insertWith (+) cred (vcoin vl) ans

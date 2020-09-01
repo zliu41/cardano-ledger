@@ -57,7 +57,9 @@ import           Cardano.Ledger.Era
 
 -- | Quantity
 newtype Quantity = Quantity {unInt :: Integer}
-  deriving (Show, Eq, Generic, ToCBOR, FromCBOR, Ord, Integral, Real, Num, Enum, NoUnexpectedThunks, NFData, Val)
+  deriving (Show, Eq, Generic, ToCBOR, FromCBOR, Ord, Integral, Real, Num, Enum, NoUnexpectedThunks, NFData)
+
+deriving instance Val Quantity
 
 -- | Asset ID
 newtype AssetID = AssetID {assetID :: ByteString}
