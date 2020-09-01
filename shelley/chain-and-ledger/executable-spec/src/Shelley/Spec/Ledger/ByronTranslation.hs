@@ -34,6 +34,8 @@ import Shelley.Spec.Ledger.OverlaySchedule
 import Shelley.Spec.Ledger.Rewards
 import Shelley.Spec.Ledger.Slot
 import Shelley.Spec.Ledger.UTxO
+import Shelley.Spec.Ledger.Val
+import Shelley.Spec.Ledger.Coin (word64ToCoin)
 
 -- | We use the same hashing algorithm so we can unwrap and rewrap the bytes.
 -- We don't care about the type that is hashed, which will differ going from
@@ -56,11 +58,11 @@ hashFromShortBytesE sbs = fromMaybe (error msg) $ Crypto.hashFromBytesShort sbs
       "hashFromBytesShort called with ShortByteString of the wrong length: "
         <> show sbs
 
-translateCompactTxOutByronToShelley :: Byron.CompactTxOut -> TxOut era
+translateCompactTxOutByronToShelley :: (Era era) => Byron.CompactTxOut -> TxOut era
 translateCompactTxOutByronToShelley (Byron.CompactTxOut compactAddr amount) =
   TxOutCompact
     (Byron.unsafeGetCompactAddress compactAddr)
-    (Byron.unsafeGetLovelace amount)
+    (vinject (word64ToCoin $ Byron.unsafeGetLovelace amount))
 
 translateCompactTxInByronToShelley ::
   (Era era, ADDRHASH (Crypto era) ~ Crypto.Blake2b_224) =>
@@ -122,7 +124,7 @@ translateToShelleyLedgerState genesisShelley globals epochNo cvs =
 
     reserves :: Coin
     reserves =
-      fromIntegral (sgMaxLovelaceSupply genesisShelley) - balance utxoShelley
+      fromIntegral (sgMaxLovelaceSupply genesisShelley) - (vcoin $ balance utxoShelley)
 
     epochState :: EpochState era
     epochState =
@@ -169,6 +171,7 @@ translateToShelleyLedgerState genesisShelley globals epochNo cvs =
 -- way as 'translateToShelleyLedgerState'.
 mkInitialShelleyLedgerView ::
   forall era.
+  (Era era) =>
   ShelleyGenesis era ->
   Globals ->
   EpochNo ->

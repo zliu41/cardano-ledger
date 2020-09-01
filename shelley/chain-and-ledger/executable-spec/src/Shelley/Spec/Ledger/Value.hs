@@ -85,17 +85,17 @@ instance NoUnexpectedThunks (Value era)
 instance Val t => Default Map t where
    apply mp k = case Map.lookup k mp of { Just t -> t; Nothing -> vzero }
 
-instance Eq (Value era) where
+instance (Era era) => Eq (Value era) where
     (==) (Value c v) (Value c1 v1) = (voper Equal c c1) && (voper Equal v v1)
 
-instance Semigroup (Value era) where
+instance (Era era) => Semigroup (Value era) where
     (<>) = vplus
 
-instance Monoid (Value era) where
+instance (Era era) => Monoid (Value era) where
     mempty  = vzero
     mappend = (<>)
 
-instance Val (Value era) where
+instance (Era era) => Val (Value era) where
   vzero = Value (Coin 0) vzero
   vplus (Value c1 v1) (Value c2 v2) = Value (vplus c1 c2) (vplus v1 v2)
   vnegate (Value c1 v1) = Value (vnegate c1) (vnegate v1)
@@ -174,7 +174,7 @@ instance ValTest Coin where
     | otherwise = (take (fromIntegral m) (repeat (Coin(n `div` m))), Coin (n `rem` m))
   vmodify f coin = f coin
 
-instance ValTest (Value era) where
+instance (Era era) => ValTest (Value era) where
   vsplit (Value coin _) 0 = ([], coin) -- The sum invariant may not hold, but no other way to split into 0 groups
   vsplit (Value coin assets) m = (zipWith Value coins maps,remainder)
     where

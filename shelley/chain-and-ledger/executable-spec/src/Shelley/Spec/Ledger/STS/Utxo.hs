@@ -24,9 +24,9 @@ import Cardano.Binary
     ToCBOR (..),
     encodeListLen,
   )
-import Cardano.Ledger.Era (Era)
+import Cardano.Ledger.Era (Era, ValueType(..))
 import Cardano.Prelude (NoUnexpectedThunks (..), asks)
-import Control.Iterate.SetAlgebra (dom, eval, rng, (∪), (⊆), (⋪))
+import Control.Iterate.SetAlgebra (dom, eval, (∪), (⊆), (⋪))
 import Control.State.Transition
   ( Assertion (..),
     AssertionViolation (..),
@@ -166,11 +166,11 @@ instance
        in PostCondition
             "Should preserve ADA in the UTxO state"
             ( \(TRC (_, us, tx)) us' ->
-                utxoBalance us + withdrawals (_body tx) == utxoBalance us'
+                vplus (utxoBalance us) (vinject $ withdrawals (_body tx)) == utxoBalance us'
             )
     ]
 
-instance NoUnexpectedThunks (PredicateFailure (UTXO era))
+instance (Era era, NoUnexpectedThunks (ValueType era)) => NoUnexpectedThunks (PredicateFailure (UTXO era))
 
 instance
   (Typeable era, Era era) =>
@@ -303,9 +303,9 @@ utxoInductive = do
   -- process Protocol Parameter Update Proposals
   ppup' <- trans @(PPUP era) $ TRC (PPUPEnv slot pp genDelegs, ppup, txup tx)
 
-  let outputs = Set.toList (eval (rng (txouts txb)))
+  let outputs = Map.elems $ unUTxO (txouts txb)
       minUTxOValue = _minUTxOValue pp
-      outputsTooSmall = [out | out@(TxOut _ vl) <- outputs, Op Lt vl (vinject $ scaledMinDeposit vl minUTxOValue)]
+      outputsTooSmall = [out | out@(TxOut _ vl) <- outputs, voper Lt vl (vinject $ scaledMinDeposit vl minUTxOValue)]
   null outputsTooSmall ?! OutputTooSmallUTxO outputsTooSmall
 
   -- Bootstrap (i.e. Byron) addresses have variable sized attributes in them.
