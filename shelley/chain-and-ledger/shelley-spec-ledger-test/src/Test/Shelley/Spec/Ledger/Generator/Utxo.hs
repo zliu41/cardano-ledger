@@ -17,7 +17,7 @@ module Test.Shelley.Spec.Ledger.Generator.Utxo
   )
 where
 
-import Cardano.Ledger.Era (Crypto, Era)
+import Cardano.Ledger.Era (Crypto, Era, ValueType)
 import qualified Control.Exception as Exn
 import Control.Iterate.SetAlgebra (forwards)
 import qualified Data.Either as Either (partitionEithers)
@@ -47,7 +47,7 @@ import Shelley.Spec.Ledger.BaseTypes
     StrictMaybe (..),
     maybeToStrictMaybe,
   )
-import Shelley.Spec.Ledger.Coin (Coin (..), splitCoin)
+import Shelley.Spec.Ledger.Coin (Coin (..))
 import Shelley.Spec.Ledger.Credential (Credential (..), StakeReference (..))
 import Shelley.Spec.Ledger.Hashing (hashAnnotated)
 import Shelley.Spec.Ledger.Keys
@@ -147,6 +147,7 @@ data InsufficientSpendingBalanceInfo = InsufficientSpendingBalanceInfo
   }
   deriving (Show)
 
+-- TODO adjust for Val
 tryGenTx ::
   (HasCallStack, Era era, Mock (Crypto era)) =>
   GenEnv era ->
@@ -154,12 +155,12 @@ tryGenTx ::
   (UTxOState era, DPState era) ->
   Gen (Either GenTxException (Tx era))
 tryGenTx ge@(GenEnv _ (Constants {genTxRetries})) =
-  genTxRetry genTxRetries (Coin (fromIntegral (maxBound :: Word64))) ge
+  genTxRetry genTxRetries (Val.inject $ Coin (fromIntegral (maxBound :: Word64))) ge
 
 genTxRetry ::
   (HasCallStack, Era era, Mock (Crypto era)) =>
   Int ->
-  Coin ->
+  ValueType era ->
   GenEnv era ->
   LedgerEnv ->
   (UTxOState era, DPState era) ->
@@ -341,19 +342,19 @@ genTxBody inputs outputs certs wdrls update fee slotWithTTL mdHash = do
 -- by the selected addresses.
 calcOutputsFromBalance ::
   (HasCallStack, Era era) =>
-  Coin ->
+  ValueType era ->
   [Addr era] ->
   Coin ->
   (Coin, StrictSeq (TxOut era))
 calcOutputsFromBalance balance_ addrs fee =
   ( fee <> splitCoinRem,
-    (`TxOut` amountPerOutput) <$> StrictSeq.fromList addrs
+    StrictSeq.fromList $ zipWith TxOut addrs amountPerOutput
   )
   where
     -- split the available balance into equal portions (one for each address),
     -- if there is a remainder, then add it to the fee.
-    balanceAfterFee = balance_ Val.~~ fee
-    (amountPerOutput, splitCoinRem) = splitCoin balanceAfterFee (fromIntegral $ length addrs)
+    balanceAfterFee = balance_ Val.~~ (Val.inject fee)
+    (amountPerOutput, splitCoinRem) = Val.split balanceAfterFee (fromIntegral $ length addrs)
 
 -- | Select unspent output(s) to serve as inputs for a new transaction
 --
@@ -371,10 +372,10 @@ genInputs ::
   Map (KeyHash 'Payment era) (KeyPair 'Payment era) ->
   Map (ScriptHash era) (MultiSig era, MultiSig era) ->
   UTxO era ->
-  Gen ([TxIn era], Coin, ([KeyPair 'Witness era], [(MultiSig era, MultiSig era)]))
+  Gen ([TxIn era], ValueType era, ([KeyPair 'Witness era], [(MultiSig era, MultiSig era)]))
 genInputs Constants {minNumGenInputs, maxNumGenInputs} keyHashMap payScriptMap (UTxO utxo) = do
   selectedUtxo <-
-    take <$> QC.choose (minNumGenInputs, maxNumGenInputs)
+    take <$> (Val.inject <$> QC.choose (minNumGenInputs, maxNumGenInputs))
       <*> QC.shuffle (Map.toList utxo)
 
   let (inputs, witnesses) = unzip (witnessedInput <$> selectedUtxo)

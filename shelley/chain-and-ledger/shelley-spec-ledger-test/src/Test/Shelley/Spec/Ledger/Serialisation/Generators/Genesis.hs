@@ -45,6 +45,7 @@ import Shelley.Spec.Ledger.PParams
 import Shelley.Spec.Ledger.Scripts
 import Shelley.Spec.Ledger.TxData
 import Test.Shelley.Spec.Ledger.Utils (mkHash)
+import qualified Shelley.Spec.Ledger.Val as Val
 
 genShelleyGenesis :: Era era => Gen (ShelleyGenesis era)
 genShelleyGenesis =
@@ -239,7 +240,7 @@ genVRFKeyPair = do
   where
     seedSize = fromIntegral (seedSizeVRF (Proxy :: Proxy (VRF (Crypto era))))
 
-genFundsList :: Era era => Gen [(Addr era, Coin)]
+genFundsList :: Era era => Gen [(Addr era, ValueType era)]
 genFundsList = Gen.list (Range.linear 1 100) genGenesisFundPair
 
 genSeed :: Int -> Gen Seed
@@ -274,9 +275,9 @@ genKeyPair = do
             )
         )
 
-genGenesisFundPair :: Era era => Gen (Addr era, Coin)
+genGenesisFundPair :: forall era . Era era => Gen (Addr era, ValueType era)
 genGenesisFundPair =
-  (,) <$> genAddress <*> genCoin
+  (,) <$> genAddress <*> genVal @era
 
 genAddress :: Era era => Gen (Addr era)
 genAddress = do
@@ -293,6 +294,10 @@ genNetworkMagic = Gen.enumBounded
 genCoin :: Gen Coin
 genCoin =
   Coin <$> Gen.integral (Range.linear 1 1000000000)
+
+genVal :: (Era era) => Gen (ValueType era)
+genVal =
+  (Val.inject . Coin) <$> Gen.integral (Range.linear 1 1000000000)
 
 genSecurityParam :: Gen Word64
 genSecurityParam = Gen.word64 (Range.linear 1 20000)

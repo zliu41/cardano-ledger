@@ -44,7 +44,8 @@ shrinkTxBody (TxBody is os cs ws tf tl tu md) =
 
   -- Shrink outputs, add the differing balance of the original and new outputs
   -- to the fees in order to preserve the invariant
-  [ TxBody is os' cs ws (tf <> (outBalance Val.~~ outputBalance os')) tl tu md
+  -- TODO
+  [ TxBody is os' cs ws (tf <> (Val.coin $ outBalance Val.~~ outputBalance os')) tl tu md
     | os' <- toList $ shrinkStrictSeq shrinkTxOut os
   ]
   where
@@ -55,15 +56,16 @@ shrinkTxBody (TxBody is os cs ws tf tl tu md) =
     -- [ TxBody is os cs ws tf tl tu' | tu' <- shrinkUpdate tu ]
     outBalance = outputBalance os
 
-outputBalance :: Era era => StrictSeq (TxOut era) -> Coin
-outputBalance = foldl' (\v (TxOut _ c) -> v <> c) (Coin 0)
+outputBalance :: Era era => StrictSeq (TxOut era) -> (ValueType era)
+outputBalance = foldl' (\v (TxOut _ c) -> v <> c) mempty
 
 shrinkTxIn :: TxIn era -> [TxIn era]
 shrinkTxIn = const []
 
+-- TODO make this use a Val shrinker
 shrinkTxOut :: Era era => TxOut era -> [TxOut era]
-shrinkTxOut (TxOut addr coin) =
-  TxOut addr <$> shrinkCoin coin
+shrinkTxOut (TxOut addr vl) =
+  TxOut addr <$> (Val.inject <$> (shrinkCoin (Val.coin vl)))
 
 shrinkCoin :: Coin -> [Coin]
 shrinkCoin (Coin x) = Coin <$> shrinkIntegral x

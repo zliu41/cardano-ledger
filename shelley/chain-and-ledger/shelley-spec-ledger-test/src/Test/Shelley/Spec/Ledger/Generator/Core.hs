@@ -186,6 +186,7 @@ import Shelley.Spec.Ledger.UTxO
     txouts,
     pattern UTxO,
   )
+import qualified Shelley.Spec.Ledger.Val as Val
 -- import Test.Cardano.Crypto.VRF.Fake (WithResult (..))
 
 import Test.Cardano.Crypto.VRF.Fake (WithResult (..))
@@ -489,10 +490,11 @@ pickStakeKey keys = vKey . snd <$> QC.elements keys
 -- Note: we need to keep the initial utxo coin sizes large enough so that
 -- when we simulate sequences of transactions, we have enough funds available
 -- to include certificates that require deposits.
+-- TODO use Val generator in the future
 genTxOut :: (HasCallStack, Era era) => Constants -> [Addr era] -> Gen [TxOut era]
 genTxOut Constants {maxGenesisOutputVal, minGenesisOutputVal} addrs = do
   ys <- genCoinList minGenesisOutputVal maxGenesisOutputVal (length addrs) (length addrs)
-  return (uncurry TxOut <$> zip addrs ys)
+  return (uncurry TxOut <$> zip addrs (Val.inject <$> ys))
 
 -- | Generates a list of 'Coin' values of length between 'lower' and 'upper'
 -- and with values between 'minCoin' and 'maxCoin'.

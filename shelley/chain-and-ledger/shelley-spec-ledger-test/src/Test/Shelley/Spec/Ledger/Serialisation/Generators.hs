@@ -20,6 +20,7 @@ module Test.Shelley.Spec.Ledger.Serialisation.Generators
   )
 where
 
+import Cardano.Ledger.Era (ValueType)
 import Cardano.Binary
   ( ToCBOR (..),
     toCBOR,
@@ -149,7 +150,7 @@ mkDummyHash = coerce . hashWithSerialiser @h toCBOR
 type MockGen era = (Mock (Crypto era), Arbitrary (VerKeyDSIGN (DSIGN (Crypto era))))
 
 instance
-  (Era era, Mock (Crypto era)) =>
+  (Era era, Arbitrary (ValueType era), Mock (Crypto era)) =>
   Arbitrary (Block era)
   where
   arbitrary = do
@@ -178,7 +179,7 @@ instance
       p :: Proxy era
       p = Proxy
 
-instance (Era era, Mock (Crypto era)) => Arbitrary (BHeader era) where
+instance (Era era, Arbitrary (ValueType era), Mock (Crypto era)) => Arbitrary (BHeader era) where
   arbitrary = do
     res <- arbitrary :: Gen (Block era)
     return $ case res of
@@ -214,7 +215,7 @@ instance (Typeable kr, Era era, Mock (Crypto era)) => Arbitrary (WitVKey era kr)
       <$> arbitrary
       <*> arbitrary
 
-instance (Era era, Mock (Crypto era)) => Arbitrary (WitnessSet era) where
+instance (Era era, Arbitrary (ValueType era), Mock (Crypto era)) => Arbitrary (WitnessSet era) where
   arbitrary =
     WitnessSet
       <$> arbitrary
@@ -223,18 +224,18 @@ instance (Era era, Mock (Crypto era)) => Arbitrary (WitnessSet era) where
     where
       mscriptsToWits = Map.fromList . map (\s -> (hashScript s, s))
 
-instance (Era era, Mock (Crypto era)) => Arbitrary (Wdrl era) where
+instance (Era era, Arbitrary (ValueType era), Mock (Crypto era)) => Arbitrary (Wdrl era) where
   arbitrary = genericArbitraryU
   shrink = genericShrink
 
-instance (Era era, Mock (Crypto era)) => Arbitrary (ProposedPPUpdates era) where
+instance (Era era, Arbitrary (ValueType era), Mock (Crypto era)) => Arbitrary (ProposedPPUpdates era) where
   arbitrary = ProposedPPUpdates <$> pure Map.empty
 
-instance (Era era, Mock (Crypto era)) => Arbitrary (Update era) where
+instance (Era era, Arbitrary (ValueType era), Mock (Crypto era)) => Arbitrary (Update era) where
   arbitrary = genericArbitraryU
   shrink = genericShrink
 
-instance (Era era, Mock (Crypto era)) => Arbitrary (TxBody era) where
+instance (Era era, Arbitrary (ValueType era), Mock (Crypto era)) => Arbitrary (TxBody era) where
   -- Our arbitrary instance constructs things using the pattern in order to have
   -- the correct serialised bytes.
   arbitrary =
@@ -283,7 +284,7 @@ instance Arbitrary MetaData where
 maxTxWits :: Int
 maxTxWits = 5
 
-instance (Era era, Mock (Crypto era)) => Arbitrary (Tx era) where
+instance (Era era, Arbitrary (ValueType era), Mock (Crypto era)) => Arbitrary (Tx era) where
   -- Our arbitrary instance constructs things using the pattern in order to have
   -- the correct serialised bytes.
   arbitrary =
@@ -301,7 +302,7 @@ instance Era era => Arbitrary (TxIn era) where
       <$> (TxId <$> genHash)
       <*> arbitrary
 
-instance (Era era, Mock (Crypto era)) => Arbitrary (TxOut era) where
+instance (Era era, Arbitrary (ValueType era), Mock (Crypto era)) => Arbitrary (TxOut era) where
   arbitrary = TxOut <$> arbitrary <*> arbitrary
 
 instance Arbitrary Nonce where
@@ -338,14 +339,14 @@ instance Era era => Arbitrary (STS.PpupPredicateFailure era) where
   shrink = genericShrink
 
 instance
-  (Era era, Mock (Crypto era)) =>
+  (Era era, Arbitrary (ValueType era), Mock (Crypto era)) =>
   Arbitrary (STS.UtxoPredicateFailure era)
   where
   arbitrary = genericArbitraryU
-  shrink = genericShrink
+--  shrink = genericShrink
 
 instance
-  (Era era, MockGen era) =>
+  (Era era, Arbitrary (ValueType era), MockGen era) =>
   Arbitrary (STS.UtxowPredicateFailure era)
   where
   arbitrary = genericArbitraryU
@@ -373,21 +374,21 @@ instance
   shrink = genericShrink
 
 instance
-  (Era era, Mock (Crypto era)) =>
+  (Era era, Arbitrary (ValueType era), Mock (Crypto era)) =>
   Arbitrary (STS.DelegsPredicateFailure era)
   where
   arbitrary = genericArbitraryU
   shrink = genericShrink
 
 instance
-  (Era era, MockGen era) =>
+  (Era era, MockGen era, Arbitrary (ValueType era)) =>
   Arbitrary (STS.LedgerPredicateFailure era)
   where
   arbitrary = genericArbitraryU
   shrink = genericShrink
 
 instance
-  (Era era, MockGen era) =>
+  (Era era, MockGen era, Arbitrary (ValueType era)) =>
   Arbitrary (STS.LedgersPredicateFailure era)
   where
   arbitrary = genericArbitraryU
@@ -405,7 +406,7 @@ instance Arbitrary EpochNo where
   -- Cannot be negative even though it is an 'Integer'
   arbitrary = EpochNo <$> choose (1, 100000)
 
-instance (Era era, Mock (Crypto era)) => Arbitrary (Addr era) where
+instance (Era era, Arbitrary (ValueType era), Mock (Crypto era)) => Arbitrary (Addr era) where
   arbitrary =
     oneof
       [ Addr <$> arbitrary <*> arbitrary <*> arbitrary,
@@ -432,7 +433,7 @@ instance Arbitrary Ptr where
   arbitrary = genericArbitraryU
   shrink = genericShrink
 
-instance (Era era, Mock (Crypto era)) => Arbitrary (RewardAcnt era) where
+instance (Era era, Arbitrary (ValueType era), Mock (Crypto era)) => Arbitrary (RewardAcnt era) where
   arbitrary = RewardAcnt <$> arbitrary <*> arbitrary
 
 instance Arbitrary Network where
@@ -463,11 +464,11 @@ instance Era era => Arbitrary (STS.PrtclState era) where
   arbitrary = genericArbitraryU
   shrink = genericShrink
 
-instance (Era era, Mock (Crypto era)) => Arbitrary (UTxO era) where
+instance (Era era, Arbitrary (ValueType era), Mock (Crypto era)) => Arbitrary (UTxO era) where
   arbitrary = genericArbitraryU
   shrink = genericShrink
 
-instance (Era era, Mock (Crypto era)) => Arbitrary (PState era) where
+instance (Era era, Arbitrary (ValueType era), Mock (Crypto era)) => Arbitrary (PState era) where
   arbitrary = genericArbitraryU
   shrink = genericShrink
 
@@ -487,7 +488,7 @@ instance (Era era, Mock (Crypto era)) => Arbitrary (GenDelegPair era) where
   arbitrary = genericArbitraryU
   shrink = genericShrink
 
-instance (Era era, Mock (Crypto era)) => Arbitrary (DState era) where
+instance (Era era, Arbitrary (ValueType era), Mock (Crypto era)) => Arbitrary (DState era) where
   arbitrary =
     DState
       <$> arbitrary
@@ -505,7 +506,7 @@ instance (Era era, Mock (Crypto era)) => Arbitrary (Delegation era) where
   arbitrary = genericArbitraryU
   shrink = genericShrink
 
-instance (Era era, Mock (Crypto era)) => Arbitrary (PoolCert era) where
+instance (Era era, Arbitrary (ValueType era), Mock (Crypto era)) => Arbitrary (PoolCert era) where
   arbitrary = genericArbitraryU
   shrink = genericShrink
 
@@ -517,27 +518,27 @@ instance (Era era, Mock (Crypto era)) => Arbitrary (MIRCert era) where
   arbitrary = genericArbitraryU
   shrink = genericShrink
 
-instance (Era era, Mock (Crypto era)) => Arbitrary (DCert era) where
+instance (Era era, Arbitrary (ValueType era), Mock (Crypto era)) => Arbitrary (DCert era) where
   arbitrary = genericArbitraryU
   shrink = genericShrink
 
-instance (Era era, Mock (Crypto era)) => Arbitrary (PPUPState era) where
+instance (Era era, Arbitrary (ValueType era), Mock (Crypto era)) => Arbitrary (PPUPState era) where
   arbitrary = genericArbitraryU
   shrink = genericShrink
 
-instance (Era era, Mock (Crypto era)) => Arbitrary (DPState era) where
+instance (Era era, Arbitrary (ValueType era), Mock (Crypto era)) => Arbitrary (DPState era) where
   arbitrary = genericArbitraryU
   shrink = genericShrink
 
-instance (Era era, Mock (Crypto era)) => Arbitrary (UTxOState era) where
+instance (Era era, Arbitrary (ValueType era), Mock (Crypto era)) => Arbitrary (UTxOState era) where
   arbitrary = genericArbitraryU
   shrink = genericShrink
 
-instance (Era era, Mock (Crypto era)) => Arbitrary (LedgerState era) where
+instance (Era era, Arbitrary (ValueType era), Mock (Crypto era)) => Arbitrary (LedgerState era) where
   arbitrary = genericArbitraryU
   shrink = genericShrink
 
-instance (Era era, Mock (Crypto era)) => Arbitrary (NewEpochState era) where
+instance (Era era, Arbitrary (ValueType era), Mock (Crypto era)) => Arbitrary (NewEpochState era) where
   arbitrary = genericArbitraryU
   shrink = genericShrink
 
@@ -551,7 +552,7 @@ instance Era era => Arbitrary (PoolDistr era) where
     where
       genVal = IndividualPoolStake <$> arbitrary <*> genHash
 
-instance (Era era, Mock (Crypto era)) => Arbitrary (EpochState era) where
+instance (Era era, Arbitrary (ValueType era), Mock (Crypto era)) => Arbitrary (EpochState era) where
   arbitrary =
     EpochState
       <$> arbitrary
@@ -594,25 +595,25 @@ instance Arbitrary Likelihood where
 instance Arbitrary LogWeight where
   arbitrary = LogWeight <$> arbitrary
 
-instance (Era era, Mock (Crypto era)) => Arbitrary (NonMyopic era) where
+instance (Era era, Arbitrary (ValueType era), Mock (Crypto era)) => Arbitrary (NonMyopic era) where
   arbitrary = genericArbitraryU
   shrink = genericShrink
 
-instance (Era era, Mock (Crypto era)) => Arbitrary (SnapShot era) where
+instance (Era era, Arbitrary (ValueType era), Mock (Crypto era)) => Arbitrary (SnapShot era) where
   arbitrary = genericArbitraryU
   shrink = genericShrink
 
-instance (Era era, Mock (Crypto era)) => Arbitrary (SnapShots era) where
+instance (Era era, Arbitrary (ValueType era), Mock (Crypto era)) => Arbitrary (SnapShots era) where
   arbitrary = genericArbitraryU
   shrink = genericShrink
 
 instance Arbitrary PerformanceEstimate where
   arbitrary = PerformanceEstimate <$> arbitrary
 
-instance (Era era, Mock (Crypto era)) => Arbitrary (Stake era) where
+instance (Era era, Arbitrary (ValueType era), Mock (Crypto era)) => Arbitrary (Stake era) where
   arbitrary = Stake <$> arbitrary
 
-instance (Era era, Mock (Crypto era)) => Arbitrary (PoolParams era) where
+instance (Era era, Arbitrary (ValueType era), Mock (Crypto era)) => Arbitrary (PoolParams era) where
   arbitrary =
     PoolParams
       <$> arbitrary

@@ -20,7 +20,8 @@ import qualified Shelley.Spec.Ledger.Val as ValClass
 class
   ( CryptoClass.Crypto (Crypto e),
     Typeable e,
-    ValClass.Val (ValueType e)
+    ValClass.Val (ValueType e),
+    ValClass.ValTest (ValueType e)
   ) =>
   Era e
   where
