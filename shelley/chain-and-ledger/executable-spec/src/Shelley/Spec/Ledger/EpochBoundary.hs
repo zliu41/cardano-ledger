@@ -6,6 +6,7 @@
 {-# LANGUAGE ScopedTypeVariables #-}
 {-# LANGUAGE TemplateHaskell #-}
 {-# LANGUAGE TupleSections #-}
+{-# LANGUAGE ScopedTypeVariables #-}
 
 -- |
 -- Module      : EpochBoundary
@@ -78,6 +79,7 @@ newtype Stake era = Stake
 
 -- | Sum up all the Coin for each staking Credential
 aggregateUtxoCoinByCredential ::
+  forall era .
   Era era =>
   Map Ptr (Credential 'Staking era) ->
   UTxO era ->
@@ -86,11 +88,12 @@ aggregateUtxoCoinByCredential ::
 aggregateUtxoCoinByCredential ptrs (UTxO u) initial =
   Map.foldr accum initial u
   where
-    accum (TxOutCompact addr c) ans = case deserialiseAddrStakeRef addr of
+    accum :: TxOut era -> Map (Credential 'Staking era) Coin -> Map (Credential 'Staking era) Coin
+    accum (TxOutCompact addr vl) ans = case deserialiseAddrStakeRef addr of
       Just (StakeRefPtr p) -> case Map.lookup p ptrs of
-        Just cred -> Map.insertWith (<>) cred (word64ToCoin c) ans
+        Just cred -> Map.insertWith (<>) cred (coin vl) ans
         Nothing -> ans
-      Just (StakeRefBase hk) -> Map.insertWith (<>) hk (word64ToCoin c) ans
+      Just (StakeRefBase hk) -> Map.insertWith (<>) hk (coin vl) ans
       _other -> ans
 
 -- | Get stake of one pool

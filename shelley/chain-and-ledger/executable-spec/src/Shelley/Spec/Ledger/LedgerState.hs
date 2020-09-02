@@ -551,7 +551,7 @@ data NewEpochState era = NewEpochState
   }
   deriving (Show, Eq, Generic)
 
-instance NFData (NewEpochState era)
+instance (Era era) => NFData (NewEpochState era)
 
 instance NoUnexpectedThunks (NewEpochState era)
 
@@ -602,7 +602,7 @@ data LedgerState era = LedgerState
 
 instance NoUnexpectedThunks (LedgerState era)
 
-instance NFData (LedgerState era)
+instance (Era era) => NFData (LedgerState era)
 
 instance Era era => ToCBOR (LedgerState era) where
   toCBOR (LedgerState u dp) =
@@ -670,9 +670,9 @@ produced ::
   PParams ->
   Map (KeyHash 'StakePool era) (PoolParams era) ->
   TxBody era ->
-  Coin
+  ValueType era
 produced pp stakePools tx =
-  balance (txouts tx) <> _txfee tx <> totalDeposits pp stakePools (toList $ _certs tx)
+  balance (txouts tx) <> (inject $ _txfee tx <> totalDeposits pp stakePools (toList $ _certs tx))
 
 -- | Compute the key deregistration refunds in a transaction
 keyRefunds ::
@@ -690,9 +690,9 @@ consumed ::
   PParams ->
   UTxO era ->
   TxBody era ->
-  Coin
+  ValueType era
 consumed pp u tx =
-  balance (eval (txins tx ◁ u)) <> refunds <> withdrawals
+  balance (eval (txins tx ◁ u)) <> (inject $ refunds <> withdrawals)
   where
     -- balance (UTxO (Map.restrictKeys v (txins tx))) + refunds + withdrawals
     refunds = keyRefunds pp tx

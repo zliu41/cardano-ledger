@@ -50,9 +50,6 @@ module Shelley.Spec.Ledger.BaseTypes
     -- * STS Base
     Globals (..),
     ShelleyBase,
-
-    -- * Shelley era
-    Shelley,
   )
 where
 
@@ -454,12 +451,3 @@ instance FromCBOR Network where
     word8ToNetwork <$> fromCBOR >>= \case
       Nothing -> cborError $ DecoderErrorCustom "Network" "Unknown network id"
       Just n -> pure n
-
---------------------------------------------------------------------------------
--- Shelley Era
---------------------------------------------------------------------------------
-
-data Shelley c
-
-instance Cardano.Ledger.Crypto.Crypto c => Era (Shelley c) where
-  type Crypto (Shelley c) = c

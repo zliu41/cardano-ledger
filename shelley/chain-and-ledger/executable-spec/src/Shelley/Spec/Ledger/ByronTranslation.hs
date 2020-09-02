@@ -58,11 +58,11 @@ hashFromShortBytesE sbs = fromMaybe (error msg) $ Crypto.hashFromBytesShort sbs
       "hashFromBytesShort called with ShortByteString of the wrong length: "
         <> show sbs
 
-translateCompactTxOutByronToShelley :: Byron.CompactTxOut -> TxOut era
+translateCompactTxOutByronToShelley :: (Era era) => Byron.CompactTxOut -> TxOut era
 translateCompactTxOutByronToShelley (Byron.CompactTxOut compactAddr amount) =
   TxOutCompact
     (Byron.unsafeGetCompactAddress compactAddr)
-    (Byron.unsafeGetLovelace amount)
+    (vinject (word64ToCoin $ Byron.unsafeGetLovelace amount))
 
 translateCompactTxInByronToShelley ::
   (Era era, ADDRHASH (Crypto era) ~ Crypto.Blake2b_224) =>
@@ -126,6 +126,7 @@ translateToShelleyLedgerState genesisShelley globals epochNo cvs =
     reserves =
       word64ToCoin (sgMaxLovelaceSupply genesisShelley) Val.~~ balance utxoShelley
 
+
     epochState :: EpochState era
     epochState =
       EpochState
@@ -171,6 +172,7 @@ translateToShelleyLedgerState genesisShelley globals epochNo cvs =
 -- way as 'translateToShelleyLedgerState'.
 mkInitialShelleyLedgerView ::
   forall era.
+  (Era era) =>
   ShelleyGenesis era ->
   Globals ->
   EpochNo ->
