@@ -869,7 +869,7 @@ alicePerfEx11 = alicePerfEx8 <> epoch4Likelihood
     t = leaderProbability f relativeStake (_d ppEx)
     (Coin stake) = fold (EB.unStake . EB._stake $ snapEx5 @era) -- everyone has delegated to Alice's Pool
     relativeStake = fromRational (stake % supply)
-    (Coin supply) = maxLLSupply <> reserves12
+    (Coin supply) = maxLLSupply Val.~~ reserves12
     f = activeSlotCoeff testGlobals
 
 nonMyopicEx11 :: forall era. Era era => NonMyopic era
