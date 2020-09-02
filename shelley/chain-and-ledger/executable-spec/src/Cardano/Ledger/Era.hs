@@ -16,12 +16,6 @@ import qualified Cardano.Ledger.Crypto as CryptoClass
 import Data.Kind (Type)
 import Data.Typeable (Typeable)
 import qualified Shelley.Spec.Ledger.Val as ValClass
-import Cardano.Binary
-  ( ToCBOR (..),
-    FromCBOR (..),
-  )
-import Cardano.Prelude
-  ( NoUnexpectedThunks (..))
 
 class
   ( CryptoClass.Crypto (Crypto e),

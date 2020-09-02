@@ -62,7 +62,7 @@ translateCompactTxOutByronToShelley :: (Era era) => Byron.CompactTxOut -> TxOut 
 translateCompactTxOutByronToShelley (Byron.CompactTxOut compactAddr amount) =
   TxOutCompact
     (Byron.unsafeGetCompactAddress compactAddr)
-    (vinject (word64ToCoin $ Byron.unsafeGetLovelace amount))
+    (Val.inject (word64ToCoin $ Byron.unsafeGetLovelace amount))
 
 translateCompactTxInByronToShelley ::
   (Era era, ADDRHASH (Crypto era) ~ Crypto.Blake2b_224) =>
@@ -124,7 +124,7 @@ translateToShelleyLedgerState genesisShelley globals epochNo cvs =
 
     reserves :: Coin
     reserves =
-      word64ToCoin (sgMaxLovelaceSupply genesisShelley) Val.~~ balance utxoShelley
+      (word64ToCoin (sgMaxLovelaceSupply genesisShelley)) Val.~~ (Val.coin $ balance utxoShelley)
 
 
     epochState :: EpochState era

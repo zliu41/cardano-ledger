@@ -20,14 +20,15 @@ module Shelley.Spec.Ledger.STS.Utxo
   )
 where
 
+import qualified Data.PartialOrd as PO
 import Cardano.Binary
   ( FromCBOR (..),
     ToCBOR (..),
     encodeListLen,
   )
-import Cardano.Ledger.Era (Era)
-import Cardano.Prelude (NoUnexpectedThunks (..), asks)
-import Control.Iterate.SetAlgebra (dom, eval, rng, (∪), (⊆), (⋪))
+import Cardano.Ledger.Era (Era, ValueType(..))
+import Cardano.Prelude (asks, NoUnexpectedThunks)
+import Control.Iterate.SetAlgebra (dom, eval, (∪), (⊆), (⋪))
 import Control.State.Transition
   ( Assertion (..),
     AssertionViolation (..),
@@ -119,8 +120,8 @@ data UtxoPredicateFailure era
       !Coin -- the minimum fee for this transaction
       !Coin -- the fee supplied in this transaction
   | ValueNotConservedUTxO
-      !Coin -- the Coin consumed by this transaction
-      !Coin -- the Coin produced by this transaction
+      !(ValueType era) -- the Coin consumed by this transaction
+      !(ValueType era) -- the Coin produced by this transaction
   | WrongNetwork
       !Network -- the expected network id
       !(Set (Addr era)) -- the set of addresses with incorrect network IDs
@@ -134,7 +135,6 @@ data UtxoPredicateFailure era
       ![TxOut era] -- list of supplied bad transaction outputs
   deriving (Eq, Show, Generic)
 
-instance NoUnexpectedThunks (UtxoPredicateFailure era)
 
 instance
   (Typeable era, Era era) =>
@@ -224,6 +224,8 @@ instance
           pure (2, OutputBootAddrAttrsTooBig outs)
         k -> invalidKey k
 
+instance (Era era) => NoUnexpectedThunks (UtxoPredicateFailure era)
+
 instance
   (Era era) =>
   STS (UTXO era)
@@ -254,12 +256,12 @@ instance
       PostCondition
         "Deposit pot must not be negative (post)"
         (\_ st' -> _deposited st' >= mempty),
-      let utxoBalance us = _deposited us <> _fees us <> balance (_utxo us)
+      let utxoBalance us = (Val.inject $ _deposited us <> _fees us) <> balance (_utxo us)
           withdrawals txb = foldl' (<>) mempty $ unWdrl $ _wdrls txb
        in PostCondition
             "Should preserve ADA in the UTxO state"
             ( \(TRC (_, us, tx)) us' ->
-                utxoBalance us <> withdrawals (_body tx) == utxoBalance us'
+                utxoBalance us <> (Val.inject $ withdrawals (_body tx)) == utxoBalance us'
             )
     ]
 
@@ -306,9 +308,9 @@ utxoInductive = do
   -- process Protocol Parameter Update Proposals
   ppup' <- trans @(PPUP era) $ TRC (PPUPEnv slot pp genDelegs, ppup, txup tx)
 
-  let outputs = Set.toList (eval (rng (txouts txb)))
+  let outputs = Map.elems $ unUTxO (txouts txb) -- Set.toList (eval (rng (txouts txb))) to coorespond with Specification -- Requires a unneeded Ord instance
       minUTxOValue = _minUTxOValue pp
-      outputsTooSmall = [out | out@(TxOut _ c) <- outputs, c < minUTxOValue]
+      outputsTooSmall = [out | out@(TxOut _ vl) <- outputs, (PO.<) vl (Val.inject $ Val.scaledMinDeposit vl minUTxOValue)]
   null outputsTooSmall ?! OutputTooSmallUTxO outputsTooSmall
 
   -- Bootstrap (i.e. Byron) addresses have variable sized attributes in them.

@@ -94,7 +94,7 @@ import Cardano.Binary
     ToCBOR (..),
     encodeListLen,
   )
-import Cardano.Ledger.Era (Era)
+import Cardano.Ledger.Era (Era, ValueType(..))
 import Cardano.Prelude (NFData, NoUnexpectedThunks (..))
 import Control.Iterate.SetAlgebra (Bimap, biMapEmpty, dom, eval, forwards, range, (∈), (∪+), (▷), (◁))
 import Control.Monad.Trans.Reader (asks)
@@ -417,7 +417,7 @@ data EpochState era = EpochState
 
 instance NoUnexpectedThunks (EpochState era)
 
-instance NFData (EpochState era)
+instance (Era era) => NFData (EpochState era)
 
 instance Era era => ToCBOR (EpochState era) where
   toCBOR (EpochState a s l r p n) =
@@ -672,7 +672,7 @@ produced ::
   TxBody era ->
   ValueType era
 produced pp stakePools tx =
-  balance (txouts tx) <> (inject $ _txfee tx <> totalDeposits pp stakePools (toList $ _certs tx))
+  balance (txouts tx) <> (Val.inject $ _txfee tx <> totalDeposits pp stakePools (toList $ _certs tx))
 
 -- | Compute the key deregistration refunds in a transaction
 keyRefunds ::
@@ -692,7 +692,7 @@ consumed ::
   TxBody era ->
   ValueType era
 consumed pp u tx =
-  balance (eval (txins tx ◁ u)) <> (inject $ refunds <> withdrawals)
+  balance (eval (txins tx ◁ u)) <> (Val.inject $ refunds <> withdrawals)
   where
     -- balance (UTxO (Map.restrictKeys v (txins tx))) + refunds + withdrawals
     refunds = keyRefunds pp tx

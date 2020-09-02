@@ -56,7 +56,7 @@ import Data.Typeable (Typeable)
 import Quiet
 import Shelley.Spec.Ledger.Address (Addr (..))
 import Shelley.Spec.Ledger.BaseTypes (strictMaybeToMaybe)
-import Shelley.Spec.Ledger.Coin (Coin (..), word64ToCoin)
+import Shelley.Spec.Ledger.Coin (Coin (..))
 import Shelley.Spec.Ledger.Credential (Credential (..))
 import Shelley.Spec.Ledger.Delegation.Certificates
   ( DCert (..),
@@ -102,7 +102,7 @@ instance Embed (UTxO era) (Map (TxIn era) (TxOut era)) where
 
 -- | The unspent transaction outputs.
 newtype UTxO era = UTxO {unUTxO :: Map (TxIn era) (TxOut era)}
-  deriving (Eq, Ord, ToCBOR, FromCBOR, NoUnexpectedThunks, Generic, NFData)
+  deriving (Eq, ToCBOR, FromCBOR, NoUnexpectedThunks, Generic, NFData)
   deriving (Show) via Quiet (UTxO era)
 
 instance Relation (UTxO era) where
@@ -219,10 +219,10 @@ makeWitnessesFromScriptKeys txbodyHash hashKeyMap scriptHashes =
    in makeWitnessesVKey txbodyHash (Map.elems witKeys)
 
 -- | Determine the total balance contained in the UTxO.
-balance :: UTxO era -> Coin
+balance :: Era era => UTxO era -> ValueType era
 balance (UTxO utxo) = Map.foldl' addCoins mempty utxo
   where
-    addCoins !b (TxOutCompact _ (word64ToCoin -> a)) = a <> b
+    addCoins !b (TxOutCompact _ a) = a <> b
 
 -- | Determine the total deposit amount needed.
 -- The block may (legitimately) contain multiple registration certificates

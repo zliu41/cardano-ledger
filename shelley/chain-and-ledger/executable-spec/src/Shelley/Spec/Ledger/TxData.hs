@@ -1,5 +1,4 @@
 {-# LANGUAGE DataKinds #-}
-{-# LANGUAGE DeriveAnyClass #-}
 {-# LANGUAGE DeriveGeneric #-}
 {-# LANGUAGE DerivingStrategies #-}
 {-# LANGUAGE DerivingVia #-}
@@ -138,7 +137,7 @@ import Shelley.Spec.Ledger.BaseTypes
     maybeToStrictMaybe,
     strictMaybeToMaybe,
   )
-import Shelley.Spec.Ledger.Coin (Coin (..), word64ToCoin)
+import Shelley.Spec.Ledger.Coin (Coin (..))
 import Shelley.Spec.Ledger.Credential
   ( Credential (..),
     Ix,
@@ -205,7 +204,7 @@ data PoolMetaData = PoolMetaData
   { _poolMDUrl :: !Url,
     _poolMDHash :: !ByteString
   }
-  deriving (Eq, Ord, Generic, Show, NFData)
+  deriving (Eq, Ord, Generic, Show)
 
 instance ToJSON PoolMetaData where
   toJSON pmd =
@@ -222,6 +221,9 @@ instance FromJSON PoolMetaData where
         <*> explicitParseField (fmap (fst . Base16.decode . Char8.pack) . parseJSON) obj "hash"
 
 instance NoUnexpectedThunks PoolMetaData
+
+instance NFData PoolMetaData where
+  rnf (PoolMetaData url bs) = seq (rnf url) (rnf bs)
 
 data StakePoolRelay
   = -- | One or both of IPv4 & IPv6
@@ -330,11 +332,35 @@ data PoolParams era = PoolParams
     _poolRelays :: !(StrictSeq StakePoolRelay),
     _poolMD :: !(StrictMaybe PoolMetaData)
   }
-  deriving (Show, Generic, Eq, Ord, NFData)
+  deriving (Show, Generic, Eq, Ord)
   deriving (ToCBOR) via CBORGroup (PoolParams era)
   deriving (FromCBOR) via CBORGroup (PoolParams era)
 
 instance NoUnexpectedThunks (PoolParams era)
+
+instance NFData (PoolParams era) where
+  rnf (PoolParams a b c d e f g h i) =
+    seq
+      (rnf a)
+      ( seq
+          (rnf b)
+          ( seq
+              (rnf c)
+              ( seq
+                  (rnf d)
+                  ( seq
+                      (rnf e)
+                      ( seq
+                          (rnf f)
+                          ( seq
+                              (rnf g)
+                              (seq (rnf h) (rnf i))
+                          )
+                      )
+                  )
+              )
+          )
+      )
 
 newtype Wdrl era = Wdrl {unWdrl :: Map (RewardAcnt era) Coin}
   deriving (Show, Eq, Generic)
@@ -385,10 +411,19 @@ deriving newtype instance Era era => FromCBOR (TxId era)
 
 -- | The input of a UTxO.
 data TxIn era = TxInCompact {-# UNPACK #-} !(TxId era) {-# UNPACK #-} !Word64
-  deriving (Show, Eq, Generic, Ord, NFData)
+  deriving (Generic)
 
 -- TODO: We will also want to have the TxId be compact, but the representation
 -- depends on the era.
+
+deriving instance Ord (TxIn era)
+
+deriving instance Eq (TxIn era)
+
+deriving instance Show (TxIn era)
+
+instance (Era era) => NFData (TxIn era) where
+  rnf (TxInCompact i ind) = seq (rnf i) (rnf ind)
 
 pattern TxIn ::
   Era era =>
@@ -409,8 +444,10 @@ instance NoUnexpectedThunks (TxIn era)
 data TxOut era
   = TxOutCompact
       {-# UNPACK #-} !BSS.ShortByteString
-      {-# UNPACK #-} !Word64
-  deriving (Show, Eq, Ord)
+      (ValueType era)
+
+deriving instance (Era era) => Show (TxOut era)
+deriving instance (Era era) => Eq (TxOut era)
 
 instance NFData (TxOut era) where
   rnf = (`seq` ())
@@ -420,23 +457,22 @@ deriving via UseIsNormalFormNamed "TxOut" (TxOut era) instance NoUnexpectedThunk
 pattern TxOut ::
   Era era =>
   Addr era ->
-  Coin ->
+  ValueType era ->
   TxOut era
-pattern TxOut addr coin <-
-  (viewCompactTxOut -> (addr, coin))
+pattern TxOut addr vl <-
+  (viewCompactTxOut -> (addr, vl))
   where
-    TxOut addr (Coin coin) =
-      TxOutCompact (BSS.toShort $ serialiseAddr addr) (fromIntegral coin)
+    TxOut addr vl =
+      TxOutCompact (BSS.toShort $ serialiseAddr addr) vl
 
 {-# COMPLETE TxOut #-}
 
-viewCompactTxOut :: forall era. Era era => TxOut era -> (Addr era, Coin)
-viewCompactTxOut (TxOutCompact bs c) = (addr, coin)
+viewCompactTxOut :: forall era. Era era => TxOut era -> (Addr era, ValueType era)
+viewCompactTxOut (TxOutCompact bs vl) = (addr, vl)
   where
     addr = case decompactAddr bs of
       Nothing -> panic "viewCompactTxOut: impossible"
       Just a -> a
-    coin = word64ToCoin c
 
 decompactAddr :: Era era => BSS.ShortByteString -> Maybe (Addr era)
 decompactAddr bs =
@@ -471,7 +507,9 @@ data GenesisDelegCert era
   deriving (Show, Generic, Eq)
 
 data MIRPot = ReservesMIR | TreasuryMIR
-  deriving (Show, Generic, Eq, NoUnexpectedThunks)
+  deriving (Show, Generic, Eq)
+
+deriving via UseIsNormalFormNamed "MIRPot" MIRPot instance NoUnexpectedThunks MIRPot
 
 instance ToCBOR MIRPot where
   toCBOR ReservesMIR = toCBOR (0 :: Word8)
@@ -757,10 +795,10 @@ instance
   (Typeable era, Era era) =>
   ToCBOR (TxOut era)
   where
-  toCBOR (TxOutCompact addr coin) =
+  toCBOR (TxOutCompact addr vl) =
     encodeListLen 2
       <> toCBOR addr
-      <> toCBOR coin
+      <> toCBOR vl
 
 instance
   (Era era) =>
@@ -768,12 +806,12 @@ instance
   where
   fromCBOR = decodeRecordNamed "TxOut" (const 2) $ do
     bs <- fromCBOR
-    coin <- fromCBOR
+    vl <- fromCBOR
     -- Check that the address is valid by decompacting it instead of decoding
     -- it as an address, as that would require compacting (re-encoding) it
     -- afterwards.
     case decompactAddr bs of
-      Just (_ :: Addr era) -> pure $ TxOutCompact bs coin
+      Just (_ :: Addr era) -> pure $ TxOutCompact bs vl
       Nothing -> cborError $ DecoderErrorCustom "TxOut" "invalid address"
 
 instance

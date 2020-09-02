@@ -42,7 +42,6 @@ import Shelley.Spec.Ledger.Coin
   ( Coin (..),
     coinToRational,
     rationalToCoinViaFloor,
-    word64ToCoin,
   )
 import Shelley.Spec.Ledger.Credential (Credential, Ptr, StakeReference (..))
 import Shelley.Spec.Ledger.DeserializeShort (deserialiseAddrStakeRef)
@@ -91,9 +90,9 @@ aggregateUtxoCoinByCredential ptrs (UTxO u) initial =
     accum :: TxOut era -> Map (Credential 'Staking era) Coin -> Map (Credential 'Staking era) Coin
     accum (TxOutCompact addr vl) ans = case deserialiseAddrStakeRef addr of
       Just (StakeRefPtr p) -> case Map.lookup p ptrs of
-        Just cred -> Map.insertWith (<>) cred (coin vl) ans
+        Just cred -> Map.insertWith (<>) cred (Val.coin vl) ans
         Nothing -> ans
-      Just (StakeRefBase hk) -> Map.insertWith (<>) hk (coin vl) ans
+      Just (StakeRefBase hk) -> Map.insertWith (<>) hk (Val.coin vl) ans
       _other -> ans
 
 -- | Get stake of one pool

@@ -6,8 +6,6 @@
 module Cardano.Ledger.EraDefinitions where
 
 import qualified Cardano.Ledger.Crypto as CryptoClass
-import Shelley.Spec.Ledger.Value
-import Shelley.Spec.Ledger.Val
 import Shelley.Spec.Ledger.Coin
 import Cardano.Ledger.Era
 

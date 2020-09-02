@@ -65,8 +65,6 @@ import Cardano.Binary
 import Cardano.Crypto.Hash
 import Cardano.Crypto.Util (SignableRepresentation (..))
 import qualified Cardano.Crypto.VRF as VRF
-import qualified Cardano.Ledger.Crypto
-import Cardano.Ledger.Era
 import Cardano.Prelude (NFData, NoUnexpectedThunks (..), cborError)
 import Cardano.Slotting.EpochInfo
 import qualified Control.Monad.Fail

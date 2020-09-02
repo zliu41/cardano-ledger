@@ -9,6 +9,7 @@
 {-# LANGUAGE TypeApplications #-}
 {-# LANGUAGE TypeFamilies #-}
 {-# LANGUAGE UndecidableInstances #-}
+{-# LANGUAGE StandaloneDeriving #-}
 
 module Shelley.Spec.Ledger.STS.Chain
   ( CHAIN,
@@ -122,6 +123,7 @@ import Shelley.Spec.Ledger.STS.Tickn
 import Shelley.Spec.Ledger.Slot (EpochNo)
 import Shelley.Spec.Ledger.Tx (TxBody)
 import Shelley.Spec.Ledger.UTxO (UTxO (..), balance)
+import qualified Shelley.Spec.Ledger.Val as Val
 
 data CHAIN era
 
@@ -136,7 +138,7 @@ data ChainState era = ChainState
   }
   deriving (Show, Eq, Generic)
 
-instance NFData (ChainState era)
+instance (Era era) => NFData (ChainState era)
 
 data ChainPredicateFailure era
   = HeaderSizeTooLargeCHAIN
@@ -368,7 +370,7 @@ data AdaPots = AdaPots
   deriving (Show, Eq)
 
 -- | Calculate the total ada pots in the chain state
-totalAdaPots :: ChainState era -> AdaPots
+totalAdaPots :: (Era era) => ChainState era -> AdaPots
 totalAdaPots (ChainState nes _ _ _ _ _ _) =
   AdaPots
     { treasuryAdaPot = treasury_,
@@ -383,10 +385,10 @@ totalAdaPots (ChainState nes _ _ _ _ _ _) =
     (UTxOState u deposits fees_ _) = _utxoState ls
     (DPState ds _) = _delegationState ls
     rewards_ = fold (Map.elems (_rewards ds))
-    circulation = balance u
+    circulation = Val.coin $ balance u
 
 -- | Calculate the total ada in the chain state
-totalAda :: ChainState era -> Coin
+totalAda :: (Era era) => ChainState era -> Coin
 totalAda cs =
   treasuryAdaPot
     <> reservesAdaPot

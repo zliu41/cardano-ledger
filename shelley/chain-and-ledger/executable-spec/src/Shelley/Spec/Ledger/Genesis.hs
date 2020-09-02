@@ -109,7 +109,7 @@ data (Era era) => ShelleyGenesis era = ShelleyGenesis
     sgMaxLovelaceSupply :: !Word64,
     sgProtocolParams :: !PParams,
     sgGenDelegs :: !(Map (KeyHash 'Genesis era) (GenDelegPair era)),
-    sgInitialFunds :: !(Map (Addr era) (ValueType era))
+    sgInitialFunds :: !(Map (Addr era) (ValueType era)),
     sgStaking :: !(ShelleyGenesisStaking era)
   }
   deriving stock (Eq, Show)
@@ -320,8 +320,8 @@ validateGenesis
 -------------------------------------------------------------------------------}
 
 mkShelleyGlobals ::
-  Era era =>
-  ShelleyGenesis c ->
+  forall era . Era era =>
+  ShelleyGenesis era ->
   EpochInfo Identity ->
   Natural ->
   Globals
