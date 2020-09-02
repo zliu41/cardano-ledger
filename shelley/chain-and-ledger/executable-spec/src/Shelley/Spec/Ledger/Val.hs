@@ -58,8 +58,12 @@ class
   isZero :: t -> Bool
   isZero t = t == mempty
 
-  coin :: t -> Coin -- get the Coin amount
-  inject :: Coin -> t -- inject Coin into the Val instance
+  -- | Get the ADA present in the value (since ADA is our "blessed" currency)
+  coin :: t -> Coin
+
+  -- | Create a value containing only this amount of ADA
+  inject :: Coin -> t
+
   size :: t -> Integer -- compute size of Val instance
   -- TODO add PACK/UNPACK stuff to this class
 
