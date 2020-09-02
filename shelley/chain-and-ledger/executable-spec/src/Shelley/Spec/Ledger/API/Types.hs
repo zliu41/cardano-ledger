@@ -3,6 +3,7 @@ module Shelley.Spec.Ledger.API.Types
   )
 where
 
+import Cardano.Ledger.Era as X
 import Shelley.Spec.Ledger.Address as X
   ( Addr (..),
     RewardAcnt (..),
@@ -105,7 +106,6 @@ import Shelley.Spec.Ledger.Scripts as X
   )
 import Shelley.Spec.Ledger.Tx as X
   ( Tx (..),
-    TxBody (..),
     TxIn (..),
     TxOut (..),
     WitnessSet,
@@ -123,4 +123,6 @@ import Shelley.Spec.Ledger.TxData as X
     TxId (..),
     Wdrl (..),
     WitVKey (..),
+    Body(..),
+    EraTag(..),
   )

@@ -62,7 +62,6 @@ import Shelley.Spec.Ledger.Delegation.Certificates
     isRegKey,
     requiresVKeyWitness,
   )
-import Shelley.Spec.Ledger.Hashing (hashAnnotated)
 import Shelley.Spec.Ledger.Keys
   ( DSignable,
     Hash,
@@ -79,7 +78,6 @@ import Shelley.Spec.Ledger.Tx (Tx (..))
 import Shelley.Spec.Ledger.TxData
   ( PoolCert (..),
     PoolParams (..),
-    TxBody (..),
     TxId (..),
     TxIn (..),
     TxOut (..),
@@ -89,6 +87,7 @@ import Shelley.Spec.Ledger.TxData
     pattern DeRegKey,
     pattern Delegate,
     pattern Delegation,
+    Body(..),
   )
 import Shelley.Spec.Ledger.Val
 
@@ -138,27 +137,29 @@ instance Relation (UTxO era) where
   removekey k (UTxO m) = UTxO (Map.delete k m)
 
 -- | Compute the id of a transaction.
-txid ::
+txid :: forall era.
   Era era =>
   TxBody era ->
   TxId era
-txid = TxId . hashAnnotated
+txid x = TxId (hash x)
+    where hash :: TxBody era -> Hash era (TxBody era)
+          hash body = hashAnnotated @_ @era body
 
 -- | Compute the UTxO inputs of a transaction.
 txins ::
-  Era era =>
+  (Body era) =>
   TxBody era ->
   Set (TxIn era)
-txins = _inputs
+txins = inputsB
 
 -- | Compute the transaction outputs of a transaction.
 txouts ::
-  Era era =>
+  (Body era,Era era) =>
   TxBody era ->
   UTxO era
 txouts tx =
   UTxO $
-    Map.fromList [(TxIn transId idx, out) | (out, idx) <- zip (toList $ _outputs tx) [0 ..]]
+    Map.fromList [(TxIn transId idx, out) | (out, idx) <- zip (toList $ outputsB tx) [0 ..]]
   where
     transId = txid tx
 
@@ -248,8 +249,8 @@ getKeyHashFromRegPool :: DCert era -> Maybe (KeyHash 'StakePool era)
 getKeyHashFromRegPool (DCertPool (RegPool p)) = Just . _poolPubKey $ p
 getKeyHashFromRegPool _ = Nothing
 
-txup :: Era era => Tx era -> Maybe (Update era)
-txup (Tx txbody _ _) = strictMaybeToMaybe (_txUpdate txbody)
+txup :: (Body era,Era era) => Tx era -> Maybe (Update era)
+txup (Tx txbody _ _) = strictMaybeToMaybe (txUpdateB txbody)
 
 -- | Extract script hash from value address with script.
 getScriptHash :: Addr era -> Maybe (ScriptHash era)
@@ -274,7 +275,7 @@ scriptCred (ScriptHashObj hs) = Just hs
 -- | Computes the set of script hashes required to unlock the transcation inputs
 -- and the withdrawals.
 scriptsNeeded ::
-  Era era =>
+  (Body era,Era era) =>
   UTxO era ->
   Tx era ->
   Set (ScriptHash era)
@@ -284,15 +285,15 @@ scriptsNeeded u tx =
     `Set.union` Set.fromList (Maybe.mapMaybe scriptStakeCred (filter requiresVKeyWitness certificates))
   where
     unTxOut (TxOut a _) = a
-    withdrawals = unWdrl $ _wdrls $ _body tx
+    withdrawals = unWdrl $ wdrlsB $ _body tx
     UTxO u'' = (txinsScript (txins $ _body tx) u) ◁ u
     -- u'' = Map.restrictKeys v (txinsScript (txins $ _body tx) u)  TODO
-    certificates = (toList . _certs . _body) tx
+    certificates = toList ( certsB ( _body tx))
 
 -- | Compute the subset of inputs of the set 'txInps' for which each input is
 -- locked by a script in the UTxO 'u'.
 txinsScript ::
-  Era era =>
+  (Era era) =>
   Set (TxIn era) ->
   UTxO era ->
   Set (TxIn era)

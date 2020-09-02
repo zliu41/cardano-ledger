@@ -17,7 +17,7 @@ module Shelley.Spec.Ledger.STS.Bbody
   )
 where
 
-import Cardano.Ledger.Era (Era)
+import Cardano.Ledger.Era (Era(..))
 import Cardano.Prelude (NoUnexpectedThunks (..))
 import Control.State.Transition
   ( Embed (..),
@@ -55,7 +55,7 @@ import Shelley.Spec.Ledger.OverlaySchedule
   )
 import Shelley.Spec.Ledger.PParams (PParams)
 import Shelley.Spec.Ledger.STS.Ledgers (LEDGERS, LedgersEnv (..))
-import Shelley.Spec.Ledger.Tx (TxBody)
+import Shelley.Spec.Ledger.TxData (Body(..))
 
 data BBODY era
 
@@ -70,7 +70,8 @@ data BbodyEnv era = BbodyEnv
   }
 
 instance
-  ( Era era,
+  ( Body era,
+    Era era,
     DSignable era (Hash era (TxBody era))
   ) =>
   STS (BBODY era)
@@ -104,7 +105,8 @@ instance (Era era) => NoUnexpectedThunks (PredicateFailure (BBODY era))
 
 bbodyTransition ::
   forall era.
-  ( Era era,
+  ( Body era,
+    Era era,
     DSignable era (Hash era (TxBody era))
   ) =>
   TransitionRule (BBODY era)
@@ -136,7 +138,8 @@ bbodyTransition =
         pure $ BbodyState ls' (incrBlocks (isOverlaySlot (bheaderSlotNo bhb) oslots) hkAsStakePool b)
 
 instance
-  ( Era era,
+  ( Body era,
+    Era era,
     DSignable era (Hash era (TxBody era))
   ) =>
   Embed (LEDGERS era) (BBODY era)

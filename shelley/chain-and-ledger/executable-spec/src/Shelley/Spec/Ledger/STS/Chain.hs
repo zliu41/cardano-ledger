@@ -23,7 +23,7 @@ where
 
 import qualified Cardano.Crypto.VRF as VRF
 import Cardano.Ledger.Crypto (VRF)
-import Cardano.Ledger.Era (Crypto, Era)
+import Cardano.Ledger.Era (Crypto, Era(..))
 import Cardano.Prelude
   ( MonadError (..),
     NFData,
@@ -118,7 +118,7 @@ import Shelley.Spec.Ledger.STS.Prtcl
 import Shelley.Spec.Ledger.STS.Tick (TICK, TickEnv (..))
 import Shelley.Spec.Ledger.STS.Tickn
 import Shelley.Spec.Ledger.Slot (EpochNo)
-import Shelley.Spec.Ledger.Tx (TxBody)
+import Shelley.Spec.Ledger.TxData (Body)
 import Shelley.Spec.Ledger.UTxO (UTxO (..), balance)
 import Shelley.Spec.Ledger.Val(Val(vcoin))
 
@@ -184,7 +184,8 @@ initialShelleyState lab e utxo reserves genDelegs os pp initNonce =
     cs = Map.fromList (fmap (\(GenDelegPair hk _) -> (coerceKeyRole hk, 0)) (Map.elems genDelegs))
 
 instance
-  ( Era era,
+  ( Body era,
+    Era era,
     DSignable era (OCertSignable era),
     DSignable era (Hash era (TxBody era)),
     KESignable era (BHBody era),
@@ -244,7 +245,8 @@ chainChecks maxpv pp bh = do
 
 chainTransition ::
   forall era.
-  ( Era era,
+  ( Body era,
+    Era era,
     DSignable era (OCertSignable era),
     DSignable era (Hash era (TxBody era)),
     KESignable era (BHBody era),
@@ -311,7 +313,8 @@ chainTransition =
       pure $ ChainState nes'' cs' eta0' etaV' etaC' etaH' lab'
 
 instance
-  ( Era era,
+  ( Body era,
+    Era era,
     DSignable era (OCertSignable era),
     DSignable era (Hash era (TxBody era)),
     KESignable era (BHBody era),
@@ -322,7 +325,8 @@ instance
   wrapFailed = BbodyFailure
 
 instance
-  ( Era era,
+  ( Body era,
+    Era era,
     DSignable era (OCertSignable era),
     DSignable era (Hash era (TxBody era)),
     KESignable era (BHBody era),
@@ -333,7 +337,8 @@ instance
   wrapFailed = TicknFailure
 
 instance
-  ( Era era,
+  ( Body era,
+    Era era,
     DSignable era (OCertSignable era),
     DSignable era (Hash era (TxBody era)),
     KESignable era (BHBody era),
@@ -344,7 +349,8 @@ instance
   wrapFailed = TickFailure
 
 instance
-  ( Era era,
+  ( Body era,
+    Era era,
     DSignable era (OCertSignable era),
     DSignable era (Hash era (TxBody era)),
     KESignable era (BHBody era),

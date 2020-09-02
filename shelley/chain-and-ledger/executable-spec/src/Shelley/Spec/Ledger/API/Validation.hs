@@ -17,7 +17,7 @@ module Shelley.Spec.Ledger.API.Validation
   )
 where
 
-import Cardano.Ledger.Era
+import Cardano.Ledger.Era(Era(..))
 import Cardano.Prelude (NoUnexpectedThunks (..))
 import Control.Arrow (left, right)
 import Control.Monad.Except
@@ -33,7 +33,7 @@ import qualified Shelley.Spec.Ledger.STS.Bbody as STS
 import qualified Shelley.Spec.Ledger.STS.Chain as STS
 import qualified Shelley.Spec.Ledger.STS.Tick as STS
 import Shelley.Spec.Ledger.Slot (SlotNo)
-import qualified Shelley.Spec.Ledger.TxData as Tx
+import Shelley.Spec.Ledger.TxData(Body(..))
 
 -- | Type alias for the state updated by TICK and BBODY rules
 type ShelleyState = LedgerState.NewEpochState
@@ -107,9 +107,10 @@ instance (Era era) => NoUnexpectedThunks (BlockTransitionError era)
 -- | Apply the block level ledger transition.
 applyBlockTransition ::
   forall era m.
-  ( Era era,
+  ( Body era,
+    Era era,
     MonadError (BlockTransitionError era) m,
-    DSignable era (Hash era (Tx.TxBody era))
+    DSignable era (Hash era (TxBody era))
   ) =>
   Globals ->
   ShelleyState era ->
@@ -142,8 +143,9 @@ applyBlockTransition globals state blk =
 --   `applyBlockTransition` on the same block and that this was successful.
 reapplyBlockTransition ::
   forall era.
-  ( Era era,
-    DSignable era (Hash era (Tx.TxBody era))
+  ( Body era,
+    Era era,
+    DSignable era (Hash era (TxBody era))
   ) =>
   Globals ->
   ShelleyState era ->

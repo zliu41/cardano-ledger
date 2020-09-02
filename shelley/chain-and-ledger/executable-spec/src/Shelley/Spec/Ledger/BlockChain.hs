@@ -113,7 +113,6 @@ import Shelley.Spec.Ledger.BaseTypes
     strictMaybeToMaybe,
   )
 import Shelley.Spec.Ledger.EpochBoundary (BlocksMade (..))
-import Shelley.Spec.Ledger.Hashing (HashAnnotated (..))
 import Shelley.Spec.Ledger.Keys
   ( CertifiedVRF,
     Hash,

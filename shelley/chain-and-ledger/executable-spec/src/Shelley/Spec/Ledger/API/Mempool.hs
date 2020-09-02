@@ -18,7 +18,7 @@ module Shelley.Spec.Ledger.API.Mempool
 where
 
 import Cardano.Binary (FromCBOR (..), ToCBOR (..))
-import Cardano.Ledger.Era
+import Cardano.Ledger.Era(Era(..))
 import Control.Arrow (left)
 import Control.Monad.Except
 import Control.Monad.Trans.Reader (runReader)
@@ -33,7 +33,7 @@ import Shelley.Spec.Ledger.STS.Ledgers (LEDGERS)
 import qualified Shelley.Spec.Ledger.STS.Ledgers as Ledgers
 import Shelley.Spec.Ledger.Slot (SlotNo)
 import Shelley.Spec.Ledger.Tx (Tx)
-import qualified Shelley.Spec.Ledger.Tx as Tx
+import Shelley.Spec.Ledger.TxData(Body(..))
 
 type MempoolEnv = Ledgers.LedgersEnv
 
@@ -86,16 +86,17 @@ instance
   toCBOR (ApplyTxError es) = toCBOR es
 
 instance
-  (Era era) =>
+  (Body era, Era era) =>
   FromCBOR (ApplyTxError era)
   where
   fromCBOR = ApplyTxError <$> fromCBOR
 
 applyTxs ::
   forall era m.
-  ( Era era,
+  ( Body era,
+    Era era,
     MonadError (ApplyTxError era) m,
-    DSignable era (Hash era (Tx.TxBody era))
+    DSignable era (Hash era (TxBody era))
   ) =>
   Globals ->
   MempoolEnv ->

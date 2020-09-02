@@ -16,7 +16,7 @@ module Shelley.Spec.Ledger.STS.Ledgers
 where
 
 import Cardano.Binary (FromCBOR (..), ToCBOR (..))
-import Cardano.Ledger.Era (Era)
+import Cardano.Ledger.Era (Era(..))
 import Cardano.Prelude (NoUnexpectedThunks (..))
 import Control.Monad (foldM)
 import Control.State.Transition
@@ -43,7 +43,8 @@ import Shelley.Spec.Ledger.LedgerState
 import Shelley.Spec.Ledger.PParams (PParams)
 import Shelley.Spec.Ledger.STS.Ledger (LEDGER, LedgerEnv (..))
 import Shelley.Spec.Ledger.Slot (SlotNo)
-import Shelley.Spec.Ledger.Tx (Tx, TxBody)
+import Shelley.Spec.Ledger.Tx (Tx)
+import Shelley.Spec.Ledger.TxData (Body(..))
 
 data LEDGERS era
 
@@ -54,7 +55,8 @@ data LedgersEnv = LedgersEnv
   }
 
 instance
-  ( Era era,
+  ( Body era,
+    Era era,
     DSignable era (Hash era (TxBody era))
   ) =>
   STS (LEDGERS era)
@@ -79,14 +81,15 @@ instance
   toCBOR (LedgerFailure e) = toCBOR e
 
 instance
-  (Era era) =>
+  (Body era,Era era) =>
   FromCBOR (PredicateFailure (LEDGERS era))
   where
   fromCBOR = LedgerFailure <$> fromCBOR
 
 ledgersTransition ::
   forall era.
-  ( Era era,
+  ( Body era,
+    Era era,
     DSignable era (Hash era (TxBody era))
   ) =>
   TransitionRule (LEDGERS era)
@@ -107,6 +110,7 @@ ledgersTransition = do
 
 instance
   ( Era era,
+    Body era,
     DSignable era (Hash era (TxBody era))
   ) =>
   Embed (LEDGER era) (LEDGERS era)

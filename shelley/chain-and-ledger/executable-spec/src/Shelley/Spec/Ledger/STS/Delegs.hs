@@ -60,8 +60,8 @@ import Shelley.Spec.Ledger.TxData
     Ix,
     Ptr (..),
     RewardAcnt (..),
-    TxBody (..),
     Wdrl (..),
+    Body(..),
   )
 
 data DELEGS era
@@ -76,7 +76,7 @@ data DelegsEnv era = DelegsEnv
   deriving (Show)
 
 instance
-  Era era =>
+  (Body era,Era era) =>
   STS (DELEGS era)
   where
   type State (DELEGS era) = DPState era
@@ -128,7 +128,7 @@ instance
 
 delegsTransition ::
   forall era.
-  Era era =>
+  (Body era,Era era) =>
   TransitionRule (DELEGS era)
 delegsTransition = do
   TRC (env@(DelegsEnv slot txIx pp tx acnt), dpstate, certificates) <- judgmentContext
@@ -137,7 +137,7 @@ delegsTransition = do
   case certificates of
     Empty -> do
       let ds = _dstate dpstate
-          wdrls_ = unWdrl $ _wdrls (_body tx)
+          wdrls_ = unWdrl $ wdrlsB (_body tx)
           rewards = _rewards ds
 
       isSubmapOf wdrls_ rewards -- wdrls_ ⊆ rewards
@@ -188,7 +188,7 @@ delegsTransition = do
             ]
 
 instance
-  Era era =>
+  (Body era,Era era) =>
   Embed (DELPL era) (DELEGS era)
   where
   wrapFailed = DelplFailure
