@@ -25,7 +25,6 @@ import Cardano.Binary
     ToCBOR (..),
     encodeListLen,
   )
-import Cardano.Ledger.Era (Era)
 import Cardano.Prelude (NoUnexpectedThunks (..), asks)
 import Control.Iterate.SetAlgebra (dom, eval, rng, (∪), (⊆), (⋪))
 import Control.State.Transition
@@ -62,7 +61,6 @@ import Shelley.Spec.Ledger.Coin (Coin (..))
 import Shelley.Spec.Ledger.Keys (GenDelegs, KeyHash, KeyRole (..))
 import Shelley.Spec.Ledger.LedgerState
   ( UTxOState (..),
-    consumed,
     emptyPPUPState,
     keyRefunds,
     minfee,
@@ -94,6 +92,7 @@ import Shelley.Spec.Ledger.UTxO
     txup,
   )
 import qualified Shelley.Spec.Ledger.Val as Val
+import Cardano.Ledger.HasFunctions (Era, consumedE)
 
 data UTXO era
 
@@ -270,7 +269,7 @@ initialLedgerState = do
 
 utxoInductive ::
   forall era.
-  Era era =>
+  (Era era) =>
   TransitionRule (UTXO era)
 utxoInductive = do
   TRC (UtxoEnv slot pp stakepools genDelegs, u, tx) <- judgmentContext
@@ -299,7 +298,7 @@ utxoInductive = do
           (Map.keys . unWdrl . _wdrls $ txb)
   null wdrlsWrongNetwork ?! WrongNetworkWithdrawal ni (Set.fromList wdrlsWrongNetwork)
 
-  let consumed_ = consumed pp utxo txb
+  let consumed_ = consumedE pp utxo txb
       produced_ = produced pp stakepools txb
   consumed_ == produced_ ?! ValueNotConservedUTxO consumed_ produced_
 
@@ -334,7 +333,7 @@ utxoInductive = do
       }
 
 instance
-  Era era =>
+  (Era era) =>
   Embed (PPUP era) (UTXO era)
   where
   wrapFailed = UpdateFailure

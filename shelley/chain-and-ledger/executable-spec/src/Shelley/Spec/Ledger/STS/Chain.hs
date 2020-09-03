@@ -24,7 +24,7 @@ where
 
 import qualified Cardano.Crypto.VRF as VRF
 import Cardano.Ledger.Crypto (VRF)
-import Cardano.Ledger.Era (Crypto, Era)
+import Cardano.Ledger.HasFunctions (Crypto, Era)
 import Cardano.Prelude
   ( MonadError (..),
     NFData,
