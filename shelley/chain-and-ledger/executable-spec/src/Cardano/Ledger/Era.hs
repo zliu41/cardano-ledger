@@ -10,22 +10,26 @@
 
 -- | Support for multiple (Shelley-based) eras in the ledger.
 module Cardano.Ledger.Era
-  ( Era,
-    Crypto,
-    ValueType,
-    TxBody,
+  ( Era(..),
     HashAnnotated(..),
+    EraTag(..),
+    EraRep(..),
+    MinimalLazy,
   )
 where
 
-import Cardano.Prelude( NoUnexpectedThunks (..) )
-import Cardano.Binary( FromCBOR, ToCBOR(toCBOR), Annotator)
+
+import Cardano.Binary( ToCBOR(toCBOR) )
 import qualified Cardano.Ledger.Crypto as CryptoClass
 import Data.Kind (Type, Constraint)
 import Data.Typeable (Typeable)
 import Shelley.Spec.Ledger.Val as ValClass
 import qualified Cardano.Crypto.Hash as Hash
 import Cardano.Ledger.Crypto (HASH)
+import Cardano.Ledger.EraRep
+import Cardano.Binary( FromCBOR, Annotator)
+import Cardano.Prelude( NoUnexpectedThunks (..) )
+
 
 -- =========================================================================
 
@@ -35,20 +39,20 @@ type MinimalLazy t = (Typeable t, Show t, Eq t, NoUnexpectedThunks t, ToCBOR t, 
 -- type Minimal :: Type -> Constraint
 -- type Minimal t = (Typeable t, Show t, Eq t, NoUnexpectedThunks t, ToCBOR t, FromCBOR t)
 
+-- MinimalLazy (TxBody e), HashAnnotated (TxBody e) e,
 
 -- ==============================================================================
 
 class
   ( CryptoClass.Crypto (Crypto e),
     Typeable e,
-    MinimalLazy (TxBody e), HashAnnotated (TxBody e) e,
     ValClass.Val (ValueType e)  -- Multi Assets
   ) =>
   Era e
   where
   type Crypto e :: Type
   type ValueType e :: Type
-  type TxBody e :: Type
+  thisRep :: EraRep e
 
 -- ================================================================================
 

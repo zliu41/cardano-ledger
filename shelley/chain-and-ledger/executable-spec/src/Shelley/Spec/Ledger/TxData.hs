@@ -35,7 +35,6 @@ module Shelley.Spec.Ledger.TxData
     RewardAcnt (..),
     StakeCreds (..),
     StakePoolRelay (..),
-    TxBody, -- imported from Era
     TxBodyShelley
       ( TxBodyShelley,
         _inputs,
@@ -105,6 +104,7 @@ import Data.Aeson (FromJSON (..), ToJSON (..), (.!=), (.:), (.:?), (.=))
 import qualified Data.Aeson as Aeson
 import Data.Aeson.Types (explicitParseField)
 import Data.ByteString (ByteString)
+import Data.Kind(Type)
 import qualified Data.ByteString as BS
 import qualified Data.ByteString.Base16 as Base16
 import qualified Data.ByteString.Char8 as Char8
@@ -412,9 +412,9 @@ newtype TxId era = TxId {_unTxId :: Hash era (TxBody era)}
   deriving (Show, Eq, Ord, Generic)
   deriving newtype (NoUnexpectedThunks)
 
-deriving newtype instance Era era => ToCBOR (TxId era)
+deriving newtype instance (Era era,Typeable (TxBody era)) => ToCBOR (TxId era)
 
-deriving newtype instance Era era => FromCBOR (TxId era)
+deriving newtype instance  (Era era,Typeable (TxBody era)) => FromCBOR (TxId era)
 
 instance (Era era) => NFData (TxId era) where
   rnf (TxId hs) = rnf hs
@@ -591,7 +591,7 @@ data TxBodyShelley era = TxBody'
 instance Era era => HashAnnotated (TxBodyShelley era) era
 
 pattern TxBodyShelley ::
-  Era era =>
+  (Era era,Typeable (TxBody era)) =>
   Set (TxIn era) ->
   StrictSeq (TxOut era) ->
   StrictSeq (DCert era) ->
@@ -784,7 +784,7 @@ instance
       k -> invalidKey k
 
 instance
-  (Typeable era, Era era) =>
+  (Typeable era, Era era, Typeable (TxBody era)) =>
   ToCBOR (TxIn era)
   where
   toCBOR (TxInCompact txId index) =
@@ -793,7 +793,7 @@ instance
       <> toCBOR index
 
 instance
-  (Era era) =>
+  (Era era, Typeable (TxBody era)) =>
   FromCBOR (TxIn era)
   where
   fromCBOR = do
@@ -850,7 +850,7 @@ instance
   toCBOR = encodePreEncoded . BSL.toStrict . bodyBytes
 
 instance
-  (Era era) =>
+  (Era era, Typeable (TxBody era)) =>
   FromCBOR (Annotator (TxBodyShelley era))
   where
   fromCBOR = annotatorSlice $ do
@@ -1067,9 +1067,10 @@ class TxBodyLike body where
 type Body e = TxBodyLike (TxBody e)
 -}
 
-newtype EraTag e x = Tag { unTag:: x }
 
-class Body e where
+
+class (HashAnnotated (TxBody  e) e,MinimalLazy(TxBody e)) => Body e where
+  type family TxBody e :: Type
   inputsB ::    TxBody e -> (Set (TxIn e))
   outputsB ::   TxBody e -> (StrictSeq (TxOut e))
   certsB ::     TxBody e -> (StrictSeq (DCert e))

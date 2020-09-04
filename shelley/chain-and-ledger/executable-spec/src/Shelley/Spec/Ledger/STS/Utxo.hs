@@ -174,7 +174,7 @@ instance
 instance NoUnexpectedThunks (ValueType era) => NoUnexpectedThunks (PredicateFailure (UTXO era))
 
 instance
-  (Typeable era, Era era) =>
+  (Typeable era, Body era, Era era) =>
   ToCBOR (PredicateFailure (UTXO era))
   where
   toCBOR = \case
@@ -216,7 +216,7 @@ instance
         <> encodeFoldable outs
 
 instance
-  (Era era) =>
+  (Body era,Era era) =>
   FromCBOR (PredicateFailure (UTXO era))
   where
   fromCBOR =

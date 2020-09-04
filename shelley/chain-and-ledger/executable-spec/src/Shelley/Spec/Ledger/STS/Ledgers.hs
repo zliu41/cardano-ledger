@@ -75,7 +75,7 @@ instance
 instance (Era era) => NoUnexpectedThunks (PredicateFailure (LEDGERS era))
 
 instance
-  (Typeable era, Era era) =>
+  (Typeable era, Body era,Era era) =>
   ToCBOR (PredicateFailure (LEDGERS era))
   where
   toCBOR (LedgerFailure e) = toCBOR e

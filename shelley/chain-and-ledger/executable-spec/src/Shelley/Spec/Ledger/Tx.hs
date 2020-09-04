@@ -107,6 +107,7 @@ import Shelley.Spec.Ledger.TxData
     TxOut (..),
     WitVKey (..),
     witKeyHash,
+    Body(..),
   )
 
 -- | Higher Kinded Data
@@ -183,14 +184,16 @@ data Tx era = Tx'
     _metadata' :: !(StrictMaybe MetaData),
     txFullBytes :: LByteString
   }
-  deriving (Generic,Show,Eq)
+  deriving (Generic)
 
+deriving instance (Era era,Body era) => Show (Tx era)
+deriving instance (Era era,Body era) => Eq(Tx era)
 deriving via AllowThunksIn  '[ "txFullBytes"] (Tx era)
-         instance Era era => NoUnexpectedThunks (Tx era)
+         instance (Era era,Body era) => NoUnexpectedThunks (Tx era)
 
 
 pattern Tx ::
-  Era era =>
+  (Body era,Era era) =>
   TxBody era ->
   WitnessSet era ->
   StrictMaybe MetaData ->
@@ -220,7 +223,7 @@ pattern Tx {_body, _witnessSet, _metadata} <-
 instance Era era => HashAnnotated (Tx era) era
 
 segwitTx ::
-  Era era =>
+  (Era era,Body era) =>
   Annotator (TxBody era) ->
   Annotator (WitnessSet era) ->
   Maybe (Annotator MetaData) ->
@@ -247,7 +250,7 @@ segwitTx
             txFullBytes = fullBytes
           }
 
-decodeWits :: forall era s. Era era => Decoder s (Annotator (WitnessSet era))
+decodeWits :: forall era s. (Body era,Era era) => Decoder s (Annotator (WitnessSet era))
 decodeWits = do
   (mapParts, annBytes) <-
     withSlice $
@@ -288,7 +291,7 @@ instance
   where
   toCBOR tx = encodePreEncoded . BSL.toStrict $ txFullBytes tx
 
-instance Era era => FromCBOR (Annotator (Tx era)) where
+instance (Era era,Body era) => FromCBOR (Annotator (Tx era)) where
   fromCBOR = annotatorSlice $
     decodeRecordNamed "Tx" (const 3) $ do
       body <- fromCBOR
@@ -314,7 +317,7 @@ class
 
 -- | instance of MultiSignatureScript type class
 instance
-  Era era =>
+  (Body era,Era era) =>
   MultiSignatureScript (MultiSig era) era
   where
   validateScript = validateNativeMultiSigScript
@@ -323,7 +326,7 @@ instance
 -- | Script evaluator for native multi-signature scheme. 'vhks' is the set of
 -- key hashes that signed the transaction to be validated.
 evalNativeMultiSigScript ::
-  Era era =>
+  (Body era,Era era) =>
   MultiSig era ->
   Set (KeyHash 'Witness era) ->
   Bool
@@ -337,7 +340,7 @@ evalNativeMultiSigScript (RequireMOf m msigs) vhks =
 
 -- | Script validator for native multi-signature scheme.
 validateNativeMultiSigScript ::
-  (Era era) =>
+  (Body era,Era era) =>
   MultiSig era ->
   Tx era ->
   Bool
@@ -349,7 +352,7 @@ validateNativeMultiSigScript msig tx =
 
 -- | Multi-signature script witness accessor function for Transactions
 txwitsScript ::
-  Era era =>
+  (Body era,Era era) =>
   Tx era ->
   Map (ScriptHash era) (MultiSig era)
 txwitsScript = msigWits . _witnessSet

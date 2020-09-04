@@ -420,11 +420,11 @@ instance NoUnexpectedThunks (EpochState era)
 
 instance (Era era) => NFData (EpochState era)
 
-instance Era era => ToCBOR (EpochState era) where
+instance (Body era,Era era) => ToCBOR (EpochState era) where
   toCBOR (EpochState a s l r p n) =
     encodeListLen 6 <> toCBOR a <> toCBOR s <> toCBOR l <> toCBOR r <> toCBOR p <> toCBOR n
 
-instance Era era => FromCBOR (EpochState era) where
+instance (Body era,Era era) => FromCBOR (EpochState era) where
   fromCBOR = do
     decodeRecordNamed "EpochState" (const 6) $ do
       a <- fromCBOR
@@ -520,11 +520,11 @@ data UTxOState era = UTxOState
 
 instance NoUnexpectedThunks (UTxOState era)
 
-instance Era era => ToCBOR (UTxOState era) where
+instance (Body era,Era era) => ToCBOR (UTxOState era) where
   toCBOR (UTxOState ut dp fs us) =
     encodeListLen 4 <> toCBOR ut <> toCBOR dp <> toCBOR fs <> toCBOR us
 
-instance Era era => FromCBOR (UTxOState era) where
+instance(Body era, Era era) => FromCBOR (UTxOState era) where
   fromCBOR = do
     decodeRecordNamed "UTxOState" (const 4) $ do
       ut <- fromCBOR
@@ -556,14 +556,14 @@ instance (Era era) => NFData (NewEpochState era)
 
 instance NoUnexpectedThunks (NewEpochState era)
 
-instance Era era => ToCBOR (NewEpochState era) where
+instance (Body era,Era era) => ToCBOR (NewEpochState era) where
   toCBOR (NewEpochState e bp bc es ru pd os) =
     encodeListLen 7 <> toCBOR e <> toCBOR bp <> toCBOR bc <> toCBOR es
       <> toCBOR ru
       <> toCBOR pd
       <> toCBOR os
 
-instance Era era => FromCBOR (NewEpochState era) where
+instance (Body era,Era era) => FromCBOR (NewEpochState era) where
   fromCBOR = do
     decodeRecordNamed "NewEpochState" (const 7) $ do
       e <- fromCBOR
@@ -605,11 +605,11 @@ instance NoUnexpectedThunks (LedgerState era)
 
 instance (Era era) => NFData (LedgerState era)
 
-instance Era era => ToCBOR (LedgerState era) where
+instance (Body era,Era era) => ToCBOR (LedgerState era) where
   toCBOR (LedgerState u dp) =
     encodeListLen 2 <> toCBOR u <> toCBOR dp
 
-instance Era era => FromCBOR (LedgerState era) where
+instance (Body era,Era era) => FromCBOR (LedgerState era) where
   fromCBOR = do
     decodeRecordNamed "LedgerState" (const 2) $ do
       u <- fromCBOR
@@ -778,6 +778,7 @@ witsVKeyNeeded utxo' tx@(Tx txbody _ _) genDelegs =
 --  transaction are correct.
 verifiedWits ::forall era.
   ( Era era,
+    Body era,
     DSignable era (Hash era (TxBody era))
   ) =>
   Tx era ->

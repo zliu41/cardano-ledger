@@ -124,5 +124,4 @@ import Shelley.Spec.Ledger.TxData as X
     Wdrl (..),
     WitVKey (..),
     Body(..),
-    EraTag(..),
   )

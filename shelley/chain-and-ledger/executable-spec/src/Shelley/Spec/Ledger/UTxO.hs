@@ -138,7 +138,7 @@ instance Relation (UTxO era) where
 
 -- | Compute the id of a transaction.
 txid :: forall era.
-  Era era =>
+  (Body era,Era era) =>
   TxBody era ->
   TxId era
 txid x = TxId (hash x)

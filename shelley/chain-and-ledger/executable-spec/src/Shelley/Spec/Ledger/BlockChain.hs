@@ -142,6 +142,7 @@ import Shelley.Spec.Ledger.Serialization
   )
 import Shelley.Spec.Ledger.Slot (BlockNo (..), SlotNo (..))
 import Shelley.Spec.Ledger.Tx (Tx (..), decodeWits, segwitTx, txWitsBytes)
+import Shelley.Spec.Ledger.TxData(Body(..))
 import Shelley.Spec.NonIntegral (CompareResult (..), taylorExpCmp)
 
 -- | The hash of a Block Header
@@ -169,7 +170,7 @@ data TxSeq era = TxSeq'
            ]
           (TxSeq era)
 
-pattern TxSeq :: Era era => StrictSeq (Tx era) -> TxSeq era
+pattern TxSeq :: (Body era,Era era) => StrictSeq (Tx era) -> TxSeq era
 pattern TxSeq xs <-
   TxSeq' xs _ _ _
   where
@@ -521,14 +522,14 @@ instance
   where
   toCBOR (Block' _ _ blockBytes) = encodePreEncoded $ BSL.toStrict blockBytes
 
-blockDecoder :: Era era => Bool -> forall s. Decoder s (Annotator (Block era))
+blockDecoder :: (Body era,Era era) => Bool -> forall s. Decoder s (Annotator (Block era))
 blockDecoder lax = annotatorSlice $
   decodeRecordNamed "Block" (const 4) $ do
     header <- fromCBOR
     txns <- txSeqDecoder lax
     pure $ Block' <$> header <*> txns
 
-txSeqDecoder :: Era era => Bool -> forall s. Decoder s (Annotator (TxSeq era))
+txSeqDecoder :: (Body era,Era era) => Bool -> forall s. Decoder s (Annotator (TxSeq era))
 txSeqDecoder lax = do
   (bodies, bodiesAnn) <- withSlice $ decodeSeq fromCBOR
   (wits, witsAnn) <- withSlice $ decodeSeq decodeWits
@@ -563,7 +564,7 @@ txSeqDecoder lax = do
   pure $ TxSeq' <$> txns <*> bodiesAnn <*> witsAnn <*> metadataAnn
 
 instance
-  Era era =>
+  (Body era,Era era) =>
   FromCBOR (Annotator (Block era))
   where
   fromCBOR = blockDecoder False
@@ -574,7 +575,7 @@ newtype LaxBlock era
   deriving (ToCBOR) via (Block era)
 
 instance
-  Era era =>
+  (Body era,Era era) =>
   FromCBOR (Annotator (LaxBlock era))
   where
   fromCBOR = fmap LaxBlock <$> blockDecoder True

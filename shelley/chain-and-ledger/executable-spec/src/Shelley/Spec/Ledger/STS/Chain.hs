@@ -118,7 +118,7 @@ import Shelley.Spec.Ledger.STS.Prtcl
 import Shelley.Spec.Ledger.STS.Tick (TICK, TickEnv (..))
 import Shelley.Spec.Ledger.STS.Tickn
 import Shelley.Spec.Ledger.Slot (EpochNo)
-import Shelley.Spec.Ledger.TxData (Body)
+import Shelley.Spec.Ledger.TxData (Body(..))
 import Shelley.Spec.Ledger.UTxO (UTxO (..), balance)
 import Shelley.Spec.Ledger.Val(Val(vcoin))
 

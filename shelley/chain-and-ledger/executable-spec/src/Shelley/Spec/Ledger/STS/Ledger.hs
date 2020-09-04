@@ -121,7 +121,7 @@ instance
 instance (Era era) => NoUnexpectedThunks (PredicateFailure (LEDGER era))
 
 instance
-  (Typeable era, Era era) =>
+  (Typeable era, Body era, Era era) =>
   ToCBOR (PredicateFailure (LEDGER era))
   where
   toCBOR = \case
@@ -129,7 +129,7 @@ instance
     (DelegsFailure a) -> encodeListLen 2 <> toCBOR (1 :: Word8) <> toCBOR a
 
 instance
-  (Era era) =>
+  (Era era, Body era) =>
   FromCBOR (PredicateFailure (LEDGER era))
   where
   fromCBOR =

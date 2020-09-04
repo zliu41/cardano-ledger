@@ -80,7 +80,7 @@ data ApplyTxError era = ApplyTxError [PredicateFailure (LEDGERS era)]
   deriving (Eq, Show)
 
 instance
-  (Typeable era, Era era) =>
+  (Typeable era, Body era, Era era) =>
   ToCBOR (ApplyTxError era)
   where
   toCBOR (ApplyTxError es) = toCBOR es

@@ -128,7 +128,7 @@ instance
 instance (Era era) => NoUnexpectedThunks (PredicateFailure (UTXOW era))
 
 instance
-  (Typeable era, Era era) =>
+  (Typeable era, Body era, Era era) =>
   ToCBOR (PredicateFailure (UTXOW era))
   where
   toCBOR = \case
@@ -150,7 +150,7 @@ instance
       encodeListLen 3 <> toCBOR (8 :: Word8) <> toCBOR bodyHash <> toCBOR fullMDHash
 
 instance
-  (Era era) =>
+  (Body era,Era era) =>
   FromCBOR (PredicateFailure (UTXOW era))
   where
   fromCBOR = decodeRecordSum "PredicateFailure (UTXOW era)" $
