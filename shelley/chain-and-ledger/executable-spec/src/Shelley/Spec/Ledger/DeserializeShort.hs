@@ -10,7 +10,7 @@ where
 
 import qualified Cardano.Crypto.Hash.Class as Hash
 import Cardano.Ledger.Crypto (ADDRHASH)
-import Cardano.Ledger.EraParams 
+import Cardano.Ledger.Era
 import Control.Monad (ap)
 import Control.Monad (join)
 import qualified Control.Monad.Fail

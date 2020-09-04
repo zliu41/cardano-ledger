@@ -26,7 +26,7 @@ import Cardano.Binary
     serializeEncoding,
     withSlice,
   )
-import Cardano.Ledger.EraParams (Era)
+import Cardano.Ledger.Era (Era)
 import Cardano.Prelude (AllowThunksIn (..), LByteString, NoUnexpectedThunks (..), Word64, cborError)
 import qualified Codec.CBOR.Term as CBOR
 import Data.Bifunctor (bimap)

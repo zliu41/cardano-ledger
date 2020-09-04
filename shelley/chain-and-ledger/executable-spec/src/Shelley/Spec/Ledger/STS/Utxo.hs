@@ -25,7 +25,7 @@ import Cardano.Binary
     ToCBOR (..),
     encodeListLen,
   )
-import Cardano.Ledger.EraParams (Era)
+import Cardano.Ledger.EraFuncs
 import qualified Cardano.Ledger.Val as Val
 import Cardano.Prelude (NoUnexpectedThunks (..), asks)
 import Control.Iterate.SetAlgebra (dom, eval, (∪), (⊆), (⋪))
@@ -63,7 +63,6 @@ import Shelley.Spec.Ledger.Coin (Coin (..))
 import Shelley.Spec.Ledger.Keys (GenDelegs, KeyHash, KeyRole (..))
 import Shelley.Spec.Ledger.LedgerState
   ( UTxOState (..),
-    consumed,
     emptyPPUPState,
     keyRefunds,
     minfee,
@@ -270,7 +269,7 @@ initialLedgerState = do
 
 utxoInductive ::
   forall era.
-  Era era =>
+  (Era era) =>
   TransitionRule (UTXO era)
 utxoInductive = do
   TRC (UtxoEnv slot pp stakepools genDelegs, u, tx) <- judgmentContext

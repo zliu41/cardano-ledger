@@ -12,7 +12,7 @@ where
 import Cardano.Binary (ToCBOR (..))
 import qualified Cardano.Crypto.Hash as Hash
 import Cardano.Ledger.Crypto (HASH)
-import Cardano.Ledger.EraParams 
+import Cardano.Ledger.Era
 
 class Era e => HashAnnotated a e | a -> e where
   hashAnnotated :: a -> Hash.Hash (HASH (Crypto e)) a

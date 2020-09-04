@@ -18,7 +18,7 @@ module Shelley.Spec.Ledger.API.Mempool
 where
 
 import Cardano.Binary (FromCBOR (..), ToCBOR (..))
-import Cardano.Ledger.Era
+import Cardano.Ledger.EraFuncs
 import Control.Arrow (left)
 import Control.Monad.Except
 import Control.Monad.Trans.Reader (runReader)

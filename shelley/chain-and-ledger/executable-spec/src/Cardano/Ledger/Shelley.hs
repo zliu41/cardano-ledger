@@ -5,6 +5,7 @@
 module Cardano.Ledger.Shelley where
 
 import qualified Cardano.Ledger.Crypto as CryptoClass
+import Cardano.Ledger.EraParams
 import Cardano.Ledger.Era
 import Shelley.Spec.Ledger.Coin
 

@@ -17,7 +17,7 @@ module Shelley.Spec.Ledger.API.Validation
   )
 where
 
-import Cardano.Ledger.Era
+import Cardano.Ledger.EraFuncs
 import Cardano.Prelude (NoUnexpectedThunks (..))
 import Control.Arrow (left, right)
 import Control.Monad.Except
@@ -43,7 +43,7 @@ type ShelleyState = LedgerState.NewEpochState
 -------------------------------------------------------------------------------}
 chainChecks ::
   forall era m.
-  (Era era, MonadError (STS.PredicateFailure (STS.CHAIN era)) m) =>
+  ((Cardano.Ledger.EraFuncs.Era era), MonadError (STS.PredicateFailure (STS.CHAIN era)) m) =>
   Globals ->
   PParams ->
   BHeader era ->
@@ -85,7 +85,7 @@ instance NoUnexpectedThunks (TickTransitionError era)
 -- header level checks, such as size constraints.
 applyTickTransition ::
   forall era.
-  (Era era) =>
+  (Cardano.Ledger.EraFuncs.Era era) =>
   Globals ->
   ShelleyState era ->
   SlotNo ->
@@ -107,7 +107,7 @@ instance (Era era) => NoUnexpectedThunks (BlockTransitionError era)
 -- | Apply the block level ledger transition.
 applyBlockTransition ::
   forall era m.
-  ( Era era,
+  ( (Cardano.Ledger.EraFuncs.Era era),
     MonadError (BlockTransitionError era) m,
     DSignable era (Hash era (Tx.TxBody era))
   ) =>
@@ -142,7 +142,7 @@ applyBlockTransition globals state blk =
 --   `applyBlockTransition` on the same block and that this was successful.
 reapplyBlockTransition ::
   forall era.
-  ( Era era,
+  ( (Cardano.Ledger.EraFuncs.Era era),
     DSignable era (Hash era (Tx.TxBody era))
   ) =>
   Globals ->

@@ -32,7 +32,8 @@ import Cardano.Crypto.DSIGN.Class
 import Cardano.Crypto.KES.Class
 import Cardano.Crypto.VRF.Class
 import Cardano.Ledger.Crypto hiding (Crypto)
-import Cardano.Ledger.Era (Crypto, Era)
+import Cardano.Ledger.EraFuncs (Era)
+import Cardano.Ledger.Era (Crypto)
 import Cardano.Prelude (NoUnexpectedThunks (..))
 import Control.Arrow (left, right)
 import Control.Monad.Except

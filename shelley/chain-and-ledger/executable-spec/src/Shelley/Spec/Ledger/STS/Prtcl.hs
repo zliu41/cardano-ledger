@@ -30,7 +30,7 @@ import Cardano.Binary
   )
 import qualified Cardano.Crypto.VRF as VRF
 import Cardano.Ledger.Crypto (VRF)
-import Cardano.Ledger.Era (Crypto, Era)
+import Cardano.Ledger.EraParams (Crypto, Era)
 import Cardano.Prelude (MonadError (..), NoUnexpectedThunks (..), unless)
 import Cardano.Slotting.Slot (WithOrigin (..))
 import Control.State.Transition

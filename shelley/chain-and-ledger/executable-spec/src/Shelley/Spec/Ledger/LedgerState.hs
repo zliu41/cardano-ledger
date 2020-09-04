@@ -69,7 +69,7 @@ module Shelley.Spec.Ledger.LedgerState
     txsize,
     txsizeBound,
     produced,
-    consumed,
+    consumedShelley,
     verifiedWits,
     witsVKeyNeeded,
     witsFromWitnessSet,
@@ -685,13 +685,13 @@ keyRefunds pp tx = Val.scale (length deregistrations) (_keyDeposit pp)
     deregistrations = filter isDeRegKey (toList $ _certs tx)
 
 -- | Compute the lovelace which are destroyed by the transaction
-consumed ::
+consumedShelley ::
   Era era =>
   PParams ->
   UTxO era ->
   TxBody era ->
   Coin
-consumed pp u tx =
+consumedShelley pp u tx =
   balance (eval (txins tx ◁ u)) <> refunds <> withdrawals
   where
     -- balance (UTxO (Map.restrictKeys v (txins tx))) + refunds + withdrawals

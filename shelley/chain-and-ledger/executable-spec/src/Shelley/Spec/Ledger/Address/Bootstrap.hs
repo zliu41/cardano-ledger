@@ -46,7 +46,7 @@ import qualified Cardano.Crypto.Hash as Hash
 import qualified Cardano.Crypto.Signing as Byron
 import qualified Cardano.Crypto.Wallet as WC
 import Cardano.Ledger.Crypto (ADDRHASH, DSIGN)
-import Cardano.Ledger.Era
+import Cardano.Ledger.EraParams
 import Cardano.Prelude
   ( AllowThunksIn (..),
     ByteString,

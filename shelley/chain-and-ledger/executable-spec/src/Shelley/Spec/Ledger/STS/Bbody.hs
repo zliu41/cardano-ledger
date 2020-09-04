@@ -18,7 +18,7 @@ module Shelley.Spec.Ledger.STS.Bbody
   )
 where
 
-import Cardano.Ledger.EraParams (Era)
+import Cardano.Ledger.EraFuncs 
 import Cardano.Prelude (NoUnexpectedThunks (..))
 import Control.State.Transition
   ( Embed (..),

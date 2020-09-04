@@ -41,7 +41,7 @@ import Cardano.Binary
   )
 import qualified Cardano.Crypto.Hash as Hash
 import Cardano.Ledger.Crypto (ADDRHASH)
-import Cardano.Ledger.EraParams
+import Cardano.Ledger.Era
 import Cardano.Prelude
   ( AllowThunksIn (..),
     Generic,

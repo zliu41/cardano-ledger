@@ -80,7 +80,7 @@ import qualified Cardano.Crypto.Hash as Hash
 import qualified Cardano.Crypto.KES as KES
 import qualified Cardano.Crypto.VRF as VRF
 import Cardano.Ledger.Crypto (ADDRHASH, DSIGN, HASH, KES, VRF)
-import Cardano.Ledger.EraParams
+import Cardano.Ledger.Era
 import Cardano.Prelude (NFData, NoUnexpectedThunks (..))
 import Data.Aeson (FromJSON (..), FromJSONKey, ToJSON (..), ToJSONKey, (.:), (.=))
 import qualified Data.Aeson as Aeson

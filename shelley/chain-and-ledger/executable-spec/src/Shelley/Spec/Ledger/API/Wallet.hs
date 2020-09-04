@@ -11,7 +11,8 @@ where
 
 import qualified Cardano.Crypto.VRF as VRF
 import Cardano.Ledger.Crypto (VRF)
-import Cardano.Ledger.Era (Crypto, Era)
+import Cardano.Ledger.EraFuncs (Era)
+import Cardano.Ledger.Era (Crypto)
 import qualified Cardano.Ledger.Val as Val
 import Cardano.Slotting.EpochInfo (epochInfoRange)
 import Cardano.Slotting.Slot (SlotNo)

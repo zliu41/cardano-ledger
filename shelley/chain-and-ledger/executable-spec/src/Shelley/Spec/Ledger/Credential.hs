@@ -21,7 +21,7 @@ module Shelley.Spec.Ledger.Credential
 where
 
 import Cardano.Binary (FromCBOR (..), ToCBOR (..), encodeListLen)
-import Cardano.Ledger.EraParams (Era)
+import Cardano.Ledger.Era (Era)
 import Cardano.Prelude (NFData, Natural, NoUnexpectedThunks, Typeable, Word8, asum)
 import Data.Aeson (FromJSON (..), FromJSONKey, ToJSON (..), ToJSONKey, (.:), (.=))
 import qualified Data.Aeson as Aeson
