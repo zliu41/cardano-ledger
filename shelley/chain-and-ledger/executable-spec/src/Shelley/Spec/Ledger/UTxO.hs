@@ -42,7 +42,7 @@ module Shelley.Spec.Ledger.UTxO
 where
 
 import Cardano.Binary (FromCBOR (..), ToCBOR (..))
-import Cardano.Ledger.Era
+import Cardano.Ledger.EraParams
 import qualified Cardano.Ledger.Val as Val
 import Cardano.Prelude (Generic, NFData, NoUnexpectedThunks (..))
 import Control.Iterate.SetAlgebra (BaseRep (MapR), Embed (..), Exp (Base), HasExp (toExp))

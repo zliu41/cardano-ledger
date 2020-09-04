@@ -14,7 +14,7 @@ module Shelley.Spec.Ledger.STS.Epoch
   )
 where
 
-import Cardano.Ledger.Era (Era)
+import Cardano.Ledger.EraParams (Era)
 import Cardano.Prelude (NoUnexpectedThunks (..), asks)
 import Control.Iterate.SetAlgebra (eval, (⨃))
 import Control.State.Transition (Embed (..), InitialRule, STS (..), TRC (..), TransitionRule, judgmentContext, liftSTS, trans)

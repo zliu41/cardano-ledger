@@ -94,7 +94,7 @@ import Cardano.Binary
     ToCBOR (..),
     encodeListLen,
   )
-import Cardano.Ledger.Era (Era)
+import Cardano.Ledger.EraParams (Era)
 import qualified Cardano.Ledger.Val as Val
 import Cardano.Prelude (NFData, NoUnexpectedThunks (..))
 import Control.Iterate.SetAlgebra (Bimap, biMapEmpty, dom, eval, forwards, range, (∈), (∪+), (▷), (◁))

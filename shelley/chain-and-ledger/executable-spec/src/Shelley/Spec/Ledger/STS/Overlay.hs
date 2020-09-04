@@ -20,7 +20,7 @@ where
 
 import qualified Cardano.Crypto.VRF as VRF
 import Cardano.Ledger.Crypto (VRF)
-import Cardano.Ledger.Era
+import Cardano.Ledger.EraParams
 import Cardano.Prelude
   ( MonadError (..),
     NoUnexpectedThunks (..),

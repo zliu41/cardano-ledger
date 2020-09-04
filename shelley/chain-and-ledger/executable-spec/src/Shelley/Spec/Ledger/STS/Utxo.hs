@@ -25,7 +25,7 @@ import Cardano.Binary
     ToCBOR (..),
     encodeListLen,
   )
-import Cardano.Ledger.Era (Era)
+import Cardano.Ledger.EraParams (Era)
 import qualified Cardano.Ledger.Val as Val
 import Cardano.Prelude (NoUnexpectedThunks (..), asks)
 import Control.Iterate.SetAlgebra (dom, eval, (∪), (⊆), (⋪))

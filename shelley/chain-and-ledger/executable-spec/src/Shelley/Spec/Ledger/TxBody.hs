@@ -79,7 +79,7 @@ import Cardano.Binary
     szCases,
     withSlice,
   )
-import Cardano.Ledger.Era
+import Cardano.Ledger.EraParams
 import Cardano.Prelude
   ( AllowThunksIn (..),
     LByteString,
@@ -574,6 +574,7 @@ data TxBody era = TxBody'
     _ttl' :: !SlotNo,
     _txUpdate' :: !(StrictMaybe (Update era)),
     _mdHash' :: !(StrictMaybe (MetaDataHash era)),
+    extraEraBody :: !(ExtraBody era),
     bodyBytes :: LByteString,
     extraSize :: !Int64 -- This is the contribution of inputs, outputs, and fees to the size of the transaction
   }

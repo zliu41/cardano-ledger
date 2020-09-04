@@ -19,7 +19,7 @@ import qualified Cardano.Chain.UTxO as Byron
 import qualified Cardano.Crypto.Hash as Crypto
 import qualified Cardano.Crypto.Hashing as Hashing
 import Cardano.Ledger.Crypto (ADDRHASH)
-import Cardano.Ledger.Era
+import Cardano.Ledger.EraParams
 import qualified Cardano.Ledger.Val as Val
 import Control.Monad.Reader (runReader)
 import qualified Data.ByteString.Short as SBS

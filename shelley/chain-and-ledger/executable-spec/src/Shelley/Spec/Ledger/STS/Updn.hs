@@ -15,7 +15,7 @@ module Shelley.Spec.Ledger.STS.Updn
   )
 where
 
-import Cardano.Ledger.Era
+import Cardano.Ledger.EraParams
 import Cardano.Prelude (NoUnexpectedThunks)
 import Control.Monad.Trans.Reader (asks)
 import Control.State.Transition

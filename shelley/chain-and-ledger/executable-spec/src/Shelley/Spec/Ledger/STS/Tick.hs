@@ -16,7 +16,7 @@ module Shelley.Spec.Ledger.STS.Tick
   )
 where
 
-import Cardano.Ledger.Era (Era)
+import Cardano.Ledger.EraParams (Era)
 import Cardano.Prelude (NoUnexpectedThunks (..))
 import Control.Iterate.SetAlgebra (eval, (⨃))
 import Control.Monad.Trans.Reader (asks)

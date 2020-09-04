@@ -35,7 +35,7 @@ import Cardano.Binary
     encodeMapLen,
     encodeWord,
   )
-import Cardano.Ledger.Era
+import Cardano.Ledger.EraParams
 import Cardano.Prelude (NFData, NoUnexpectedThunks (..), mapMaybe)
 import Control.Monad (unless)
 import Data.Aeson (FromJSON (..), ToJSON (..), (.!=), (.:), (.:?), (.=))

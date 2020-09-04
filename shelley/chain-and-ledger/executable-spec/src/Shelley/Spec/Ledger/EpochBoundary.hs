@@ -27,7 +27,7 @@ module Shelley.Spec.Ledger.EpochBoundary
 where
 
 import Cardano.Binary (FromCBOR (..), ToCBOR (..), encodeListLen)
-import Cardano.Ledger.Era
+import Cardano.Ledger.EraParams
 import qualified Cardano.Ledger.Val as Val
 import Cardano.Prelude (NFData, NoUnexpectedThunks (..))
 import Control.Iterate.SetAlgebra (dom, eval, (▷), (◁))

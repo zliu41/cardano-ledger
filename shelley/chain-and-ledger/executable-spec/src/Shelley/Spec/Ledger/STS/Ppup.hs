@@ -22,7 +22,7 @@ import Cardano.Binary
     decodeWord,
     encodeListLen,
   )
-import Cardano.Ledger.Era (Era)
+import Cardano.Ledger.EraParams (Era)
 import Cardano.Prelude (NoUnexpectedThunks (..))
 import Control.Iterate.SetAlgebra (dom, eval, (⊆), (⨃))
 import Control.Monad.Trans.Reader (asks)

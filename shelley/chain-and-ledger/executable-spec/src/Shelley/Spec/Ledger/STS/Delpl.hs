@@ -21,7 +21,7 @@ import Cardano.Binary
     ToCBOR (..),
     encodeListLen,
   )
-import Cardano.Ledger.Era (Era)
+import Cardano.Ledger.EraParams (Era)
 import Cardano.Prelude (NoUnexpectedThunks (..))
 import Control.State.Transition
 import Data.Typeable (Typeable)

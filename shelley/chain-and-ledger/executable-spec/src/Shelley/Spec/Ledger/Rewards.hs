@@ -31,7 +31,7 @@ import Cardano.Binary
     encodeDouble,
     encodeListLen,
   )
-import Cardano.Ledger.Era (Era)
+import Cardano.Ledger.EraParams (Era)
 import qualified Cardano.Ledger.Val as Val
 import Cardano.Prelude (NFData, NoUnexpectedThunks (..))
 import Cardano.Slotting.Slot (EpochSize)

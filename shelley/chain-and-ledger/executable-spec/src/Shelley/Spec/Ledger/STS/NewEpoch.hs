@@ -15,7 +15,7 @@ module Shelley.Spec.Ledger.STS.NewEpoch
   )
 where
 
-import Cardano.Ledger.Era
+import Cardano.Ledger.EraParams
 import qualified Cardano.Ledger.Val as Val
 import Cardano.Prelude (NoUnexpectedThunks (..))
 import Control.State.Transition

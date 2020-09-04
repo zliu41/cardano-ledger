@@ -67,7 +67,7 @@ import qualified Cardano.Chain.Common as Byron
 import qualified Cardano.Crypto.Hash.Class as Hash
 import qualified Cardano.Crypto.Hashing as Byron
 import Cardano.Ledger.Crypto (ADDRHASH)
-import Cardano.Ledger.Era
+import Cardano.Ledger.EraParams
 import Cardano.Prelude (NFData, NoUnexpectedThunks, Text, cborError, panic, parseBase16)
 import Data.Aeson (FromJSON (..), FromJSONKey (..), ToJSON (..), ToJSONKey (..), (.:), (.=))
 import qualified Data.Aeson as Aeson

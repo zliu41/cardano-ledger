@@ -3,7 +3,7 @@
 
 -- | Support for multiple (Shelley-based) eras in the ledger.
 module Cardano.Ledger.Era
-  ( Era,
+  ( EraBase,
     Crypto,
   )
 where
@@ -16,6 +16,6 @@ class
   ( CryptoClass.Crypto (Crypto e),
     Typeable e
   ) =>
-  Era e
+  EraBase e
   where
   type Crypto e :: Type

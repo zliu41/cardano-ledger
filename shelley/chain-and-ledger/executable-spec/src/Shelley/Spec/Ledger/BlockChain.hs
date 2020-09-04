@@ -74,7 +74,7 @@ import qualified Cardano.Crypto.Hash.Class as Hash
 import qualified Cardano.Crypto.KES as KES
 import Cardano.Crypto.Util (SignableRepresentation (..))
 import qualified Cardano.Crypto.VRF as VRF
-import Cardano.Ledger.Era
+import Cardano.Ledger.EraParams
 import Cardano.Prelude
   ( AllowThunksIn (..),
     ByteString,

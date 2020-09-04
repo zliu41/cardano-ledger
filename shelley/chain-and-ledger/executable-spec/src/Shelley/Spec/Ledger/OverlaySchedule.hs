@@ -30,7 +30,7 @@ import Cardano.Binary
     encodeNull,
     peekTokenType,
   )
-import Cardano.Ledger.Era (Era)
+import Cardano.Ledger.EraParams (Era)
 import Cardano.Prelude (NFData, NoUnexpectedThunks)
 import Cardano.Slotting.Slot
 import Control.Monad.Trans.Reader (asks)

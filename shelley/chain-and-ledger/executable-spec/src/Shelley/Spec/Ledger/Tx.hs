@@ -66,7 +66,7 @@ import Cardano.Binary
     serializeEncoding,
     withSlice,
   )
-import Cardano.Ledger.Era
+import Cardano.Ledger.EraParams
 import Cardano.Prelude
   ( AllowThunksIn (..),
     LByteString,

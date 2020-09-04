@@ -14,7 +14,7 @@ module Shelley.Spec.Ledger.STS.Ocert
   )
 where
 
-import Cardano.Ledger.Era
+import Cardano.Ledger.EraParams
 import Cardano.Prelude (NoUnexpectedThunks, asks)
 import Control.Iterate.SetAlgebra (eval, singleton, (⨃))
 import Control.State.Transition

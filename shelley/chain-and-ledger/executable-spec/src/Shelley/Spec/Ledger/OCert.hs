@@ -26,7 +26,7 @@ import qualified Cardano.Crypto.DSIGN as DSIGN
 import qualified Cardano.Crypto.KES as KES
 import Cardano.Crypto.Util (SignableRepresentation (..))
 import Cardano.Ledger.Crypto (KES)
-import Cardano.Ledger.Era
+import Cardano.Ledger.EraParams
 import Cardano.Prelude (NoUnexpectedThunks (..))
 import Control.Monad.Trans.Reader (asks)
 import qualified Data.ByteString.Builder as BS
