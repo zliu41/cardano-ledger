@@ -44,7 +44,7 @@ import Shelley.Spec.Ledger.PParams (PParams)
 import Shelley.Spec.Ledger.STS.Ledger (LEDGER, LedgerEnv (..))
 import Shelley.Spec.Ledger.Slot (SlotNo)
 import Shelley.Spec.Ledger.Tx (Tx)
-import Shelley.Spec.Ledger.TxData (Body(..))
+import Shelley.Spec.Ledger.TxData (TxBody(..))
 
 data LEDGERS era
 
@@ -55,8 +55,7 @@ data LedgersEnv = LedgersEnv
   }
 
 instance
-  ( Body era,
-    Era era,
+  ( Era era,
     DSignable era (Hash era (TxBody era))
   ) =>
   STS (LEDGERS era)
@@ -81,15 +80,14 @@ instance
   toCBOR (LedgerFailure e) = toCBOR e
 
 instance
-  (Body era,Era era) =>
+  (Era era) =>
   FromCBOR (PredicateFailure (LEDGERS era))
   where
   fromCBOR = LedgerFailure <$> fromCBOR
 
 ledgersTransition ::
   forall era.
-  ( Body era,
-    Era era,
+  ( Era era,
     DSignable era (Hash era (TxBody era))
   ) =>
   TransitionRule (LEDGERS era)
@@ -110,7 +108,6 @@ ledgersTransition = do
 
 instance
   ( Era era,
-    Body era,
     DSignable era (Hash era (TxBody era))
   ) =>
   Embed (LEDGER era) (LEDGERS era)

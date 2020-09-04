@@ -85,14 +85,13 @@ import Shelley.Spec.Ledger.Tx
     txwitsScript,
     validateScript,
   )
-import Shelley.Spec.Ledger.TxData (Body(..))
+import Shelley.Spec.Ledger.TxData (TxBody(..))
 import Shelley.Spec.Ledger.UTxO (scriptsNeeded)
 
 data UTXOW era
 
 instance
   ( Era era,
-    Body era,
     DSignable era (Hash era (TxBody era))
   ) =>
   STS (UTXOW era)
@@ -188,7 +187,6 @@ instance
 initialLedgerStateUTXOW ::
   forall era.
   ( Era era,
-    Body era,
     DSignable era (Hash era (TxBody era))
   ) =>
   InitialRule (UTXOW era)
@@ -199,7 +197,6 @@ initialLedgerStateUTXOW = do
 utxoWitnessed ::
   forall era.
   ( Era era,
-    Body era,
     DSignable era (Hash era (TxBody era))
   ) =>
   TransitionRule (UTXOW era)
@@ -233,7 +230,7 @@ utxoWitnessed =
       haveNeededWitnesses ?!: MissingVKeyWitnessesUTXOW
 
       -- check metadata hash
-      case (mdHashB @era txbody, md) of
+      case (_mdHash txbody, md) of
         (SNothing, SNothing) -> pure ()
         (SJust mdh, SNothing) -> failBecause $ MissingTxMetaData mdh
         (SNothing, SJust md') -> failBecause $ MissingTxBodyMetaDataHash (hashMetaData md')
@@ -248,7 +245,7 @@ utxoWitnessed =
             StrictSeq.toStrict
               . Seq.filter isInstantaneousRewards
               . StrictSeq.getSeq
-              $ certsB @era txbody
+              $ _certs txbody
           GenDelegs genMapping = genDelegs
 
       coreNodeQuorum <- liftSTS $ asks quorum
@@ -262,7 +259,6 @@ utxoWitnessed =
 
 instance
   ( Era era,
-    Body era,
     DSignable era (Hash era (TxBody era))
   ) =>
   Embed (UTXO era) (UTXOW era)

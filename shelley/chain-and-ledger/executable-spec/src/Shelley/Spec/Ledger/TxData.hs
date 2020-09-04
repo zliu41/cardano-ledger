@@ -35,9 +35,8 @@ module Shelley.Spec.Ledger.TxData
     RewardAcnt (..),
     StakeCreds (..),
     StakePoolRelay (..),
-    TxBody, -- imported from Era
-    TxBodyShelley
-      ( TxBodyShelley,
+    TxBody
+      ( TxBody,
         _inputs,
         _outputs,
         _certs,
@@ -60,9 +59,6 @@ module Shelley.Spec.Ledger.TxData
     --
     SizeOfPoolOwners (..),
     SizeOfPoolRelays (..),
-    -- TxBodyLike(..),
-    Body(..),
-    EraTag(..),
   )
 where
 
@@ -86,7 +82,7 @@ import Cardano.Binary
     szCases,
     withSlice,
   )
-import Cardano.Ledger.Era
+import Cardano.Ledger.Era(Era(..), HashAnnotated(..))
 import Cardano.Prelude
   ( AllowThunksIn (..),
     LByteString,
@@ -570,8 +566,11 @@ instance NoUnexpectedThunks (MIRCert era)
 
 instance NoUnexpectedThunks (DCert era)
 
+-- ===========================================================
 -- | A raw transaction
-data TxBodyShelley era = TxBody'
+
+-- | A raw transaction
+data TxBody era = TxBody'
   { _inputs' :: !(Set (TxIn era)),
     _outputs' :: !(StrictSeq (TxOut era)),
     _certs' :: !(StrictSeq (DCert era)),
@@ -580,17 +579,17 @@ data TxBodyShelley era = TxBody'
     _ttl' :: !SlotNo,
     _txUpdate' :: !(StrictMaybe (Update era)),
     _mdHash' :: !(StrictMaybe (MetaDataHash era)),
+    _txforge' :: !(Forge era), -- adding for experiment
     bodyBytes :: LByteString,
     extraSize :: !Int64 -- This is the contribution of inputs, outputs, and fees to the size of the transaction
   }
   deriving (Show, Eq, Generic)
-  deriving
-    (NoUnexpectedThunks)
-    via AllowThunksIn '["bodyBytes"] (TxBodyShelley era)
 
-instance Era era => HashAnnotated (TxBodyShelley era) era
+deriving via AllowThunksIn '["bodyBytes"] (TxBody era) instance Era era => NoUnexpectedThunks (TxBody era)
 
-pattern TxBodyShelley ::
+instance Era era => HashAnnotated (TxBody era) era
+
+pattern TxBody ::
   Era era =>
   Set (TxIn era) ->
   StrictSeq (TxOut era) ->
@@ -600,8 +599,9 @@ pattern TxBodyShelley ::
   SlotNo ->
   StrictMaybe (Update era) ->
   StrictMaybe (MetaDataHash era) ->
-  TxBodyShelley era
-pattern TxBodyShelley {_inputs, _outputs, _certs, _wdrls, _txfee, _ttl, _txUpdate, _mdHash} <-
+  Forge era ->
+  TxBody era
+pattern TxBody {_inputs, _outputs, _certs, _wdrls, _txfee, _ttl, _txUpdate, _mdHash, _txforge} <-
   TxBody'
     { _inputs' = _inputs,
       _outputs' = _outputs,
@@ -610,10 +610,11 @@ pattern TxBodyShelley {_inputs, _outputs, _certs, _wdrls, _txfee, _ttl, _txUpdat
       _txfee' = _txfee,
       _ttl' = _ttl,
       _txUpdate' = _txUpdate,
-      _mdHash' = _mdHash
+      _mdHash' = _mdHash,
+      _txforge' = _txforge
     }
   where
-    TxBodyShelley _inputs _outputs _certs _wdrls _txfee _ttl _txUpdate _mdHash =
+    TxBody _inputs _outputs _certs _wdrls _txfee _ttl _txUpdate _mdHash _txforge =
       let encodeMapElement ix enc x = Just (encodeWord ix <> enc x)
           encodeMapElementUnless condition ix enc x =
             if condition x
@@ -628,7 +629,8 @@ pattern TxBodyShelley {_inputs, _outputs, _certs, _wdrls, _txfee, _ttl, _txUpdat
                 encodeMapElementUnless null 4 encodeFoldable _certs,
                 encodeMapElementUnless (null . unWdrl) 5 toCBOR _wdrls,
                 encodeMapElement 6 toCBOR =<< strictMaybeToMaybe _txUpdate,
-                encodeMapElement 7 toCBOR =<< strictMaybeToMaybe _mdHash
+                encodeMapElement 7 toCBOR =<< strictMaybeToMaybe _mdHash,
+                encodeMapElement 8 toCBOR _txforge
               ]
           inputBytes = serializeEncoding' $ encodeFoldable _inputs
           outputBytes = serializeEncoding' $ encodeFoldable _outputs
@@ -649,10 +651,13 @@ pattern TxBodyShelley {_inputs, _outputs, _certs, _wdrls, _txfee, _ttl, _txUpdat
             _ttl
             _txUpdate
             _mdHash
+            _txforge
             bytes
             es
 
-{-# COMPLETE TxBodyShelley #-}
+{-# COMPLETE TxBody #-}
+
+-- ===============================================================
 
 -- | Proof/Witness that a transaction is authorized by the given key holder.
 data WitVKey era kr = WitVKey'
@@ -845,13 +850,15 @@ instance
 
 instance
   (Era era) =>
-  ToCBOR (TxBodyShelley era)
+  ToCBOR (TxBody era)
   where
   toCBOR = encodePreEncoded . BSL.toStrict . bodyBytes
 
+-- =====================================================
+
 instance
   (Era era) =>
-  FromCBOR (Annotator (TxBodyShelley era))
+  FromCBOR (Annotator (TxBody era))
   where
   fromCBOR = annotatorSlice $ do
     mapParts <-
@@ -877,6 +884,7 @@ instance
           5 -> f 5 fromCBOR $ \_ x t -> t {_wdrls' = x}
           6 -> f 6 fromCBOR $ \_ x t -> t {_txUpdate' = SJust x}
           7 -> f 7 fromCBOR $ \_ x t -> t {_mdHash' = SJust x}
+          8 -> f 8 fromCBOR $ \_ x t -> t {_txforge' = x} -- TODO I dont think this is right
           k -> invalidKey k
     let requiredFields :: Map Int String
         requiredFields =
@@ -884,7 +892,8 @@ instance
             [ (0, "inputs"),
               (1, "outputs"),
               (2, "fee"),
-              (3, "ttl")
+              (3, "ttl"),
+              (8, "txforge")
             ]
         fields = fst <$> mapParts
         missingFields = Map.filterWithKey (\k _ -> notElem k fields) requiredFields
@@ -899,8 +908,8 @@ instance
       f ::
         Int ->
         Decoder s a ->
-        (LByteString -> a -> TxBodyShelley era -> TxBodyShelley era) ->
-        Decoder s (Int, Annotator (TxBodyShelley era -> TxBodyShelley era))
+        (LByteString -> a -> TxBody era -> TxBody era) ->
+        Decoder s (Int, Annotator (TxBody era -> TxBody era))
       f key decoder updater = do
         (x, annBytes) <- withSlice decoder
         let result = Annotator $ \fullbytes txbody ->
@@ -916,9 +925,12 @@ instance
             _wdrls' = Wdrl Map.empty,
             _txUpdate' = SNothing,
             _mdHash' = SNothing,
+            _txforge' = undefined,   -- IS THIS RIGHT?
             bodyBytes = mempty,
             extraSize = 0
           }
+
+-- ==========================================================================
 
 instance ToCBOR PoolMetaData where
   toCBOR (PoolMetaData u h) =
@@ -1050,33 +1062,3 @@ instance Relation (StakeCreds era) where
   {-# INLINE removekey #-}
   removekey k (StakeCreds m) = StakeCreds (Map.delete k m)
 -}
-
-
-{-
-class TxBodyLike body where
-  inputsB :: Era e => body -> (Set (TxIn e))
-  outputsB :: Era e => body -> (StrictSeq (TxOut e))
-  certsB :: Era e => body -> (StrictSeq (DCert e))
-  wdrlsB :: Era e => body-> (Wdrl e)
-  txfeeB :: body -> Coin
-  ttlB ::  body -> SlotNo
-  txUpdateB :: Era e => body -> (StrictMaybe (Update e))
-  bodyBytesB ::  body -> LByteString
-  extraSizeB :: body -> Int64
-
-type Body e = TxBodyLike (TxBody e)
--}
-
-newtype EraTag e x = Tag { unTag:: x }
-
-class Body e where
-  inputsB ::    TxBody e -> (Set (TxIn e))
-  outputsB ::   TxBody e -> (StrictSeq (TxOut e))
-  certsB ::     TxBody e -> (StrictSeq (DCert e))
-  wdrlsB ::     TxBody e -> (Wdrl e)
-  txfeeB ::     TxBody e -> EraTag e Coin
-  ttlB ::       TxBody e -> EraTag e SlotNo
-  txUpdateB ::  TxBody e -> (StrictMaybe (Update e))
-  bodyBytesB :: TxBody e -> EraTag e LByteString
-  extraSizeB :: TxBody e -> EraTag e Int64
-  mdHashB::     TxBody e -> StrictMaybe (MetaDataHash e)

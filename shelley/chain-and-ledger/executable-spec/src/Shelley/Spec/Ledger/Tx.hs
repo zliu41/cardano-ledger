@@ -105,6 +105,7 @@ import Shelley.Spec.Ledger.TxData
   ( TxId (..),
     TxIn (..),
     TxOut (..),
+    TxBody(..),
     WitVKey (..),
     witKeyHash,
   )

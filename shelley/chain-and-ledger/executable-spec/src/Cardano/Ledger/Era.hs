@@ -15,6 +15,7 @@ module Cardano.Ledger.Era
     EraTag(..),
     EraRep(..),
     MinimalLazy,
+    Minimal,
   )
 where
 
@@ -36,8 +37,8 @@ import Cardano.Prelude( NoUnexpectedThunks (..) )
 type MinimalLazy :: Type -> Constraint
 type MinimalLazy t = (Typeable t, Show t, Eq t, NoUnexpectedThunks t, ToCBOR t, FromCBOR (Annotator t))
 
--- type Minimal :: Type -> Constraint
--- type Minimal t = (Typeable t, Show t, Eq t, NoUnexpectedThunks t, ToCBOR t, FromCBOR t)
+type Minimal :: Type -> Constraint
+type Minimal t = (Typeable t, Show t, Eq t, NoUnexpectedThunks t, ToCBOR t, FromCBOR t)
 
 -- MinimalLazy (TxBody e), HashAnnotated (TxBody e) e,
 
@@ -46,12 +47,14 @@ type MinimalLazy t = (Typeable t, Show t, Eq t, NoUnexpectedThunks t, ToCBOR t, 
 class
   ( CryptoClass.Crypto (Crypto e),
     Typeable e,
-    ValClass.Val (ValueType e)  -- Multi Assets
+    ValClass.Val (ValueType e),  -- Multi Assets
+    Minimal (Forge e)
   ) =>
   Era e
   where
   type Crypto e :: Type
   type ValueType e :: Type
+  type Forge e :: Type
   thisRep :: EraRep e
 
 -- ================================================================================

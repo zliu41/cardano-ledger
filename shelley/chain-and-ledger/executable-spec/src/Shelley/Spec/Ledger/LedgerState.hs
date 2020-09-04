@@ -94,7 +94,7 @@ import Cardano.Binary
     ToCBOR (..),
     encodeListLen,
   )
-import Cardano.Ledger.Era (Era, ValueType(..), hashAnnotated)
+import Cardano.Ledger.Era (Era(..), hashAnnotated)
 import Cardano.Prelude (NFData, NoUnexpectedThunks (..))
 import Control.Iterate.SetAlgebra (Bimap, biMapEmpty, dom, eval, forwards, range, (∈), (∪+), (▷), (◁))
 import Control.Monad.Trans.Reader (asks)
@@ -193,8 +193,7 @@ import Shelley.Spec.Ledger.TxData
     WitVKey (..),
     getRwdCred,
     witKeyHash,
-    Body(..),
-    EraTag(..),
+    TxBody(..),
   )
 import Shelley.Spec.Ledger.UTxO
   ( UTxO (..),
@@ -640,7 +639,7 @@ txsize = fromIntegral . BSL.length . txFullBytes
 
 -- | Convenience Function to bound the txsize function.
 -- | It can be helpful for coin selection.
-txsizeBound :: forall era. (Body era,Era era) => Tx era -> Integer
+txsizeBound :: forall era. (Era era) => Tx era -> Integer
 txsizeBound tx = numInputs * inputSize + numOutputs * outputSize + rest
   where
     uint = 5
@@ -652,43 +651,43 @@ txsizeBound tx = numInputs * inputSize + numOutputs * outputSize + rest
     address = 2 + addrHeader + 2 * addrHashLen
     txbody :: TxBody era
     txbody = _body tx
-    numInputs = toInteger . length $ (inputsB @era txbody)
+    numInputs = toInteger . length $ (_inputs txbody)
     inputSize = smallArray + uint + hashObj
-    numOutputs = toInteger . length $ (outputsB @era txbody)
+    numOutputs = toInteger . length $ (_outputs txbody)
     outputSize = smallArray + uint + address
-    rest = fromIntegral $ BSL.length (txFullBytes tx) - unTag(extraSizeB @era txbody)
+    rest = fromIntegral $ BSL.length (txFullBytes tx) - (extraSize  txbody)
 
 -- | Minimum fee calculation
 minfee :: PParams -> Tx era -> Coin
 minfee pp tx = Coin $ fromIntegral (_minfeeA pp) * txsize tx + fromIntegral (_minfeeB pp)
 
 -- | Minimum fee bound using txsizeBound
-minfeeBound :: forall era. (Body era,Era era) => PParams -> Tx era -> Coin
+minfeeBound :: forall era. (Era era) => PParams -> Tx era -> Coin
 minfeeBound pp tx = Coin $ fromIntegral (_minfeeA pp) * txsizeBound tx + fromIntegral (_minfeeB pp)
 
 -- | Compute the lovelace which are created by the transaction
 produced :: forall era.
-  (Body era,Era era) =>
+  (Era era) =>
   PParams ->
   Map (KeyHash 'StakePool era) (PoolParams era) ->
   TxBody era ->
   ValueType era
 produced pp stakePools tx =
-  vplus (balance (txouts tx)) (vinject $ unTag (txfeeB @era tx) + totalDeposits pp stakePools (toList $ certsB tx))
+  vplus (balance (txouts tx)) (vinject $ (_txfee tx) + totalDeposits pp stakePools (toList $ _certs tx))
 
 -- | Compute the key deregistration refunds in a transaction
 keyRefunds :: forall era.
-  (Body era) =>
+  (Era era) =>
   PParams ->
   TxBody era ->
-  EraTag era Coin
-keyRefunds pp tx = Tag ((_keyDeposit pp) * (fromIntegral $ length deregistrations))
+  Coin
+keyRefunds pp tx = ((_keyDeposit pp) * (fromIntegral $ length deregistrations))
   where
-    deregistrations = filter isDeRegKey (toList $ certsB @era tx)
+    deregistrations = filter isDeRegKey (toList $ _certs tx)
 
 -- | Compute the lovelace which are destroyed by the transaction
 consumed ::forall era.
-  (Body era,Era era) =>
+  (Era era) =>
   PParams ->
   UTxO era ->
   TxBody era ->
@@ -697,8 +696,8 @@ consumed pp u tx =
   vplus (balance (eval (txins tx ◁ u))) (vinject $ refunds + withdrawals)
   where
     -- balance (UTxO (Map.restrictKeys v (txins tx))) + refunds + withdrawals
-    Tag refunds = keyRefunds @era pp tx
-    withdrawals = sum . unWdrl $ wdrlsB @era tx
+    refunds = keyRefunds @era pp tx
+    withdrawals = sum . unWdrl $ _wdrls tx
 
 newtype WitHashes era = WitHashes
   {unWitHashes :: Set (KeyHash 'Witness era)}
@@ -729,7 +728,7 @@ witsFromWitnessSet (WitnessSet aWits _ bsWits) =
 --  certificate authors, and withdrawal reward accounts.
 witsVKeyNeeded ::
   forall era.
-  (Body era,Era era) =>
+  (Era era) =>
   UTxO era ->
   Tx era ->
   GenDelegs era ->
@@ -743,7 +742,7 @@ witsVKeyNeeded utxo' tx@(Tx txbody _ _) genDelegs =
       `Set.union` updateKeys
   where
     inputAuthors :: Set (KeyHash 'Witness era)
-    inputAuthors = foldr accum Set.empty (inputsB txbody)
+    inputAuthors = foldr accum Set.empty (_inputs txbody)
       where
         accum txin ans =
           case txinLookup txin utxo' of
@@ -751,11 +750,11 @@ witsVKeyNeeded utxo' tx@(Tx txbody _ _) genDelegs =
             Just (TxOut (AddrBootstrap bootAddr) _) -> Set.insert (asWitness (bootstrapKeyHash bootAddr)) ans
             _other -> ans
     wdrlAuthors :: Set (KeyHash 'Witness era)
-    wdrlAuthors = Map.foldrWithKey accum Set.empty (unWdrl (wdrlsB txbody))
+    wdrlAuthors = Map.foldrWithKey accum Set.empty (unWdrl (_wdrls txbody))
       where
         accum key _ ans = Set.union (extractKeyHashWitnessSet [getRwdCred key]) ans
     owners :: Set (KeyHash 'Witness era)
-    owners = foldr accum Set.empty (certsB txbody)
+    owners = foldr accum Set.empty (_certs txbody)
       where
         accum (DCertPool (RegPool pool)) ans = Set.union (Set.map asWitness (_poolOwners pool)) ans
         accum _cert ans = ans
@@ -767,7 +766,7 @@ witsVKeyNeeded utxo' tx@(Tx txbody _ _) genDelegs =
     -- before the call to `cwitness`, so this error should never be reached.
 
     certAuthors :: Set (KeyHash 'Witness era)
-    certAuthors = foldr accum Set.empty (certsB txbody)
+    certAuthors = foldr accum Set.empty (_certs txbody)
       where
         accum cert ans | requiresVKeyWitness cert = Set.union (cwitness cert) ans
         accum _cert ans = ans
@@ -816,7 +815,7 @@ propWits (Just (Update (ProposedPPUpdates pup) _)) (GenDelegs genDelegs) =
 
 -- | Calculate the change to the deposit pool for a given transaction.
 depositPoolChange :: forall era.
-  (Body era) =>
+  (Era era) =>
   LedgerState era ->
   PParams ->
   TxBody era ->
@@ -829,8 +828,8 @@ depositPoolChange ls pp tx = (currentPool + txDeposits) - txRefunds
 
     currentPool = (_deposited . _utxoState) ls
     txDeposits =
-      totalDeposits pp ((_pParams . _pstate . _delegationState) ls) (toList $ certsB tx)
-    Tag txRefunds = keyRefunds @era pp tx
+      totalDeposits pp ((_pParams . _pstate . _delegationState) ls) (toList $ _certs tx)
+    txRefunds = keyRefunds @era pp tx
 
 reapRewards ::
   RewardAccounts era ->

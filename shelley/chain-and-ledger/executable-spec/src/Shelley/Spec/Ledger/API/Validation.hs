@@ -33,7 +33,7 @@ import qualified Shelley.Spec.Ledger.STS.Bbody as STS
 import qualified Shelley.Spec.Ledger.STS.Chain as STS
 import qualified Shelley.Spec.Ledger.STS.Tick as STS
 import Shelley.Spec.Ledger.Slot (SlotNo)
-import Shelley.Spec.Ledger.TxData(Body(..))
+import Shelley.Spec.Ledger.TxData(TxBody(..))
 
 -- | Type alias for the state updated by TICK and BBODY rules
 type ShelleyState = LedgerState.NewEpochState
@@ -107,8 +107,7 @@ instance (Era era) => NoUnexpectedThunks (BlockTransitionError era)
 -- | Apply the block level ledger transition.
 applyBlockTransition ::
   forall era m.
-  ( Body era,
-    Era era,
+  ( Era era,
     MonadError (BlockTransitionError era) m,
     DSignable era (Hash era (TxBody era))
   ) =>
@@ -143,8 +142,7 @@ applyBlockTransition globals state blk =
 --   `applyBlockTransition` on the same block and that this was successful.
 reapplyBlockTransition ::
   forall era.
-  ( Body era,
-    Era era,
+  ( Era era,
     DSignable era (Hash era (TxBody era))
   ) =>
   Globals ->

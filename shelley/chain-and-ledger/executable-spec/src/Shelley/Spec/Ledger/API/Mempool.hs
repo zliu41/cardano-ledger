@@ -33,7 +33,7 @@ import Shelley.Spec.Ledger.STS.Ledgers (LEDGERS)
 import qualified Shelley.Spec.Ledger.STS.Ledgers as Ledgers
 import Shelley.Spec.Ledger.Slot (SlotNo)
 import Shelley.Spec.Ledger.Tx (Tx)
-import Shelley.Spec.Ledger.TxData(Body(..))
+import Shelley.Spec.Ledger.TxData(TxBody(..))
 
 type MempoolEnv = Ledgers.LedgersEnv
 
@@ -86,15 +86,14 @@ instance
   toCBOR (ApplyTxError es) = toCBOR es
 
 instance
-  (Body era, Era era) =>
+  (Era era) =>
   FromCBOR (ApplyTxError era)
   where
   fromCBOR = ApplyTxError <$> fromCBOR
 
 applyTxs ::
   forall era m.
-  ( Body era,
-    Era era,
+  ( Era era,
     MonadError (ApplyTxError era) m,
     DSignable era (Hash era (TxBody era))
   ) =>

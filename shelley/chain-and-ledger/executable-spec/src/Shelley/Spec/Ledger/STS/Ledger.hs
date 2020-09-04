@@ -68,7 +68,7 @@ import Shelley.Spec.Ledger.STS.Utxow (PredicateFailure (..), UTXOW)
 import Shelley.Spec.Ledger.Serialization (decodeRecordSum)
 import Shelley.Spec.Ledger.Slot (SlotNo)
 import Shelley.Spec.Ledger.Tx (Tx (..))
-import Shelley.Spec.Ledger.TxData(Body(..))
+import Shelley.Spec.Ledger.TxData(TxBody(..))
 
 data LEDGER era
 
@@ -82,7 +82,6 @@ data LedgerEnv = LedgerEnv
 
 instance
   ( Era era,
-    Body era,
     DSignable era (Hash era (TxBody era))
   ) =>
   STS (LEDGER era)
@@ -146,7 +145,6 @@ instance
 
 ledgerTransition :: forall era.
   ( Era era,
-    Body era,
     DSignable era (Hash era (TxBody era))
   ) =>
   TransitionRule (LEDGER era)
@@ -158,7 +156,7 @@ ledgerTransition = do
       TRC
         ( DelegsEnv slot txIx pp tx account,
           dpstate,
-          StrictSeq.getSeq $ (certsB @ era) $ _body tx
+          StrictSeq.getSeq $ _certs $ _body tx
         )
 
   let DPState dstate pstate = dpstate
@@ -176,7 +174,6 @@ ledgerTransition = do
 
 instance
   ( Era era,
-    Body era,
     DSignable era (Hash era (TxBody era))
   ) =>
   Embed (DELEGS era) (LEDGER era)
@@ -185,7 +182,6 @@ instance
 
 instance
   ( Era era,
-    Body era,
     DSignable era (Hash era (TxBody era))
   ) =>
   Embed (UTXOW era) (LEDGER era)

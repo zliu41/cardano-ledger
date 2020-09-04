@@ -87,7 +87,7 @@ import Shelley.Spec.Ledger.TxData
     pattern DeRegKey,
     pattern Delegate,
     pattern Delegation,
-    Body(..),
+    TxBody(..),
   )
 import Shelley.Spec.Ledger.Val
 
@@ -147,19 +147,19 @@ txid x = TxId (hash x)
 
 -- | Compute the UTxO inputs of a transaction.
 txins ::
-  (Body era) =>
+  (Era era) =>
   TxBody era ->
   Set (TxIn era)
-txins = inputsB
+txins = _inputs
 
 -- | Compute the transaction outputs of a transaction.
 txouts ::
-  (Body era,Era era) =>
+  (Era era) =>
   TxBody era ->
   UTxO era
 txouts tx =
   UTxO $
-    Map.fromList [(TxIn transId idx, out) | (out, idx) <- zip (toList $ outputsB tx) [0 ..]]
+    Map.fromList [(TxIn transId idx, out) | (out, idx) <- zip (toList $ _outputs tx) [0 ..]]
   where
     transId = txid tx
 
@@ -249,8 +249,8 @@ getKeyHashFromRegPool :: DCert era -> Maybe (KeyHash 'StakePool era)
 getKeyHashFromRegPool (DCertPool (RegPool p)) = Just . _poolPubKey $ p
 getKeyHashFromRegPool _ = Nothing
 
-txup :: (Body era,Era era) => Tx era -> Maybe (Update era)
-txup (Tx txbody _ _) = strictMaybeToMaybe (txUpdateB txbody)
+txup :: (Era era) => Tx era -> Maybe (Update era)
+txup (Tx txbody _ _) = strictMaybeToMaybe (_txUpdate txbody)
 
 -- | Extract script hash from value address with script.
 getScriptHash :: Addr era -> Maybe (ScriptHash era)
@@ -275,7 +275,7 @@ scriptCred (ScriptHashObj hs) = Just hs
 -- | Computes the set of script hashes required to unlock the transcation inputs
 -- and the withdrawals.
 scriptsNeeded ::
-  (Body era,Era era) =>
+  (Era era) =>
   UTxO era ->
   Tx era ->
   Set (ScriptHash era)
@@ -285,10 +285,10 @@ scriptsNeeded u tx =
     `Set.union` Set.fromList (Maybe.mapMaybe scriptStakeCred (filter requiresVKeyWitness certificates))
   where
     unTxOut (TxOut a _) = a
-    withdrawals = unWdrl $ wdrlsB $ _body tx
+    withdrawals = unWdrl $ _wdrls $ _body tx
     UTxO u'' = (txinsScript (txins $ _body tx) u) ◁ u
     -- u'' = Map.restrictKeys v (txinsScript (txins $ _body tx) u)  TODO
-    certificates = toList ( certsB ( _body tx))
+    certificates = toList ( _certs ( _body tx))
 
 -- | Compute the subset of inputs of the set 'txInps' for which each input is
 -- locked by a script in the UTxO 'u'.

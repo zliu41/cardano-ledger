@@ -55,7 +55,7 @@ import Shelley.Spec.Ledger.OverlaySchedule
   )
 import Shelley.Spec.Ledger.PParams (PParams)
 import Shelley.Spec.Ledger.STS.Ledgers (LEDGERS, LedgersEnv (..))
-import Shelley.Spec.Ledger.TxData (Body(..))
+import Shelley.Spec.Ledger.TxData (TxBody(..))
 
 data BBODY era
 
@@ -70,8 +70,7 @@ data BbodyEnv era = BbodyEnv
   }
 
 instance
-  ( Body era,
-    Era era,
+  ( Era era,
     DSignable era (Hash era (TxBody era))
   ) =>
   STS (BBODY era)
@@ -105,8 +104,7 @@ instance (Era era) => NoUnexpectedThunks (PredicateFailure (BBODY era))
 
 bbodyTransition ::
   forall era.
-  ( Body era,
-    Era era,
+  ( Era era,
     DSignable era (Hash era (TxBody era))
   ) =>
   TransitionRule (BBODY era)
@@ -138,8 +136,7 @@ bbodyTransition =
         pure $ BbodyState ls' (incrBlocks (isOverlaySlot (bheaderSlotNo bhb) oslots) hkAsStakePool b)
 
 instance
-  ( Body era,
-    Era era,
+  ( Era era,
     DSignable era (Hash era (TxBody era))
   ) =>
   Embed (LEDGERS era) (BBODY era)

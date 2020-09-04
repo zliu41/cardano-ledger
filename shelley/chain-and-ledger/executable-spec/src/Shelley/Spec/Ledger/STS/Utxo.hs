@@ -82,8 +82,7 @@ import Shelley.Spec.Ledger.TxData
   ( PoolParams,
     RewardAcnt,
     unWdrl,
-    Body(..),
-    EraTag(..),
+    TxBody(..),
   )
 import Shelley.Spec.Ledger.UTxO
   ( UTxO (..),
@@ -107,7 +106,7 @@ data UtxoEnv era
   deriving (Show)
 
 instance
-  (Body era,Era era) =>
+  (Era era) =>
   STS (UTXO era)
   where
   type State (UTXO era) = UTxOState era
@@ -163,7 +162,7 @@ instance
         "Deposit pot must not be negative (post)"
         (\_ st' -> _deposited st' >= 0),
       let utxoBalance us = vplus (vinject $ _deposited us + _fees us) (balance (_utxo us))
-          withdrawals txb = foldl' (+) (Coin 0) $ unWdrl $ (wdrlsB @era txb)
+          withdrawals txb = foldl' (+) (Coin 0) $ unWdrl $ _wdrls txb
        in PostCondition
             "Should preserve ADA in the UTxO state"
             ( \(TRC (_, us, tx)) us' ->
@@ -268,19 +267,19 @@ initialLedgerState = do
 
 utxoInductive ::
   forall era.
-  (Body era,Era era) =>
+  (Era era) =>
   TransitionRule (UTXO era)
 utxoInductive = do
   TRC (UtxoEnv slot pp stakepools genDelegs, u, tx) <- judgmentContext
   let UTxOState utxo deposits' fees ppup = u
   let txb = _body tx
 
-  (unTag(ttlB @era txb)) >= slot ?! ExpiredUTxO (unTag(ttlB @era txb)) slot
+  (_ttl txb) >= slot ?! ExpiredUTxO (_ttl txb) slot
 
   txins @era txb /= Set.empty ?! InputSetEmptyUTxO
 
   let minFee = minfee pp tx
-      Tag txFee = (txfeeB @era) txb
+      txFee = _txfee txb
   minFee <= txFee ?! FeeTooSmallUTxO minFee txFee
 
   eval (txins txb ⊆ dom utxo) ?! BadInputsUTxO (txins @era txb `Set.difference` eval (dom utxo))
@@ -289,12 +288,12 @@ utxoInductive = do
   let addrsWrongNetwork =
         filter
           (\a -> getNetwork a /= ni)
-          (fmap (\ (TxOut a _) -> a) (toList (outputsB @era txb)))
+          (fmap (\ (TxOut a _) -> a) (toList (_outputs txb)))
   null addrsWrongNetwork ?! WrongNetwork ni (Set.fromList addrsWrongNetwork)
   let wdrlsWrongNetwork =
         filter
           (\a -> getRwdNetwork a /= ni)
-          (Map.keys . unWdrl . (wdrlsB @era) $ txb)
+          (Map.keys . unWdrl . _wdrls $ txb)
   null wdrlsWrongNetwork ?! WrongNetworkWithdrawal ni (Set.fromList wdrlsWrongNetwork)
 
   let consumed_ = consumed pp utxo txb
@@ -319,20 +318,20 @@ utxoInductive = do
       txSize_ = txsize tx
   txSize_ <= maxTxSize_ ?! MaxTxSizeUTxO txSize_ maxTxSize_
 
-  let Tag refunded = keyRefunds @era pp txb
-  let txCerts = toList $ (certsB @ era) txb
+  let refunded = keyRefunds @era pp txb
+  let txCerts = toList $ _certs txb
   let depositChange = totalDeposits pp stakepools txCerts - refunded
 
   pure
     UTxOState
       { _utxo = eval ((txins txb ⋪ utxo) ∪ txouts txb),
         _deposited = deposits' + depositChange,
-        _fees = fees + (unTag (txfeeB @era txb)),
+        _fees = fees + (_txfee txb),
         _ppups = ppup'
       }
 
 instance
-  (Body era,Era era) =>
+  (Era era) =>
   Embed (PPUP era) (UTXO era)
   where
   wrapFailed = UpdateFailure

@@ -118,7 +118,7 @@ import Shelley.Spec.Ledger.STS.Prtcl
 import Shelley.Spec.Ledger.STS.Tick (TICK, TickEnv (..))
 import Shelley.Spec.Ledger.STS.Tickn
 import Shelley.Spec.Ledger.Slot (EpochNo)
-import Shelley.Spec.Ledger.TxData (Body)
+import Shelley.Spec.Ledger.TxData (TxBody)
 import Shelley.Spec.Ledger.UTxO (UTxO (..), balance)
 import Shelley.Spec.Ledger.Val(Val(vcoin))
 
@@ -184,8 +184,7 @@ initialShelleyState lab e utxo reserves genDelegs os pp initNonce =
     cs = Map.fromList (fmap (\(GenDelegPair hk _) -> (coerceKeyRole hk, 0)) (Map.elems genDelegs))
 
 instance
-  ( Body era,
-    Era era,
+  ( Era era,
     DSignable era (OCertSignable era),
     DSignable era (Hash era (TxBody era)),
     KESignable era (BHBody era),
@@ -245,8 +244,7 @@ chainChecks maxpv pp bh = do
 
 chainTransition ::
   forall era.
-  ( Body era,
-    Era era,
+  ( Era era,
     DSignable era (OCertSignable era),
     DSignable era (Hash era (TxBody era)),
     KESignable era (BHBody era),
@@ -313,8 +311,7 @@ chainTransition =
       pure $ ChainState nes'' cs' eta0' etaV' etaC' etaH' lab'
 
 instance
-  ( Body era,
-    Era era,
+  ( Era era,
     DSignable era (OCertSignable era),
     DSignable era (Hash era (TxBody era)),
     KESignable era (BHBody era),
@@ -325,8 +322,7 @@ instance
   wrapFailed = BbodyFailure
 
 instance
-  ( Body era,
-    Era era,
+  ( Era era,
     DSignable era (OCertSignable era),
     DSignable era (Hash era (TxBody era)),
     KESignable era (BHBody era),
@@ -337,8 +333,7 @@ instance
   wrapFailed = TicknFailure
 
 instance
-  ( Body era,
-    Era era,
+  ( Era era,
     DSignable era (OCertSignable era),
     DSignable era (Hash era (TxBody era)),
     KESignable era (BHBody era),
@@ -349,8 +344,7 @@ instance
   wrapFailed = TickFailure
 
 instance
-  ( Body era,
-    Era era,
+  ( Era era,
     DSignable era (OCertSignable era),
     DSignable era (Hash era (TxBody era)),
     KESignable era (BHBody era),
