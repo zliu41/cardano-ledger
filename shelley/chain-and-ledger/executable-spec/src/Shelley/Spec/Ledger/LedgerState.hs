@@ -95,7 +95,6 @@ import Cardano.Binary
     encodeListLen,
   )
 import Cardano.Ledger.Era (Era, ValueType(..))
-import Cardano.Ledger.EraDefinitions (ShelleyMA (..), Shelley (..))
 import Cardano.Prelude (NFData, NoUnexpectedThunks (..))
 import Control.Iterate.SetAlgebra (Bimap, biMapEmpty, dom, eval, forwards, range, (∈), (∪+), (▷), (◁))
 import Control.Monad.Trans.Reader (asks)
@@ -687,15 +686,14 @@ keyRefunds pp tx = (_keyDeposit pp) * (fromIntegral $ length deregistrations)
 
 -- | Compute the lovelace which are destroyed by the transaction
 consumed ::
-  forall era c. Era era =>
+  Era era =>
   PParams ->
   UTxO era ->
   TxBody era ->
   ValueType era
-consumed pp u tx
+consumed pp u tx =
   -- TODO does vplus work for subtraction
-  | eraTag == (\_ -> 2) = vplus (vplus (_txforge tx) (balance (eval (txins tx ◁ u)))) (vinject (keyRefunds pp tx + (sum . unWdrl $ _wdrls tx)))
-  | eraTag == (\_ -> 1) = vplus (balance (eval (txins tx ◁ u))) (vinject (keyRefunds pp tx + (sum . unWdrl $ _wdrls tx)))
+  vplus (balance (eval (txins tx ◁ u))) (vinject (keyRefunds pp tx + (sum . unWdrl $ _wdrls tx)))
 
 newtype WitHashes era = WitHashes
   {unWitHashes :: Set (KeyHash 'Witness era)}
