@@ -45,7 +45,8 @@ module Shelley.Spec.Ledger.TxData
         _ttl,
         _txUpdate,
         _mdHash,
-        extraSize
+        extraSize,
+        _txforge
       ),
     TxId (..),
     TxIn (TxIn),

@@ -94,6 +94,7 @@ import Cardano.Binary
     ToCBOR (..),
     encodeListLen,
   )
+import Cardano.Ledger.EraRep(EraRep(..))
 import Cardano.Ledger.Era (Era(..), hashAnnotated)
 import Cardano.Prelude (NFData, NoUnexpectedThunks (..))
 import Control.Iterate.SetAlgebra (Bimap, biMapEmpty, dom, eval, forwards, range, (∈), (∪+), (▷), (◁))
@@ -169,6 +170,7 @@ import Shelley.Spec.Ledger.Rewards
     emptyNonMyopic,
     reward,
   )
+import Shelley.Spec.Ledger.ShelleyEra()
 import Shelley.Spec.Ledger.Serialization (decodeRecordNamed, mapFromCBOR, mapToCBOR)
 import Shelley.Spec.Ledger.Slot
   ( EpochNo (..),
@@ -194,6 +196,7 @@ import Shelley.Spec.Ledger.TxData
     getRwdCred,
     witKeyHash,
     TxBody(..),
+    _txforge,
   )
 import Shelley.Spec.Ledger.UTxO
   ( UTxO (..),
@@ -693,11 +696,15 @@ consumed ::forall era.
   TxBody era ->
   ValueType era
 consumed pp u tx =
-  vplus (balance (eval (txins tx ◁ u))) (vinject $ refunds + withdrawals)
-  where
-    -- balance (UTxO (Map.restrictKeys v (txins tx))) + refunds + withdrawals
-    refunds = keyRefunds @era pp tx
-    withdrawals = sum . unWdrl $ _wdrls tx
+    let forged :: EraRep era -> ValueType era  -- Observe which Era and compute the forge value
+        forged Goguen = vinject (_txforge tx)
+        forged _ = vzero                       -- All Eras but Goguen contribute vzero
+        refunds = keyRefunds @era pp tx
+        withdrawals = sum . unWdrl $ _wdrls tx
+    in  balance (eval (txins tx ◁ u)) `vplus`
+        vinject (refunds + withdrawals) `vplus`
+        forged thisRep                          -- Every era instance carries an EraRep value.
+
 
 newtype WitHashes era = WitHashes
   {unWitHashes :: Set (KeyHash 'Witness era)}
