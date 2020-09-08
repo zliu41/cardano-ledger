@@ -924,7 +924,12 @@ createRUpd slotsPerEpoch b@(BlocksMade b') (EpochState acnt ss ls pr _ nm) total
       Coin reserves = _reserves acnt
       ds = _dstate $ _delegationState ls
       -- reserves and rewards change
-      deltaR1 = (rationalToCoinViaFloor $ min 1 eta * unitIntervalToRational (_rho pr) * fromIntegral reserves)
+      deltaR1 =
+        ( rationalToCoinViaFloor $
+            min 1 eta
+              * unitIntervalToRational (_rho pr)
+              * fromIntegral reserves
+        )
       d = unitIntervalToRational (_d pr)
       expectedBlocks =
         floor $
@@ -939,7 +944,17 @@ createRUpd slotsPerEpoch b@(BlocksMade b') (EpochState acnt ss ls pr _ nm) total
       _R = Coin $ rPot - deltaT1
       circulation = total Val.~~ (_reserves acnt)
       (rs_, newLikelihoods) =
-        reward pr b _R (Map.keysSet $ _rewards ds) poolParams stake' delegs' circulation asc slotsPerEpoch
+        reward
+          pr
+          b
+          _R
+          (Map.keysSet $ _rewards ds)
+          poolParams
+          stake'
+          delegs'
+          circulation
+          asc
+          slotsPerEpoch
       deltaR2 = _R Val.~~ (Map.foldr (<>) mempty rs_)
       blocksMade = fromIntegral $ Map.foldr (+) 0 b' :: Integer
   pure $
