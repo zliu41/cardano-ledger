@@ -15,6 +15,8 @@
 {-# LANGUAGE TupleSections #-}
 {-# LANGUAGE TypeApplications #-}
 {-# LANGUAGE TypeFamilies #-}
+{-# LANGUAGE TypeOperators              #-}
+{-# LANGUAGE PatternGuards
 
 -- |
 -- Module      : LedgerState
@@ -70,6 +72,7 @@ module Shelley.Spec.Ledger.LedgerState
     txsizeBound,
     produced,
     consumed,
+    consumed2,
     verifiedWits,
     witsVKeyNeeded,
     witsFromWitnessSet,
@@ -94,8 +97,8 @@ import Cardano.Binary
     ToCBOR (..),
     encodeListLen,
   )
-import Cardano.Ledger.EraRep(EraRep(..))
-import Cardano.Ledger.Era (Era(..), hashAnnotated)
+
+import Cardano.Ledger.Era
 import Cardano.Prelude (NFData, NoUnexpectedThunks (..))
 import Control.Iterate.SetAlgebra (Bimap, biMapEmpty, dom, eval, forwards, range, (∈), (∪+), (▷), (◁))
 import Control.Monad.Trans.Reader (asks)
@@ -704,6 +707,23 @@ consumed pp u tx =
     in  balance (eval (txins tx ◁ u)) `vplus`
         vinject (refunds + withdrawals) `vplus`
         forged thisRep                          -- Every era instance carries an EraRep value.
+
+
+consumed2 ::forall era.
+  (Era era) =>
+  PParams ->
+  UTxO era ->
+  TxBody era ->
+  ValueType era
+consumed2 pp u tx =
+    let forged :: TypeRep era -> ValueType era  -- Observe which Era and compute the forge value
+        forged rep | Just Refl <- match @Goguen rep = vinject (_txforge tx)
+        forged _ = vzero                       -- All Eras but Goguen contribute vzero
+        refunds = keyRefunds @era pp tx
+        withdrawals = sum . unWdrl $ _wdrls tx
+    in  balance (eval (txins tx ◁ u)) `vplus`
+        vinject (refunds + withdrawals) `vplus`
+        forged thisEra                         -- Every (Era t) instance carries a (TypeRep t) value.
 
 
 newtype WitHashes era = WitHashes

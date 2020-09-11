@@ -1,12 +1,14 @@
 {-# OPTIONS_GHC  -fno-warn-orphans #-}
 -- {-# OPTIONS_GHC -fno-warn-unused-imports #-}
-{-# LANGUAGE TypeFamilies     #-}
-{-# LANGUAGE ViewPatterns     #-}
-{-# LANGUAGE PatternSynonyms  #-}
-{-# LANGUAGE LambdaCase       #-}
-{-# LANGUAGE EmptyDataDecls   #-}
-{-# LANGUAGE FlexibleInstances #-}
-{-# LANGUAGE DataKinds         #-}
+{-# LANGUAGE TypeFamilies        #-}
+{-# LANGUAGE ViewPatterns        #-}
+{-# LANGUAGE PatternSynonyms     #-}
+{-# LANGUAGE LambdaCase          #-}
+{-# LANGUAGE EmptyDataDecls      #-}
+{-# LANGUAGE FlexibleInstances   #-}
+{-# LANGUAGE DataKinds           #-}
+{-# LANGUAGE TypeApplications    #-}
+{-# LANGUAGE RankNTypes          #-}
 
 module Shelley.Spec.Ledger.ShelleyEra where
 
@@ -29,12 +31,12 @@ instance CLD.Crypto c => Era (Shelley c) where
   type Forge (Shelley c) = ()
   thisRep = Shelley
 
-
 instance Era Goguen where
   type Crypto Goguen = GoguenCrypto
   type ValueType Goguen = Coin
   type Forge Goguen = Coin
   thisRep = Goguen
+  thisEra = typeRep @Goguen
 
 
 data GoguenCrypto
