@@ -350,11 +350,23 @@ validateNativeMultiSigScript msig tx =
     witsSet = _witnessSet tx
     vhks = Set.map witKeyHash (addrWits' witsSet)
 
+-- | Script evaluator for native tokens scheme. 'vhks' is the set of
+-- key hashes that signed the transaction to be validated.
+evalNativeTokensScript ::
+  Era era =>
+  NativeTokens era ->
+  (Set (TxIn era)) ->
+  (KeyHash 'Witness era) ->
+  Bool
+evalNativeTokensScript (SpendsOutput tin) ins _ = Set.member tin ins
+evalNativeTokensScript (MS msigs) _ vhks =
+  evalNativeMultiSigScript msigs vhks
+
 -- | Multi-signature script witness accessor function for Transactions
 txwitsScript ::
   Era era =>
   Tx era ->
-  Map (ScriptHash era) (MultiSig era)
+  Map (ScriptHash era) (Script era)
 txwitsScript = msigWits . _witnessSet
 
 extractKeyHashWitnessSet ::

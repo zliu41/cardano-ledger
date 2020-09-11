@@ -64,6 +64,10 @@ import Shelley.Spec.Ledger.Serialization (decodeList, decodeRecordSum, encodeFol
 nativeMultiSigTag :: BS.ByteString
 nativeMultiSigTag = "\00"
 
+-- | represents native tokens script
+nativeTokensTag :: BS.ByteString
+nativeTokensTag = "\01"
+
 -- | A simple language for expressing conditions under which it is valid to
 -- withdraw from a normal UTxO payment address or to use a stake address.
 --
@@ -91,12 +95,47 @@ data MultiSig' era
   deriving (Show, Eq, Ord, Generic)
   deriving anyclass (NoUnexpectedThunks)
 
+-- native tokens script language
+data NativeTokens' era
+  = -- requires a specific UTxO to be consumed
+    -- useful for one-time forges
+    SpendsOutput' !(TxIn era)
+  | -- | Multisig language option
+    MS' !(MultiSig' era)
+  deriving (Show, Eq, Ord, Generic)
+  deriving anyclass (NoUnexpectedThunks)
+
 data MultiSig era = MultiSig'
   { multiSig :: !(MultiSig' era),
     multiSigBytes :: LByteString
   }
   deriving (Show, Eq, Ord, Generic)
   deriving (NoUnexpectedThunks) via AllowThunksIn '["multiSigBytes"] (MultiSig era)
+
+data NativeTokens era = NativeTokens'
+  { nativeTokens :: !(NativeTokens' era),
+    nativeTokensBytes :: LByteString
+  }
+  deriving (Show, Eq, Ord, Generic)
+  deriving (NoUnexpectedThunks) via AllowThunksIn '["nativeTokensBytes"] (NativeTokens era)
+
+pattern SpendsOutput :: Era era => TxIn era -> NativeTokens era
+pattern SpendsOutput txin <-
+  NativeTokens' (SpendsOutput' txin) _
+  where
+    SpendsOutput txin =
+      let bytes = serializeEncoding $ encodeListLen 2 <> encodeWord 0 <> toCBOR txin
+       in NativeTokens' (SpendsOutput' txin) bytes
+
+pattern MS :: Era era => MultiSig' era -> NativeTokens era
+pattern MS ms <-
+  NativeTokens' (MS' ms) _
+  where
+    MS ms =
+      let bytes = serializeEncoding $ encodeListLen 2 <> encodeWord 0 <> toCBOR ms
+       in NativeTokens' (MS' ms) bytes
+
+{-# COMPLETE SpendsOutput, MS #-}
 
 pattern RequireSignature :: Era era => KeyHash 'Witness era -> MultiSig era
 pattern RequireSignature akh <-
@@ -148,6 +187,7 @@ deriving newtype instance Era era => ToJSON (ScriptHash era)
 deriving newtype instance Era era => FromJSON (ScriptHash era)
 
 data Script era = MultiSigScript (MultiSig era)
+  | NativeTokensScript (NativeTokens era)
   -- new languages go here
   deriving (Show, Eq, Ord, Generic)
 
@@ -163,11 +203,22 @@ hashMultiSigScript =
     . Hash.castHash
     . Hash.hashWith (\x -> nativeMultiSigTag <> serialize' x)
 
+-- | Hashes native tokens script.
+hashNativeTokensScript ::
+  Era era =>
+  NativeTokens era ->
+  ScriptHash era
+hashNativeTokensScript =
+  ScriptHash
+    . Hash.castHash
+    . Hash.hashWith (\x -> nativeTokensTag <> serialize' x)
+
 hashAnyScript ::
   Era era =>
   Script era ->
   ScriptHash era
-hashAnyScript (MultiSigScript msig) = hashMultiSigScript msig
+hashAnyScript (MultiSigScript msig)     = hashMultiSigScript msig
+hashAnyScript (NativeTokensScript msig) = hashNativeTokensScript msig
 
 -- | Get one possible combination of keys for multi signature script
 getKeyCombination :: Era era => MultiSig era -> [KeyHash 'Witness era]
@@ -202,6 +253,8 @@ instance
   where
   toCBOR (MultiSigScript s) =
     encodeListLen 2 <> toCBOR (0 :: Word8) <> toCBOR s
+  toCBOR (NativeTokensScript s) =
+    encodeListLen 2 <> toCBOR (1 :: Word8) <> toCBOR s
 
 instance
   Era era =>
@@ -212,6 +265,9 @@ instance
       0 -> do
         s <- fromCBOR
         pure (2, MultiSigScript <$> s)
+      1 -> do
+        s <- fromCBOR
+        pure (2, NativeTokensScript <$> s)
       k -> invalidKey k
 
 instance
@@ -243,4 +299,28 @@ instance
         m <- fromCBOR
         multiSigs <- sequence <$> decodeList fromCBOR
         pure $ (3, RequireMOf' m <$> multiSigs)
+      k -> invalidKey k
+
+instance
+  (Era era) =>
+  ToCBOR (NativeTokens era)
+  where
+  toCBOR (NativeTokens' _ bytes) = encodePreEncoded $ BSL.toStrict bytes
+
+instance
+  Era era =>
+  FromCBOR (Annotator (NativeTokens era))
+  where
+  fromCBOR = annotatorSlice $ fmap NativeTokens' <$> fromCBOR
+
+instance
+  Era era =>
+  FromCBOR (Annotator (NativeTokens' era))
+  where
+  fromCBOR = decodeRecordSum "NativeTokens" $
+    \case
+      0 -> (,) 2 . pure . SpendsOutput' <$> fromCBOR
+      1 -> do
+        multiSigs <- fromCBOR
+        pure (2, MS' <$> multiSigs)
       k -> invalidKey k
