@@ -44,7 +44,7 @@ import Shelley.Spec.Ledger.Bench.Gen
     genChainState,
     genTx,
   )
-import Shelley.Spec.Ledger.Bench.Rewards (createRUpd)
+import Shelley.Spec.Ledger.Bench.Rewards (createRUpd, genChainInEpoch)
 import Shelley.Spec.Ledger.Coin (Coin (..))
 import Shelley.Spec.Ledger.Credential (Credential (..))
 import Shelley.Spec.Ledger.EpochBoundary (SnapShot (..))
@@ -480,7 +480,7 @@ main =
         ],
       bgroup "rewards" $
         [ env
-            (genChainState 100000)
+            (generate $ genChainInEpoch 5)
             ( \cs ->
                 bench "createRUpd" $ whnf (createRUpd testGlobals) cs
             )
