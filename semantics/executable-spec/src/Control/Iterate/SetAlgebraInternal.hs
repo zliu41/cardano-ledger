@@ -12,7 +12,6 @@
 
 module Control.Iterate.SetAlgebraInternal where
 
-import Debug.Trace
 import Codec.CBOR.Decoding(decodeListLenOf)
 import Codec.CBOR.Encoding(encodeListLen)
 import Cardano.Binary
@@ -432,7 +431,7 @@ intersectDomP p Tip _ = Tip
 intersectDomP p  _ Tip = Tip
 intersectDomP p t1 t2@(Bin _ k v l2 r2) =
    if mb && (p k v)
-      then link k v  l1l2 r1r2
+      then link k v l1l2 r1r2
       else link2 l1l2 r1r2
   where
     !(l1, mb, r1) = splitMember k t1
@@ -534,7 +533,7 @@ data Exp t where
 -- deriving instance NFData t => NFData(Exp t)
 
 -- =======================================================================================================
--- When we build an Exp, we want to make sure all Sets with one element become (Exp SingleR (SetSingle x))
+-- When we build an Exp, we want to make sure all Sets with one element become (SetSingleton x)
 -- so we use these 'smart' constructors.
 
 

@@ -38,6 +38,7 @@ import Test.Tasty
 import Test.Tasty.HUnit
 import Test.Tasty.QuickCheck(testProperty)
 import Test.Tasty(defaultMain)
+
 -- =========================================================
 -- Some examples of Exp and tests
 -- let's build a few things to test with
