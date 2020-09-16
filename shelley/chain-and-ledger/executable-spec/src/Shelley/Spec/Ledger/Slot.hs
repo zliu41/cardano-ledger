@@ -4,45 +4,26 @@
 {-# LANGUAGE GeneralizedNewtypeDeriving #-}
 
 module Shelley.Spec.Ledger.Slot
-  ( SlotNo (..),
-    Duration (..),
+  ( module Shelley.Spec.Ledger.Data.SlotData,
     (-*),
     (+*),
     (*-),
-    EpochNo (..),
-    EpochSize (..),
-    EpochInfo,
-    -- Block number
-    BlockNo (..),
     epochInfoEpoch,
     epochInfoFirst,
     epochInfoSize,
   )
 where
 
-import Cardano.Prelude (NoUnexpectedThunks (..))
+import Shelley.Spec.Ledger.Data.SlotData
 import Cardano.Slotting.Block (BlockNo (..))
 import Cardano.Slotting.EpochInfo (EpochInfo)
 import qualified Cardano.Slotting.EpochInfo as EI
 import Cardano.Slotting.Slot (EpochNo (..), EpochSize (..), SlotNo (..))
 import Control.Monad.Trans (lift)
 import Data.Functor.Identity (Identity)
-import Data.Word (Word64)
-import GHC.Generics (Generic)
 import GHC.Stack (HasCallStack)
-import Quiet
-import Shelley.Spec.Ledger.BaseTypes (ShelleyBase)
+import Shelley.Spec.Ledger.Data.BaseTypesData (ShelleyBase)
 
-newtype Duration = Duration {unDuration :: Word64}
-  deriving (Eq, Generic, Ord, NoUnexpectedThunks, Num, Integral, Real, Enum)
-  deriving (Show) via Quiet Duration
-
-instance Semigroup Duration where
-  (Duration x) <> (Duration y) = Duration $ x + y
-
-instance Monoid Duration where
-  mempty = Duration 0
-  mappend = (<>)
 
 (-*) :: SlotNo -> SlotNo -> Duration
 (SlotNo s) -* (SlotNo t) = Duration (if s > t then s - t else t - s)

@@ -21,7 +21,7 @@ import Cardano.Ledger.Era (Era)
 import Cardano.Prelude (NoUnexpectedThunks)
 import Control.State.Transition
 import GHC.Generics (Generic)
-import Shelley.Spec.Ledger.BaseTypes
+import Shelley.Spec.Ledger.Data.BaseTypesData
 import Shelley.Spec.Ledger.PParams
 import Shelley.Spec.Ledger.Serialization (decodeRecordNamed)
 

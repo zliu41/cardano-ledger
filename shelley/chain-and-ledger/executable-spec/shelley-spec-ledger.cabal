@@ -22,32 +22,41 @@ library
     Cardano.Ledger.Era
     Cardano.Ledger.Shelley
     Shelley.Spec.Ledger.Address
+    Shelley.Spec.Ledger.Data.AddressData
+    Shelley.Spec.Ledger.Data.BaseTypesData
     Shelley.Spec.Ledger.Address.Bootstrap
     Shelley.Spec.Ledger.API
     Shelley.Spec.Ledger.API.Protocol
     Shelley.Spec.Ledger.API.Validation
-    Shelley.Spec.Ledger.BaseTypes
     Shelley.Spec.Ledger.BlockChain
     Shelley.Spec.Ledger.ByronTranslation
     Shelley.Spec.Ledger.Coin
-    Shelley.Spec.Ledger.Credential
+    Shelley.Spec.Ledger.Data.CoinData
+    Shelley.Spec.Ledger.Data.CredentialData
     Shelley.Spec.Ledger.Delegation.Certificates
     Shelley.Spec.Ledger.Delegation.PoolParams
     Shelley.Spec.Ledger.DeserializeShort
     Shelley.Spec.Ledger.EpochBoundary
     Shelley.Spec.Ledger.Genesis
-    Shelley.Spec.Ledger.Hashing
+    Shelley.Spec.Ledger.Data.HashingData
     Shelley.Spec.Ledger.Keys
+    Shelley.Spec.Ledger.Data.KeysData
     Shelley.Spec.Ledger.LedgerState
+    Shelley.Spec.Ledger.Data.MetaDataData
     Shelley.Spec.Ledger.MetaData
     Shelley.Spec.Ledger.OCert
-    Shelley.Spec.Ledger.Orphans
+    Shelley.Spec.Ledger.Data.OCertData
+    Shelley.Spec.Ledger.Data.OrphansData
     Shelley.Spec.Ledger.OverlaySchedule
+    Shelley.Spec.Ledger.Data.OverlayScheduleData
     Shelley.Spec.Ledger.PParams
+    Shelley.Spec.Ledger.Data.PParamsData
     Shelley.Spec.Ledger.Rewards
     Shelley.Spec.Ledger.Scripts
+    Shelley.Spec.Ledger.Data.ScriptsData
     Shelley.Spec.Ledger.Serialization
     Shelley.Spec.Ledger.Slot
+    Shelley.Spec.Ledger.Data.SlotData
     Shelley.Spec.Ledger.StabilityWindow
     Shelley.Spec.Ledger.STS.Bbody
     Shelley.Spec.Ledger.STS.Chain

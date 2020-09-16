@@ -7,7 +7,7 @@ module Shelley.Spec.Ledger.StabilityWindow
 where
 
 import Data.Word (Word64)
-import Shelley.Spec.Ledger.BaseTypes
+import Shelley.Spec.Ledger.Data.BaseTypesData
 
 -- | Calculate the stability window (e.g. the number of slots needed for a block
 -- to become stable) from the security param and the active slot coefficient.

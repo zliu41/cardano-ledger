@@ -21,7 +21,7 @@ import Cardano.Prelude (NoUnexpectedThunks)
 import Control.Monad.Trans.Reader (asks)
 import Control.State.Transition
 import GHC.Generics (Generic)
-import Shelley.Spec.Ledger.BaseTypes
+import Shelley.Spec.Ledger.Data.BaseTypesData
 import Shelley.Spec.Ledger.Slot
 
 data UPDN era

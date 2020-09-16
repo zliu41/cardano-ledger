@@ -1,6 +1,6 @@
 {-# OPTIONS_GHC -Wno-orphans #-}
 
-module Shelley.Spec.Ledger.Orphans where
+module Shelley.Spec.Ledger.Data.OrphansData where
 
 import qualified Cardano.Crypto.Hash as Hash
 import Cardano.Crypto.Util (SignableRepresentation (..))
@@ -12,7 +12,7 @@ import Data.Foldable
 import Data.IP (IPv4, IPv6)
 import Data.Sequence.Strict (StrictSeq, fromList, getSeq)
 import qualified Data.Text as Text
-import Shelley.Spec.Ledger.Slot (BlockNo, EpochNo)
+import Shelley.Spec.Ledger.Data.SlotData (BlockNo, EpochNo)
 
 instance FromJSON IPv4 where
   parseJSON =

@@ -22,7 +22,7 @@ import Data.Map.Strict (Map)
 import qualified Data.Map.Strict as Map
 import Data.Word (Word64)
 import GHC.Generics (Generic)
-import Shelley.Spec.Ledger.BaseTypes
+import Shelley.Spec.Ledger.Data.BaseTypesData
 import Shelley.Spec.Ledger.BlockChain
 import Shelley.Spec.Ledger.Keys
 import Shelley.Spec.Ledger.OCert

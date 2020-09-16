@@ -12,7 +12,8 @@
 {-# LANGUAGE TypeApplications #-}
 
 module Shelley.Spec.Ledger.Address
-  ( mkVKeyRwdAcnt,
+  ( module Shelley.Spec.Ledger.Data.AddressData,
+    mkVKeyRwdAcnt,
     mkRwdAcnt,
     scriptsToAddr,
     scriptToCred,
@@ -21,11 +22,8 @@ module Shelley.Spec.Ledger.Address
     serialiseAddr,
     deserialiseAddr,
     deserialiseAddrStakeRef,
-    Addr (..),
-    BootstrapAddress (..),
     bootstrapAddressAttrsSize,
     getNetwork,
-    RewardAcnt (..),
     serialiseRewardAcnt,
     deserialiseRewardAcnt,
     --  Bits
@@ -50,11 +48,11 @@ module Shelley.Spec.Ledger.Address
     -- TODO: these should live somewhere else
     natToWord7s,
     word7sToNat,
-    Word7 (..),
     toWord7,
   )
 where
 
+import Shelley.Spec.Ledger.Data.AddressData
 import Cardano.Binary
   ( Decoder,
     DecoderError (..),
@@ -89,8 +87,8 @@ import qualified Data.Text.Encoding as Text
 import GHC.Generics (Generic)
 import Numeric.Natural (Natural)
 import Quiet
-import Shelley.Spec.Ledger.BaseTypes (Network (..), networkToWord8, word8ToNetwork)
-import Shelley.Spec.Ledger.Credential
+import Shelley.Spec.Ledger.Data.BaseTypesData (Network (..), networkToWord8, word8ToNetwork)
+import Shelley.Spec.Ledger.Data.CredentialData
   ( Credential (..),
     PaymentCredential,
     Ptr (..),
@@ -173,67 +171,12 @@ deserialiseRewardAcnt bs = case B.runGetOrFail getRewardAcnt (BSL.fromStrict bs)
   Left (_remaining, _offset, _message) -> Nothing
   Right (_remaining, _offset, result) -> Just result
 
--- | An address for UTxO.
-data Addr era
-  = Addr !Network !(PaymentCredential era) !(StakeReference era)
-  | AddrBootstrap !(BootstrapAddress era)
-  deriving (Show, Eq, Generic, NFData, Ord)
-
 getNetwork :: Addr era -> Network
 getNetwork (Addr n _ _) = n
 getNetwork (AddrBootstrap (BootstrapAddress byronAddr)) =
   case Byron.aaNetworkMagic . Byron.attrData . Byron.addrAttributes $ byronAddr of
     Byron.NetworkMainOrStage -> Mainnet
     Byron.NetworkTestnet _ -> Testnet
-
-instance NoUnexpectedThunks (Addr era)
-
--- | An account based address for rewards
-data RewardAcnt era = RewardAcnt
-  { getRwdNetwork :: !Network,
-    getRwdCred :: !(Credential 'Staking era)
-  }
-  deriving (Show, Eq, Generic, Ord, NFData, ToJSONKey, FromJSONKey)
-
-instance Era era => ToJSON (RewardAcnt era) where
-  toJSON ra =
-    Aeson.object
-      [ "network" .= getRwdNetwork ra,
-        "credential" .= getRwdCred ra
-      ]
-
-instance Era era => FromJSON (RewardAcnt era) where
-  parseJSON =
-    Aeson.withObject "RewardAcnt" $ \obj ->
-      RewardAcnt
-        <$> obj .: "network"
-        <*> obj .: "credential"
-
-instance NoUnexpectedThunks (RewardAcnt era)
-
-instance Era era => ToJSONKey (Addr era) where
-  toJSONKey = Aeson.ToJSONKeyText addrToText (Aeson.text . addrToText)
-
-instance Era era => FromJSONKey (Addr era) where
-  fromJSONKey = Aeson.FromJSONKeyTextParser parseAddr
-
-instance Era era => ToJSON (Addr era) where
-  toJSON = toJSON . addrToText
-
-instance Era era => FromJSON (Addr era) where
-  parseJSON = Aeson.withText "address" parseAddr
-
-addrToText :: Addr era -> Text
-addrToText =
-  Text.decodeLatin1 . Base16.encode . serialiseAddr
-
-parseAddr :: Era era => Text -> Aeson.Parser (Addr era)
-parseAddr t = do
-  bytes <- either badHex return (parseBase16 t)
-  maybe badFormat return (deserialiseAddr bytes)
-  where
-    badHex h = fail $ "Addresses are expected in hex encoding for now: " ++ show h
-    badFormat = fail "Address is not in the right format"
 
 byron :: Int
 byron = 7
@@ -402,9 +345,6 @@ getPtr =
     <*> getVariableLengthNat
     <*> getVariableLengthNat
 
-newtype Word7 = Word7 Word8
-  deriving (Eq, Show)
-
 toWord7 :: Word8 -> Word7
 toWord7 x = Word7 (x .&. 0x7F) -- 0x7F = 0b01111111
 
@@ -458,14 +398,29 @@ instance Era era => ToCBOR (RewardAcnt era) where
 instance Era era => FromCBOR (RewardAcnt era) where
   fromCBOR = decoderFromGet "RewardAcnt" getRewardAcnt
 
-newtype BootstrapAddress era = BootstrapAddress
-  { unBootstrapAddress :: Byron.Address
-  }
-  deriving (Eq, Generic)
-  deriving newtype (NFData, Ord)
-  deriving (Show) via Quiet (BootstrapAddress era)
+instance Era era => ToJSONKey (Addr era) where
+  toJSONKey = Aeson.ToJSONKeyText addrToText (Aeson.text . addrToText)
 
-instance NoUnexpectedThunks (BootstrapAddress era)
+instance Era era => FromJSONKey (Addr era) where
+  fromJSONKey = Aeson.FromJSONKeyTextParser parseAddr
+
+instance Era era => ToJSON (Addr era) where
+  toJSON = toJSON . addrToText
+
+instance Era era => FromJSON (Addr era) where
+  parseJSON = Aeson.withText "address" parseAddr
+
+addrToText :: Addr era -> Text
+addrToText =
+  Text.decodeLatin1 . Base16.encode . serialiseAddr
+
+parseAddr :: Era era => Text -> Aeson.Parser (Addr era)
+parseAddr t = do
+  bytes <- either badHex return (parseBase16 t)
+  maybe badFormat return (deserialiseAddr bytes)
+  where
+    badHex h = fail $ "Addresses are expected in hex encoding for now: " ++ show h
+    badFormat = fail "Address is not in the right format"
 
 bootstrapKeyHash ::
   forall era.

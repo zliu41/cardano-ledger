@@ -11,7 +11,7 @@
 {-# LANGUAGE TypeFamilies #-}
 {-# LANGUAGE ViewPatterns #-}
 
-module Shelley.Spec.Ledger.BaseTypes
+module Shelley.Spec.Ledger.Data.BaseTypesData
   ( FixedPoint,
     (==>),
     (⭒),

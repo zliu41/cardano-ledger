@@ -4,7 +4,7 @@
 {-# LANGUAGE ScopedTypeVariables #-}
 {-# LANGUAGE TypeApplications #-}
 
-module Shelley.Spec.Ledger.Hashing
+module Shelley.Spec.Ledger.Data.HashingData
   ( HashAnnotated (..),
   )
 where

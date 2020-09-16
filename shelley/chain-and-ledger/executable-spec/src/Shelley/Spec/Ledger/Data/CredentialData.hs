@@ -9,7 +9,7 @@
 {-# LANGUAGE OverloadedStrings #-}
 {-# LANGUAGE PatternSynonyms #-}
 
-module Shelley.Spec.Ledger.Credential
+module Shelley.Spec.Ledger.Data.CredentialData
   ( Credential (KeyHashObj, ScriptHashObj),
     GenesisCredential (..),
     Ix,
@@ -27,13 +27,12 @@ import Data.Aeson (FromJSON (..), FromJSONKey, ToJSON (..), ToJSONKey, (.:), (.=
 import qualified Data.Aeson as Aeson
 import GHC.Generics (Generic)
 import Quiet
-import Shelley.Spec.Ledger.BaseTypes (invalidKey)
+import Shelley.Spec.Ledger.Data.BaseTypesData (invalidKey)
 import Shelley.Spec.Ledger.Keys
   ( HasKeyRole (..),
     KeyHash,
     KeyRole (..),
   )
-import Shelley.Spec.Ledger.Orphans ()
 import Shelley.Spec.Ledger.Scripts (ScriptHash)
 import Shelley.Spec.Ledger.Serialization
   ( CBORGroup (..),
