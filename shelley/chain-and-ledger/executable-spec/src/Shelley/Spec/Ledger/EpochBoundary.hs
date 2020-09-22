@@ -83,8 +83,8 @@ newtype Stake era = Stake
 aggregateUtxoCoinByCredential ::
   forall era.
   ( Era era,
-    Val.Val (Core.Value era),
-    Core.Compactible (Core.Value era)
+    Core.ValType era,
+    Val.Val (Core.Value era)
   ) =>
   Map Ptr (Credential 'Staking era) ->
   UTxO era ->

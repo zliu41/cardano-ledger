@@ -3,7 +3,8 @@
 {-# LANGUAGE DeriveAnyClass #-}
 {-# LANGUAGE DeriveGeneric #-}
 {-# LANGUAGE DerivingStrategies #-}
-{-# LANGUAGE FlexibleInstances #-}
+{-# LANGUAGE FlexibleInstances #-} 
+{-# LANGUAGE FlexibleContexts #-}
 {-# LANGUAGE NamedFieldPuns #-}
 {-# LANGUAGE OverloadedStrings #-}
 {-# LANGUAGE ScopedTypeVariables #-}
@@ -56,6 +57,7 @@ import Shelley.Spec.Ledger.PParams
 import Shelley.Spec.Ledger.StabilityWindow
 import Shelley.Spec.Ledger.TxBody
 import Shelley.Spec.Ledger.UTxO
+import qualified Cardano.Ledger.Val as Val
 
 -- | Genesis Shelley staking configuration.
 --
@@ -191,7 +193,7 @@ instance Era era => FromJSON (ShelleyGenesisStaking era) where
 -------------------------------------------------------------------------------}
 
 genesisUtxO ::
-  (Era era, Core.Value era ~ Coin) =>
+  (Era era, Val.Val (Core.Value era), Core.ValType era) =>
   ShelleyGenesis era ->
   UTxO era
 genesisUtxO genesis =
@@ -200,7 +202,7 @@ genesisUtxO genesis =
       [ (txIn, txOut)
         | (addr, amount) <- Map.toList (sgInitialFunds genesis),
           let txIn = initialFundsPseudoTxIn addr
-              txOut = TxOut addr amount
+              txOut = TxOut addr (Val.inject amount)
       ]
 
 -- | Compute the 'TxIn' of the initial UTxO pseudo-transaction corresponding

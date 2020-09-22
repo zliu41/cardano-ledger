@@ -9,17 +9,19 @@
 -- It is intended for qualified import:
 -- > import qualified Cardano.Ledger.Core as Core
 module Cardano.Ledger.Core
-  ( Value,
-
-    -- * Compactible
+  ( -- * Compactible
     Compactible (..),
+    ValType (..)
   )
 where
 
 import Data.Kind (Type)
 
+class (Compactible (Value era)) => ValType era where
+  type family Value era :: Type
+
 -- | A value is something which quantifies a transaction output.
-type family Value era :: Type
+
 
 --------------------------------------------------------------------------------
 

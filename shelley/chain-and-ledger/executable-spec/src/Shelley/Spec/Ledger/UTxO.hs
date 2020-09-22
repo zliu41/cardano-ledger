@@ -108,17 +108,17 @@ newtype UTxO era = UTxO {unUTxO :: Map (TxIn era) (TxOut era)}
   deriving (NoUnexpectedThunks, Generic, NFData)
 
 deriving newtype instance
-  (Era era, ToCBOR (Core.CompactForm (Core.Value era))) =>
+  (Era era, Core.ValType era, ToCBOR (Core.CompactForm (Core.Value era))) =>
   ToCBOR (UTxO era)
 
 deriving newtype instance
-  (Era era, FromCBOR (Core.CompactForm (Core.Value era))) =>
+  (Era era, Core.ValType era, FromCBOR (Core.CompactForm (Core.Value era))) =>
   FromCBOR (UTxO era)
 
 deriving via
   Quiet (UTxO era)
   instance
-    (Era era, Core.Compactible (Core.Value era), Show (Core.Value era)) =>
+    (Era era, Core.ValType era, Show (Core.Value era)) =>
     Show (UTxO era)
 
 instance Relation (UTxO era) where
@@ -163,14 +163,14 @@ txid = TxId . hashAnnotated
 
 -- | Compute the UTxO inputs of a transaction.
 txins ::
-  (Era era, ToCBOR (Core.CompactForm (Core.Value era))) =>
+  (Era era, Core.ValType era, ToCBOR (Core.CompactForm (Core.Value era))) =>
   TxBody era ->
   Set (TxIn era)
 txins = _inputs
 
 -- | Compute the transaction outputs of a transaction.
 txouts ::
-  (Era era, ToCBOR (Core.CompactForm (Core.Value era))) =>
+  (Era era, Core.ValType era, ToCBOR (Core.CompactForm (Core.Value era))) =>
   TxBody era ->
   UTxO era
 txouts tx =
@@ -236,7 +236,7 @@ makeWitnessesFromScriptKeys txbodyHash hashKeyMap scriptHashes =
 
 -- | Determine the total balance contained in the UTxO.
 balance ::
-  (Val.Val (Core.Value era), Core.Compactible (Core.Value era)) =>
+  (Val.Val (Core.Value era), Core.ValType era) =>
   UTxO era ->
   Core.Value era
 balance (UTxO utxo) = Map.foldl' addTxOuts mempty utxo
@@ -268,7 +268,7 @@ getKeyHashFromRegPool (DCertPool (RegPool p)) = Just . _poolPubKey $ p
 getKeyHashFromRegPool _ = Nothing
 
 txup ::
-  (Era era, ToCBOR (Core.CompactForm (Core.Value era))) =>
+  (Era era, Core.ValType era, ToCBOR (Core.CompactForm (Core.Value era))) =>
   Tx era ->
   Maybe (Update era)
 txup (Tx txbody _ _) = strictMaybeToMaybe (_txUpdate txbody)
@@ -297,7 +297,7 @@ scriptCred (ScriptHashObj hs) = Just hs
 -- and the withdrawals.
 scriptsNeeded ::
   ( Era era,
-    Core.Compactible (Core.Value era),
+    Core.ValType era,
     ToCBOR (Core.CompactForm (Core.Value era))
   ) =>
   UTxO era ->
@@ -318,7 +318,7 @@ scriptsNeeded u tx =
 -- locked by a script in the UTxO 'u'.
 txinsScript ::
   ( Era era,
-    Core.Compactible (Core.Value era)
+    Core.ValType era
   ) =>
   Set (TxIn era) ->
   UTxO era ->

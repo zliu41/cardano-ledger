@@ -197,7 +197,7 @@ data Tx era = Tx'
 
 deriving instance
   ( Era era,
-    Core.Compactible (Core.Value era),
+    Core.ValType era,
     Show (Core.Value era)
   ) =>
   Show (Tx era)
@@ -230,7 +230,7 @@ pattern Tx {_body, _witnessSet, _metadata} <-
 
 {-# COMPLETE Tx #-}
 
-instance Era era => HashAnnotated (Tx era) era
+instance (Era era, Core.ValType era) => HashAnnotated (Tx era) era
 
 segwitTx ::
   Era era =>
@@ -296,13 +296,13 @@ keyBy :: Ord k => (a -> k) -> [a] -> Map k a
 keyBy f xs = Map.fromList $ (\x -> (f x, x)) <$> xs
 
 instance
-  (Era era) =>
+  (Era era, Core.ValType era) =>
   ToCBOR (Tx era)
   where
   toCBOR tx = encodePreEncoded . BSL.toStrict $ txFullBytes tx
 
 instance
-  (Era era, FromCBOR (Core.CompactForm (Core.Value era))) =>
+  (Era era, Core.ValType era, FromCBOR (Core.CompactForm (Core.Value era))) =>
   FromCBOR (Annotator (Tx era))
   where
   fromCBOR = annotatorSlice $

@@ -12,9 +12,7 @@ module Shelley.Spec.Ledger.STS.Snap
 where
 
 import qualified Cardano.Ledger.Core as Core
-import Cardano.Ledger.Crypto (Crypto)
 import Cardano.Ledger.Era (Era)
-import Cardano.Ledger.Shelley (Shelley)
 import qualified Cardano.Ledger.Val as Val
 import Cardano.Prelude (NoUnexpectedThunks (..))
 import Control.State.Transition
@@ -40,12 +38,12 @@ data SnapPredicateFailure era -- No predicate failures
 
 instance NoUnexpectedThunks (SnapPredicateFailure era)
 
-instance Crypto c => STS (SNAP (Shelley c)) where
-  type State (SNAP (Shelley c)) = SnapShots (Shelley c)
-  type Signal (SNAP (Shelley c)) = ()
-  type Environment (SNAP (Shelley c)) = LedgerState (Shelley c)
-  type BaseM (SNAP (Shelley c)) = ShelleyBase
-  type PredicateFailure (SNAP (Shelley c)) = SnapPredicateFailure (Shelley c)
+instance (Era era, Core.Compactible (Core.Value era)) => STS (SNAP era) where
+  type State (SNAP era) = SnapShots era
+  type Signal (SNAP era) = ()
+  type Environment (SNAP era) = LedgerState era
+  type BaseM (SNAP era) = ShelleyBase
+  type PredicateFailure (SNAP era) = SnapPredicateFailure era
   initialRules = [pure emptySnapShots]
   transitionRules = [snapTransition]
 
@@ -53,8 +51,7 @@ snapTransition ::
   ( Era era,
     Core.Compactible (Core.Value era),
     Environment (SNAP era) ~ LedgerState era,
-    State (SNAP era) ~ SnapShots era,
-    Val.Val (Core.Value era)
+    State (SNAP era) ~ SnapShots era
   ) =>
   TransitionRule (SNAP era)
 snapTransition = do
