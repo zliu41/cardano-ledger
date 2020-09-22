@@ -419,7 +419,7 @@ data EpochState era = EpochState
   deriving (Generic)
 
 deriving stock instance
-  (Era era, Core.Compactible (Core.Value era), Show (Core.Value era)) =>
+  (Era era, Core.ValType era, Show (Core.Value era)) =>
   Show (EpochState era)
 
 instance NoUnexpectedThunks (EpochState era)
@@ -427,14 +427,14 @@ instance NoUnexpectedThunks (EpochState era)
 instance (Era era) => NFData (EpochState era)
 
 instance
-  (Era era, Core.Compactible (Core.Value era), ToCBOR (Core.CompactForm (Core.Value era))) =>
+  (Era era, Core.ValType era, ToCBOR (Core.CompactForm (Core.Value era))) =>
   ToCBOR (EpochState era)
   where
   toCBOR (EpochState a s l r p n) =
     encodeListLen 6 <> toCBOR a <> toCBOR s <> toCBOR l <> toCBOR r <> toCBOR p <> toCBOR n
 
 instance
-  (Era era, Core.Compactible (Core.Value era), FromCBOR (Core.CompactForm (Core.Value era))) =>
+  (Era era, Core.ValType era, FromCBOR (Core.CompactForm (Core.Value era))) =>
   FromCBOR (EpochState era)
   where
   fromCBOR = do
@@ -531,20 +531,20 @@ data UTxOState era = UTxOState
   deriving (Generic, NFData)
 
 deriving stock instance
-  (Era era, Core.Compactible (Core.Value era), Show (Core.Value era)) =>
+  (Era era, Core.ValType era, Show (Core.Value era)) =>
   Show (UTxOState era)
 
 instance NoUnexpectedThunks (UTxOState era)
 
 instance
-  (Era era, Core.Compactible (Core.Value era), ToCBOR (Core.CompactForm (Core.Value era))) =>
+  (Era era, Core.ValType era, ToCBOR (Core.CompactForm (Core.Value era))) =>
   ToCBOR (UTxOState era)
   where
   toCBOR (UTxOState ut dp fs us) =
     encodeListLen 4 <> toCBOR ut <> toCBOR dp <> toCBOR fs <> toCBOR us
 
 instance
-  (Era era, Core.Compactible (Core.Value era), FromCBOR (Core.CompactForm (Core.Value era))) =>
+  (Era era, Core.ValType era, FromCBOR (Core.CompactForm (Core.Value era))) =>
   FromCBOR (UTxOState era)
   where
   fromCBOR = do
@@ -575,7 +575,7 @@ data NewEpochState era = NewEpochState
   deriving (Generic)
 
 deriving stock instance
-  (Era era, Core.Compactible (Core.Value era), Show (Core.Value era)) =>
+  (Era era, Core.ValType era, Show (Core.Value era)) =>
   Show (NewEpochState era)
 
 instance (Era era) => NFData (NewEpochState era)
@@ -583,7 +583,7 @@ instance (Era era) => NFData (NewEpochState era)
 instance NoUnexpectedThunks (NewEpochState era)
 
 instance
-  (Era era, Core.Compactible (Core.Value era), ToCBOR (Core.CompactForm (Core.Value era))) =>
+  (Era era, Core.ValType era, ToCBOR (Core.CompactForm (Core.Value era))) =>
   ToCBOR (NewEpochState era)
   where
   toCBOR (NewEpochState e bp bc es ru pd os) =
@@ -593,7 +593,7 @@ instance
       <> toCBOR os
 
 instance
-  (Era era, Core.Compactible (Core.Value era), FromCBOR (Core.CompactForm (Core.Value era))) =>
+  (Era era, Core.ValType era, FromCBOR (Core.CompactForm (Core.Value era))) =>
   FromCBOR (NewEpochState era)
   where
   fromCBOR = do
@@ -634,7 +634,7 @@ data LedgerState era = LedgerState
   deriving (Generic)
 
 deriving stock instance
-  (Era era, Core.Compactible (Core.Value era), Show (Core.Value era)) =>
+  (Era era, Core.ValType era, Show (Core.Value era)) =>
   Show (LedgerState era)
 
 instance NoUnexpectedThunks (LedgerState era)
@@ -642,14 +642,14 @@ instance NoUnexpectedThunks (LedgerState era)
 instance (Era era) => NFData (LedgerState era)
 
 instance
-  (Era era, Core.Compactible (Core.Value era), ToCBOR (Core.CompactForm (Core.Value era))) =>
+  (Era era, Core.ValType era, ToCBOR (Core.CompactForm (Core.Value era))) =>
   ToCBOR (LedgerState era)
   where
   toCBOR (LedgerState u dp) =
     encodeListLen 2 <> toCBOR u <> toCBOR dp
 
 instance
-  (Era era, Core.Compactible (Core.Value era), FromCBOR (Core.CompactForm (Core.Value era))) =>
+  (Era era, Core.ValType era, FromCBOR (Core.CompactForm (Core.Value era))) =>
   FromCBOR (LedgerState era)
   where
   fromCBOR = do
@@ -684,7 +684,7 @@ txsize = fromIntegral . BSL.length . txFullBytes
 -- | It can be helpful for coin selection.
 txsizeBound ::
   forall era.
-  (Era era, Core.Compactible (Core.Value era), ToCBOR (Core.CompactForm (Core.Value era))) =>
+  (Era era, Core.ValType era, ToCBOR (Core.CompactForm (Core.Value era))) =>
   Tx era ->
   Integer
 txsizeBound tx = numInputs * inputSize + numOutputs * outputSize + rest
@@ -710,7 +710,7 @@ minfee pp tx = Coin $ fromIntegral (_minfeeA pp) * txsize tx + fromIntegral (_mi
 -- | Minimum fee bound using txsizeBound
 minfeeBound ::
   forall era.
-  (Era era, Core.Compactible (Core.Value era), ToCBOR (Core.CompactForm (Core.Value era))) =>
+  (Era era, Core.ValType era, ToCBOR (Core.CompactForm (Core.Value era))) =>
   PParams ->
   Tx era ->
   Coin
@@ -721,7 +721,7 @@ minfeeBound pp tx =
 
 -- | Compute the lovelace which are created by the transaction
 produced ::
-  (Era era, Core.Compactible (Core.Value era), Val.Val (Core.Value era), ToCBOR (Core.CompactForm (Core.Value era))) =>
+  (Era era, Core.ValType era, Val.Val (Core.Value era), ToCBOR (Core.CompactForm (Core.Value era))) =>
   PParams ->
   Map (KeyHash 'StakePool era) (PoolParams era) ->
   TxBody era ->
@@ -731,7 +731,7 @@ produced pp stakePools tx =
 
 -- | Compute the key deregistration refunds in a transaction
 keyRefunds ::
-  (Era era, Core.Compactible (Core.Value era), ToCBOR (Core.CompactForm (Core.Value era))) =>
+  (Era era, Core.ValType era, ToCBOR (Core.CompactForm (Core.Value era))) =>
   PParams ->
   TxBody era ->
   Coin
@@ -742,7 +742,7 @@ keyRefunds pp tx = Val.scale (length deregistrations) (_keyDeposit pp)
 -- | Compute the lovelace which are destroyed by the transaction
 -- TODO this is only correct for Shelley!
 consumed ::
-  (Era era, Core.Compactible (Core.Value era), Val.Val (Core.Value era), ToCBOR (Core.CompactForm (Core.Value era))) =>
+  (Era era, Core.ValType era, Val.Val (Core.Value era), ToCBOR (Core.CompactForm (Core.Value era))) =>
   PParams ->
   UTxO (era) ->
   TxBody (era) ->
@@ -784,8 +784,8 @@ witsFromWitnessSet (WitnessSet aWits _ bsWits) =
 witsVKeyNeeded ::
   forall era.
   ( Era era,
-    Core.Compactible (Core.Value era),
-    ToCBOR (Core.CompactForm (Core.Value era))
+    Core.ValType era,
+    ToCBOR (Core.Value era)
   ) =>
   UTxO era ->
   Tx era ->
@@ -873,7 +873,7 @@ propWits (Just (Update (ProposedPPUpdates pup) _)) (GenDelegs genDelegs) =
 
 -- | Calculate the change to the deposit pool for a given transaction.
 depositPoolChange ::
-  (Era era, Core.Compactible (Core.Value era), ToCBOR (Core.CompactForm (Core.Value era))) =>
+  (Era era, Core.ValType era, ToCBOR (Core.CompactForm (Core.Value era))) =>
   LedgerState era ->
   PParams ->
   TxBody era ->
@@ -904,7 +904,7 @@ reapRewards dStateRewards withdrawals =
 
 stakeDistr ::
   forall era.
-  ( (Core.Compactible (Core.Value era)),
+  ( Core.ValType era,
     Val.Val (Core.Value era)
   ) =>
   Era era =>

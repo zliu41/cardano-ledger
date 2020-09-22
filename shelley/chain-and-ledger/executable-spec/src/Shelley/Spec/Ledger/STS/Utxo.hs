@@ -30,7 +30,6 @@ import Cardano.Binary
 import qualified Cardano.Ledger.Core as Core
 import Cardano.Ledger.Crypto (Crypto)
 import Cardano.Ledger.Era (Era)
-import Cardano.Ledger.Shelley (Shelley)
 import qualified Cardano.Ledger.Val as Val
 import Cardano.Prelude (NoUnexpectedThunks (..), asks)
 import Control.Iterate.SetAlgebra (dom, eval, (∪), (⊆), (⋪))
@@ -123,8 +122,8 @@ data UtxoPredicateFailure era
       !Coin -- the minimum fee for this transaction
       !Coin -- the fee supplied in this transaction
   | ValueNotConservedUTxO
-      !Coin -- the Coin consumed by this transaction
-      !Coin -- the Coin produced by this transaction
+      !(Core.Value era) -- the Coin consumed by this transaction
+      !(Core.Value era) -- the Coin produced by this transaction
   | WrongNetwork
       !Network -- the expected network id
       !(Set (Addr era)) -- the set of addresses with incorrect network IDs
@@ -237,14 +236,14 @@ instance
         k -> invalidKey k
 
 instance
-  (Crypto c) =>
-  STS (UTXO (Shelley c))
+  (Era era, Core.ValType era, Val.Val (Core.Value era)) =>
+  STS (UTXO era)
   where
-  type State (UTXO (Shelley c)) = UTxOState (Shelley c)
-  type Signal (UTXO (Shelley c)) = Tx (Shelley c)
-  type Environment (UTXO (Shelley c)) = UtxoEnv (Shelley c)
-  type BaseM (UTXO (Shelley c)) = ShelleyBase
-  type PredicateFailure (UTXO (Shelley c)) = UtxoPredicateFailure (Shelley c)
+  type State (UTXO era) = UTxOState era
+  type Signal (UTXO era) = Tx era
+  type Environment (UTXO era) = UtxoEnv era
+  type BaseM (UTXO era) = ShelleyBase
+  type PredicateFailure (UTXO era) = UtxoPredicateFailure era
 
   transitionRules = [utxoInductive]
   initialRules = [initialLedgerState]
@@ -266,8 +265,9 @@ instance
       PostCondition
         "Deposit pot must not be negative (post)"
         (\_ st' -> _deposited st' >= mempty),
-      let utxoBalance us = _deposited us <> _fees us <> balance (_utxo us)
-          withdrawals txb = foldl' (<>) mempty $ unWdrl $ _wdrls txb
+      let utxoBalance us = (Val.inject $ _deposited us <> _fees us) <> balance (_utxo us)
+          withdrawals :: TxBody era -> Core.Value era
+          withdrawals txb = Val.inject $ foldl' (<>) mempty $ unWdrl $ _wdrls txb
        in PostCondition
             "Should preserve ADA in the UTxO state"
             ( \(TRC (_, us, tx)) us' ->
@@ -275,15 +275,15 @@ instance
             )
     ]
 
-initialLedgerState :: InitialRule (UTXO (Shelley c))
+initialLedgerState :: InitialRule (UTXO era)
 initialLedgerState = do
   IRC _ <- judgmentContext
   pure $ UTxOState (UTxO Map.empty) (Coin 0) (Coin 0) emptyPPUPState
 
 utxoInductive ::
   forall c era.
-  (Era era, era ~ Shelley c) =>
-  TransitionRule (UTXO (Shelley c))
+  (Era era, Core.ValType era, Val.Val (Core.Value era)) =>
+  TransitionRule (UTXO era)
 utxoInductive = do
   TRC (UtxoEnv slot pp stakepools genDelegs, u, tx) <- judgmentContext
   let UTxOState utxo deposits' fees ppup = u
@@ -320,7 +320,7 @@ utxoInductive = do
 
   let outputs = Map.elems $ unUTxO (txouts txb)
       minUTxOValue = _minUTxOValue pp
-      outputsTooSmall = [out | out@(TxOut _ c) <- outputs, c < (Val.scaledMinDeposit c minUTxOValue)]
+      outputsTooSmall = [out | out@(TxOut _ c) <- outputs, c Val.< (Val.inject $ Val.scaledMinDeposit c minUTxOValue)]
   null outputsTooSmall ?! OutputTooSmallUTxO outputsTooSmall
 
   -- Bootstrap (i.e. Byron) addresses have variable sized attributes in them.
@@ -346,7 +346,7 @@ utxoInductive = do
       }
 
 instance
-  Crypto c =>
-  Embed (PPUP (Shelley c)) (UTXO (Shelley c))
+  (Era era, Core.ValType era) =>
+  Embed (PPUP era) (UTXO era)
   where
   wrapFailed = UpdateFailure

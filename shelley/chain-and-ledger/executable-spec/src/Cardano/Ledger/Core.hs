@@ -1,4 +1,5 @@
 {-# LANGUAGE FlexibleContexts #-}
+{-# LANGUAGE FlexibleInstances #-}
 {-# LANGUAGE TypeFamilies #-}
 
 -- | This module defines core type families which we know to vary from era to
@@ -16,6 +17,8 @@ module Cardano.Ledger.Core
 where
 
 import Data.Kind (Type)
+import Cardano.Binary (FromCBOR (..), ToCBOR (..), Annotator)
+import Data.Typeable (Typeable)
 
 class (Compactible (Value era)) => ValType era where
   type family Value era :: Type
@@ -34,6 +37,17 @@ class (Compactible (Value era)) => ValType era where
 --------------------------------------------------------------------------------
 
 class Compactible a where
-  type CompactForm a :: Type
+  data CompactForm a :: Type
   toCompact :: a -> CompactForm a
   fromCompact :: CompactForm a -> a
+
+
+instance (Compactible a, ToCBOR a) => ToCBOR (CompactForm a) where
+  toCBOR = toCBOR . fromCompact
+
+instance (Compactible a, FromCBOR a) => FromCBOR (CompactForm a) where
+  fromCBOR = toCompact <$> fromCBOR
+
+instance (Typeable a, Compactible a, FromCBOR (Annotator a)) => FromCBOR (Annotator (CompactForm a)) where
+  fromCBOR = (fmap . fmap) toCompact fromCBOR
+

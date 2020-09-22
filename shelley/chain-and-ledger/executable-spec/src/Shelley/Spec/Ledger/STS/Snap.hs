@@ -3,6 +3,7 @@
 {-# LANGUAGE EmptyDataDeriving #-}
 {-# LANGUAGE FlexibleContexts #-}
 {-# LANGUAGE FlexibleInstances #-}
+{-# LANGUAGE UndecidableInstances #-}
 {-# LANGUAGE TypeFamilies #-}
 
 module Shelley.Spec.Ledger.STS.Snap
@@ -38,7 +39,7 @@ data SnapPredicateFailure era -- No predicate failures
 
 instance NoUnexpectedThunks (SnapPredicateFailure era)
 
-instance (Era era, Core.Compactible (Core.Value era)) => STS (SNAP era) where
+instance (Era era, Core.ValType era, (Val.Val (Core.Value era))) => STS (SNAP era) where
   type State (SNAP era) = SnapShots era
   type Signal (SNAP era) = ()
   type Environment (SNAP era) = LedgerState era
@@ -49,9 +50,8 @@ instance (Era era, Core.Compactible (Core.Value era)) => STS (SNAP era) where
 
 snapTransition ::
   ( Era era,
-    Core.Compactible (Core.Value era),
-    Environment (SNAP era) ~ LedgerState era,
-    State (SNAP era) ~ SnapShots era
+    Core.ValType era,
+    (Val.Val (Core.Value era))
   ) =>
   TransitionRule (SNAP era)
 snapTransition = do

@@ -268,7 +268,7 @@ getKeyHashFromRegPool (DCertPool (RegPool p)) = Just . _poolPubKey $ p
 getKeyHashFromRegPool _ = Nothing
 
 txup ::
-  (Era era, Core.ValType era, ToCBOR (Core.CompactForm (Core.Value era))) =>
+  (Era era, Core.ValType era, ToCBOR (Core.Value era)) =>
   Tx era ->
   Maybe (Update era)
 txup (Tx txbody _ _) = strictMaybeToMaybe (_txUpdate txbody)
@@ -298,7 +298,7 @@ scriptCred (ScriptHashObj hs) = Just hs
 scriptsNeeded ::
   ( Era era,
     Core.ValType era,
-    ToCBOR (Core.CompactForm (Core.Value era))
+    ToCBOR (Core.Value era)
   ) =>
   UTxO era ->
   Tx era ->

@@ -66,6 +66,6 @@ instance FromCBOR Coin where
       else cborError $ DecoderErrorCustom "Invalid Coin Value" (pack $ show c)
 
 instance Core.Compactible Coin where
-  type CompactForm Coin = Word64
-  toCompact = fromIntegral . unCoin
-  fromCompact = word64ToCoin
+  newtype CompactForm Coin = CompactCoin Word64
+  toCompact = CompactCoin . fromIntegral . unCoin
+  fromCompact (CompactCoin c) = word64ToCoin c
