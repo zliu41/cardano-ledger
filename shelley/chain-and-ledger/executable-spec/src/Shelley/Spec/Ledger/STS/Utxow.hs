@@ -25,9 +25,9 @@ import Cardano.Binary
     ToCBOR (..),
     encodeListLen,
   )
-import Cardano.Ledger.Crypto (Crypto)
 import Cardano.Ledger.Era (Era)
-import Cardano.Ledger.Shelley (Shelley)
+import qualified Cardano.Ledger.Val as Val
+import qualified Cardano.Ledger.Core as Core
 import Cardano.Prelude (NoUnexpectedThunks (..), asks)
 import Control.Iterate.SetAlgebra (eval, (∩))
 import Control.State.Transition
@@ -115,24 +115,33 @@ data UtxowPredicateFailure era
       !(MetaDataHash era) -- hash of the full metadata
   deriving (Generic)
 
-instance Crypto c => NoUnexpectedThunks (UtxowPredicateFailure (Shelley c))
+instance (Era era, Core.ValType era) => NoUnexpectedThunks (UtxowPredicateFailure era)
 
-deriving stock instance Crypto c => Eq (UtxowPredicateFailure (Shelley c))
+deriving stock instance 
+  ( Era era,
+    Core.ValType era,
+    Eq (Core.Value era)
+  ) => Eq (UtxowPredicateFailure era)
 
-deriving stock instance Crypto c => Show (UtxowPredicateFailure (Shelley c))
+deriving stock instance 
+  ( Era era,
+    Core.ValType era,
+    Show (Core.Value era)
+  ) => Show (UtxowPredicateFailure era)
 
 instance
   ( Era era,
-    era ~ Shelley c,
+    Core.ValType era,
+    Val.Val (Core.Value era),
     DSignable era (Hash era (TxBody era))
   ) =>
-  STS (UTXOW (Shelley c))
+  STS (UTXOW era)
   where
-  type State (UTXOW (Shelley c)) = UTxOState (Shelley c)
-  type Signal (UTXOW (Shelley c)) = Tx (Shelley c)
-  type Environment (UTXOW (Shelley c)) = UtxoEnv (Shelley c)
-  type BaseM (UTXOW (Shelley c)) = ShelleyBase
-  type PredicateFailure (UTXOW (Shelley c)) = UtxowPredicateFailure (Shelley c)
+  type State (UTXOW era) = UTxOState era
+  type Signal (UTXOW era) = Tx era
+  type Environment (UTXOW era) = UtxoEnv era
+  type BaseM (UTXOW era) = ShelleyBase
+  type PredicateFailure (UTXOW era) = UtxowPredicateFailure era
   transitionRules = [utxoWitnessed]
   initialRules = [initialLedgerStateUTXOW]
 
@@ -195,20 +204,22 @@ instance
       k -> invalidKey k
 
 initialLedgerStateUTXOW ::
-  forall era c.
+  forall era.
   ( Era era,
-    era ~ Shelley c,
+    Core.ValType era,
+    Val.Val (Core.Value era),
     DSignable era (Hash era (TxBody era))
   ) =>
-  InitialRule (UTXOW (Shelley c))
+  InitialRule (UTXOW era)
 initialLedgerStateUTXOW = do
   IRC (UtxoEnv slots pp stakepools genDelegs) <- judgmentContext
   trans @(UTXO era) $ IRC (UtxoEnv slots pp stakepools genDelegs)
 
 utxoWitnessed ::
-  forall era c.
+  forall era.
   ( Era era,
-    era ~ Shelley c,
+    Val.Val (Core.Value era),
+    Core.ValType era,
     DSignable era (Hash era (TxBody era))
   ) =>
   TransitionRule (UTXOW era)
@@ -270,9 +281,11 @@ utxoWitnessed =
         TRC (UtxoEnv slot pp stakepools genDelegs, u, tx)
 
 instance
-  ( Crypto c,
-    DSignable (Shelley c) (Hash (Shelley c) (TxBody (Shelley c)))
+  ( Era era,
+    Core.ValType era,
+    Val.Val (Core.Value era),
+    DSignable era (Hash era (TxBody era))
   ) =>
-  Embed (UTXO (Shelley c)) (UTXOW (Shelley c))
+  Embed (UTXO era) (UTXOW era)
   where
   wrapFailed = UtxoFailure

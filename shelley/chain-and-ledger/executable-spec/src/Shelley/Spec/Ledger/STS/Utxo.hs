@@ -28,7 +28,6 @@ import Cardano.Binary
     encodeListLen,
   )
 import qualified Cardano.Ledger.Core as Core
-import Cardano.Ledger.Crypto (Crypto)
 import Cardano.Ledger.Era (Era)
 import qualified Cardano.Ledger.Val as Val
 import Cardano.Prelude (NoUnexpectedThunks (..), asks)
@@ -138,17 +137,17 @@ data UtxoPredicateFailure era
   deriving (Generic)
 
 deriving stock instance
-  (Era era, Core.Compactible (Core.Value era), Show (Core.Value era)) =>
+  (Era era, Core.ValType era, Core.Compactible (Core.Value era), Show (Core.Value era)) =>
   Show (UtxoPredicateFailure era)
 
 deriving stock instance
-  (Era era, Eq (Core.CompactForm (Core.Value era))) =>
+  (Era era, Core.ValType era, Eq (Core.CompactForm (Core.Value era)), Eq (Core.Value era)) =>
   Eq (UtxoPredicateFailure era)
 
-instance NoUnexpectedThunks (UtxoPredicateFailure era)
+instance NoUnexpectedThunks (Core.Value era) => NoUnexpectedThunks (UtxoPredicateFailure era)
 
 instance
-  (Era era, ToCBOR (Core.CompactForm (Core.Value era))) =>
+  (Era era, Core.ValType era, ToCBOR (Core.Value era)) =>
   ToCBOR (UtxoPredicateFailure era)
   where
   toCBOR = \case
@@ -190,7 +189,7 @@ instance
         <> encodeFoldable outs
 
 instance
-  (Era era, FromCBOR (Core.CompactForm (Core.Value era))) =>
+  (Era era, Core.ValType era, FromCBOR (Core.Value era)) =>
   FromCBOR (UtxoPredicateFailure era)
   where
   fromCBOR =
@@ -281,7 +280,7 @@ initialLedgerState = do
   pure $ UTxOState (UTxO Map.empty) (Coin 0) (Coin 0) emptyPPUPState
 
 utxoInductive ::
-  forall c era.
+  forall era.
   (Era era, Core.ValType era, Val.Val (Core.Value era)) =>
   TransitionRule (UTXO era)
 utxoInductive = do
@@ -346,7 +345,7 @@ utxoInductive = do
       }
 
 instance
-  (Era era, Core.ValType era) =>
+  (Era era, Core.ValType era, Val.Val (Core.Value era)) =>
   Embed (PPUP era) (UTXO era)
   where
   wrapFailed = UpdateFailure

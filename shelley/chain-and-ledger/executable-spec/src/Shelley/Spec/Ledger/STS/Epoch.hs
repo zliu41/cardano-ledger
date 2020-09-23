@@ -18,8 +18,8 @@ module Shelley.Spec.Ledger.STS.Epoch
   )
 where
 
-import Cardano.Ledger.Crypto (Crypto)
 import Cardano.Ledger.Era (Era)
+import qualified Cardano.Ledger.Core as Core
 import Cardano.Ledger.Shelley (Shelley)
 import Cardano.Prelude (NoUnexpectedThunks (..), asks)
 import Control.Iterate.SetAlgebra (eval, (⨃))
@@ -70,18 +70,18 @@ deriving stock instance
   (Show (PredicateFailure (SNAP era))) =>
   Show (EpochPredicateFailure era)
 
-instance Crypto c => STS (EPOCH (Shelley c)) where
-  type State (EPOCH (Shelley c)) = EpochState (Shelley c)
-  type Signal (EPOCH (Shelley c)) = EpochNo
-  type Environment (EPOCH (Shelley c)) = ()
-  type BaseM (EPOCH (Shelley c)) = ShelleyBase
-  type PredicateFailure (EPOCH (Shelley c)) = EpochPredicateFailure (Shelley c)
+instance  Era era => STS (EPOCH era) where
+  type State (EPOCH era) = EpochState era
+  type Signal (EPOCH era) = EpochNo
+  type Environment (EPOCH era) = ()
+  type BaseM (EPOCH era) = ShelleyBase
+  type PredicateFailure (EPOCH era) = EpochPredicateFailure era
   initialRules = [initialEpoch]
   transitionRules = [epochTransition]
 
-instance NoUnexpectedThunks (EpochPredicateFailure (Shelley c))
+instance NoUnexpectedThunks (EpochPredicateFailure era)
 
-initialEpoch :: InitialRule (EPOCH (Shelley c))
+initialEpoch :: InitialRule (EPOCH era)
 initialEpoch =
   pure $
     EpochState
@@ -118,11 +118,10 @@ votedValue (ProposedPPUpdates pup) pps quorumN =
         _ -> Nothing
 
 epochTransition ::
-  forall era c.
-  ( Era era,
-    era ~ Shelley c
+  forall era.
+  ( Era era
   ) =>
-  TransitionRule (EPOCH (Shelley c))
+  TransitionRule (EPOCH era)
 epochTransition = do
   TRC
     ( _,
@@ -168,11 +167,11 @@ epochTransition = do
       pp'
       nm
 
-instance Crypto c => Embed (SNAP (Shelley c)) (EPOCH (Shelley c)) where
+instance (Era era, Core.ValType era) => Embed (SNAP era) (EPOCH era) where
   wrapFailed = SnapFailure
 
-instance Crypto c => Embed (POOLREAP (Shelley c)) (EPOCH (Shelley c)) where
+instance Era era => Embed (POOLREAP era) (EPOCH era) where
   wrapFailed = PoolReapFailure
 
-instance Crypto c => Embed (NEWPP (Shelley c)) (EPOCH (Shelley c)) where
+instance  Era era => Embed (NEWPP era) (EPOCH era) where
   wrapFailed = NewPpFailure

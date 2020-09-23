@@ -12,16 +12,27 @@
 module Cardano.Ledger.Core
   ( -- * Compactible
     Compactible (..),
-    ValType (..)
+    ValType, Value
   )
 where
 
 import Data.Kind (Type)
 import Cardano.Binary (FromCBOR (..), ToCBOR (..), Annotator)
 import Data.Typeable (Typeable)
+import Cardano.Prelude (NoUnexpectedThunks (..))
 
-class (Compactible (Value era)) => ValType era where
-  type family Value era :: Type
+class
+  ( Eq (Value era),
+    Show (Value era),
+    NoUnexpectedThunks (Value era),
+    Compactible (Value era),
+    Typeable (Value era)
+  ) =>
+  ValType era
+
+type family Value era :: Type
+
+
 
 -- | A value is something which quantifies a transaction output.
 
@@ -41,6 +52,11 @@ class Compactible a where
   toCompact :: a -> CompactForm a
   fromCompact :: CompactForm a -> a
 
+-- TODO: consider which of these are worth the performance impact
+-- some of these should instead be implemented directly for
+-- CompactForm a
+instance (Eq a, Compactible a) => Eq (CompactForm a) where
+  a == b = fromCompact a == fromCompact b
 
 instance (Compactible a, ToCBOR a) => ToCBOR (CompactForm a) where
   toCBOR = toCBOR . fromCompact

@@ -59,8 +59,7 @@ data PoolreapState era = PoolreapState
 
 deriving stock instance
   ( Era era,
-    Core.Compactible (Core.Value era),
-    Show (Core.Value era)
+    Core.ValType era
   ) =>
   Show (PoolreapState era)
 
