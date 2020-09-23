@@ -58,12 +58,14 @@ class Compactible a where
 instance (Eq a, Compactible a) => Eq (CompactForm a) where
   a == b = fromCompact a == fromCompact b
 
-instance (Compactible a, ToCBOR a) => ToCBOR (CompactForm a) where
-  toCBOR = toCBOR . fromCompact
+-- instance (Compactible a, ToCBOR a) => ToCBOR (CompactForm a) where
+--   toCBOR = toCBOR . fromCompact
+
+instance (Compactible a, ToCBOR (CompactForm a)) => ToCBOR a where
+  toCBOR = toCBOR . toCompact
 
 instance (Compactible a, FromCBOR a) => FromCBOR (CompactForm a) where
   fromCBOR = toCompact <$> fromCBOR
 
 instance (Typeable a, Compactible a, FromCBOR (Annotator a)) => FromCBOR (Annotator (CompactForm a)) where
   fromCBOR = (fmap . fmap) toCompact fromCBOR
-

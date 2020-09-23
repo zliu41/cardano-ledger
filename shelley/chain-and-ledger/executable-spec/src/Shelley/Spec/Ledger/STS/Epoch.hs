@@ -20,7 +20,7 @@ where
 
 import Cardano.Ledger.Era (Era)
 import qualified Cardano.Ledger.Core as Core
-import Cardano.Ledger.Shelley (Shelley)
+import qualified Cardano.Ledger.Val as Val
 import Cardano.Prelude (NoUnexpectedThunks (..), asks)
 import Control.Iterate.SetAlgebra (eval, (⨃))
 import Control.State.Transition (Embed (..), InitialRule, STS (..), TRC (..), TransitionRule, judgmentContext, liftSTS, trans)
@@ -70,7 +70,7 @@ deriving stock instance
   (Show (PredicateFailure (SNAP era))) =>
   Show (EpochPredicateFailure era)
 
-instance  Era era => STS (EPOCH era) where
+instance (Era era, Core.ValType era, Val.Val (Core.Value era)) => STS (EPOCH era) where
   type State (EPOCH era) = EpochState era
   type Signal (EPOCH era) = EpochNo
   type Environment (EPOCH era) = ()
@@ -119,7 +119,9 @@ votedValue (ProposedPPUpdates pup) pps quorumN =
 
 epochTransition ::
   forall era.
-  ( Era era
+  ( Era era,
+    Core.ValType era,
+    Val.Val (Core.Value era)
   ) =>
   TransitionRule (EPOCH era)
 epochTransition = do
@@ -167,11 +169,11 @@ epochTransition = do
       pp'
       nm
 
-instance (Era era, Core.ValType era) => Embed (SNAP era) (EPOCH era) where
+instance (Era era, Core.ValType era, Val.Val (Core.Value era)) => Embed (SNAP era) (EPOCH era) where
   wrapFailed = SnapFailure
 
-instance Era era => Embed (POOLREAP era) (EPOCH era) where
+instance (Era era, Core.ValType era, Val.Val (Core.Value era)) => Embed (POOLREAP era) (EPOCH era) where
   wrapFailed = PoolReapFailure
 
-instance  Era era => Embed (NEWPP era) (EPOCH era) where
+instance (Era era, Val.Val (Core.Value era), Core.ValType era) => Embed (NEWPP era) (EPOCH era) where
   wrapFailed = NewPpFailure

@@ -20,9 +20,9 @@ module Shelley.Spec.Ledger.STS.Tick
   )
 where
 
-import Cardano.Ledger.Crypto (Crypto)
 import Cardano.Ledger.Era (Era)
-import Cardano.Ledger.Shelley (Shelley)
+import qualified Cardano.Ledger.Core as Core
+import qualified Cardano.Ledger.Val as Val
 import Cardano.Prelude (NoUnexpectedThunks (..))
 import Control.Iterate.SetAlgebra (eval, (⨃))
 import Control.Monad.Trans.Reader (asks)
@@ -55,25 +55,27 @@ data TickPredicateFailure era
   | RupdFailure (PredicateFailure (RUPD era)) -- Subtransition Failures
   deriving (Generic)
 
-deriving stock instance Show (TickPredicateFailure (Shelley c))
+deriving stock instance Show (TickPredicateFailure era)
 
-deriving stock instance Eq (TickPredicateFailure (Shelley c))
+deriving stock instance Eq (TickPredicateFailure era)
 
-instance NoUnexpectedThunks (TickPredicateFailure (Shelley c))
+instance NoUnexpectedThunks (TickPredicateFailure era)
 
 instance
-  Crypto c =>
-  STS (TICK (Shelley c))
+  (Era era,
+  Core.ValType era,
+  Val.Val (Core.Value era)) =>
+  STS (TICK era)
   where
   type
-    State (TICK (Shelley c)) =
-      NewEpochState (Shelley c)
+    State (TICK era) =
+      NewEpochState era
   type
-    Signal (TICK (Shelley c)) =
+    Signal (TICK era) =
       SlotNo
-  type Environment (TICK (Shelley c)) = TickEnv (Shelley c)
-  type BaseM (TICK (Shelley c)) = ShelleyBase
-  type PredicateFailure (TICK (Shelley c)) = TickPredicateFailure (Shelley c)
+  type Environment (TICK era) = TickEnv era
+  type BaseM (TICK era) = ShelleyBase
+  type PredicateFailure (TICK era) = TickPredicateFailure era
 
   initialRules = []
   transitionRules = [bheadTransition]
@@ -108,8 +110,10 @@ adoptGenesisDelegs es slot = es'
     es' = es {esLState = ls'}
 
 bheadTransition ::
-  forall era c.
-  (Era era, era ~ Shelley c) =>
+  forall era.
+  (Era era,
+  Core.ValType era,
+  Val.Val (Core.Value era)) =>
   TransitionRule (TICK era)
 bheadTransition = do
   TRC (TickEnv gkeys, nes@(NewEpochState _ bprev _ es _ _ _), slot) <-
@@ -134,13 +138,13 @@ bheadTransition = do
   pure nes''
 
 instance
-  Crypto c =>
-  Embed (NEWEPOCH (Shelley c)) (TICK (Shelley c))
+  (Era era, Core.ValType era, Val.Val (Core.Value era)) =>
+  Embed (NEWEPOCH era) (TICK era)
   where
   wrapFailed = NewEpochFailure
 
 instance
-  Crypto c =>
-  Embed (RUPD (Shelley c)) (TICK (Shelley c))
+  (Era era, Core.ValType era, Val.Val (Core.Value era)) =>
+  Embed (RUPD era) (TICK era)
   where
   wrapFailed = RupdFailure

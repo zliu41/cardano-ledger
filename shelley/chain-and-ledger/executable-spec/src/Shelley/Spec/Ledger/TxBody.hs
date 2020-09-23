@@ -585,7 +585,7 @@ deriving via AllowThunksIn '["bodyBytes"] (TxBody era) instance Era era => NoUne
 instance Era era => HashAnnotated (TxBody era) era
 
 pattern TxBody ::
-  (Era era, Core.ValType era, ToCBOR (Core.CompactForm (Core.Value era))) =>
+  (Era era, ToCBOR (Core.CompactForm (Core.Value era))) =>
   Set (TxIn era) ->
   StrictSeq (TxOut era) ->
   StrictSeq (DCert era) ->
