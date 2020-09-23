@@ -22,8 +22,9 @@ module Shelley.Spec.Ledger.API.Mempool
 where
 
 import Cardano.Binary (FromCBOR (..), ToCBOR (..))
-import Cardano.Ledger.Era
-import Cardano.Ledger.Shelley (Shelley)
+import Cardano.Ledger.Era (Era)
+import qualified Cardano.Ledger.Core as Core
+import qualified Cardano.Ledger.Val as Val
 import Control.Arrow (left)
 import Control.Monad.Except
 import Control.Monad.Trans.Reader (runReader)
@@ -92,21 +93,24 @@ deriving stock instance
   Show (ApplyTxError era)
 
 instance
-  (Typeable era, Era era, era ~ Shelley c) =>
+  (Typeable era, Era era, Core.ValType era) =>
   ToCBOR (ApplyTxError era)
   where
   toCBOR (ApplyTxError es) = toCBOR es
 
 instance
-  (Era era, era ~ Shelley c) =>
+  (Era era,
+   Core.ValType era
+  ) =>
   FromCBOR (ApplyTxError era)
   where
   fromCBOR = ApplyTxError <$> fromCBOR
 
 applyTxs ::
-  forall era m c.
+  forall era m.
   ( Era era,
-    era ~ Shelley c,
+    Core.ValType era,
+    Val.Val (Core.Value era),
     MonadError (ApplyTxError era) m,
     DSignable era (Hash era (Tx.TxBody era))
   ) =>

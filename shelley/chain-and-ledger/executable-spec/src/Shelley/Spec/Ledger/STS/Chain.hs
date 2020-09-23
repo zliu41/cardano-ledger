@@ -27,9 +27,8 @@ where
 import qualified Cardano.Crypto.VRF as VRF
 import qualified Cardano.Ledger.Core as Core
 import Cardano.Ledger.Crypto (VRF)
-import qualified Cardano.Ledger.Crypto as Crypto (Crypto)
 import Cardano.Ledger.Era (Crypto, Era)
-import Cardano.Ledger.Shelley (Shelley)
+import qualified Cardano.Ledger.Val as Val
 import Cardano.Prelude
   ( MonadError (..),
     NFData,
@@ -142,7 +141,8 @@ data ChainState era = ChainState
   deriving (Generic)
 
 deriving stock instance
-  (Era era, Core.Compactible (Core.Value era), Show (Core.Value era)) =>
+  (Era era, 
+   Core.ValType era) =>
   Show (ChainState era)
 
 instance (Era era) => NFData (ChainState era)
@@ -164,9 +164,9 @@ data ChainPredicateFailure era
   | PrtclSeqFailure !(PrtlSeqFailure era) -- Subtransition Failures
   deriving (Generic)
 
-deriving stock instance Crypto.Crypto c => Show (ChainPredicateFailure (Shelley c))
+deriving stock instance (Era era, Core.ValType era) => Show (ChainPredicateFailure era)
 
-deriving stock instance Crypto.Crypto c => Eq (ChainPredicateFailure (Shelley c))
+deriving stock instance (Era era, Core.ValType era) => Eq (ChainPredicateFailure era)
 
 -- | Creates a valid initial chain state
 initialShelleyState ::
@@ -216,7 +216,8 @@ initialShelleyState lab e utxo reserves genDelegs os pp initNonce =
 
 instance
   ( Era era,
-    era ~ Shelley c,
+    Core.ValType era,
+    Val.Val (Core.Value era),
     DSignable era (OCertSignable era),
     DSignable era (Hash era (TxBody era)),
     KESignable era (BHBody era),
@@ -241,8 +242,8 @@ instance
   transitionRules = [chainTransition]
 
 instance
-  Crypto.Crypto c =>
-  NoUnexpectedThunks (ChainPredicateFailure (Shelley c))
+  (Era era, Core.ValType era) =>
+  NoUnexpectedThunks (ChainPredicateFailure era)
 
 chainChecks ::
   (Era era, MonadError (PredicateFailure (CHAIN era)) m) =>
@@ -262,9 +263,10 @@ chainChecks maxpv pp bh = do
     (ProtVer m _) = _protocolVersion pp
 
 chainTransition ::
-  forall era c.
+  forall era.
   ( Era era,
-    era ~ Shelley c,
+    Core.ValType era, 
+    Val.Val (Core.Value era),
     DSignable era (OCertSignable era),
     DSignable era (Hash era (TxBody era)),
     KESignable era (BHBody era),
@@ -344,7 +346,8 @@ chainTransition =
 
 instance
   ( Era era,
-    era ~ Shelley c,
+    Core.ValType era,
+    Val.Val (Core.Value era),
     DSignable era (OCertSignable era),
     DSignable era (Hash era (TxBody era)),
     KESignable era (BHBody era),
@@ -356,7 +359,8 @@ instance
 
 instance
   ( Era era,
-    era ~ Shelley c,
+    Core.ValType era,
+    Val.Val (Core.Value era),
     DSignable era (OCertSignable era),
     DSignable era (Hash era (TxBody era)),
     KESignable era (BHBody era),
@@ -368,7 +372,8 @@ instance
 
 instance
   ( Era era,
-    era ~ Shelley c,
+    Core.ValType era,
+    Val.Val (Core.Value era),
     DSignable era (OCertSignable era),
     DSignable era (Hash era (TxBody era)),
     KESignable era (BHBody era),
@@ -380,7 +385,8 @@ instance
 
 instance
   ( Era era,
-    era ~ Shelley c,
+    Core.ValType era,
+    Val.Val (Core.Value era),
     DSignable era (OCertSignable era),
     DSignable era (Hash era (TxBody era)),
     KESignable era (BHBody era),
@@ -401,7 +407,8 @@ data AdaPots = AdaPots
   deriving (Show, Eq)
 
 -- | Calculate the total ada pots in the chain state
-totalAdaPots :: ChainState (Shelley c) -> AdaPots
+totalAdaPots :: (Core.ValType era, Val.Val (Core.Value era)) => 
+  ChainState era -> AdaPots
 totalAdaPots (ChainState nes _ _ _ _ _ _) =
   AdaPots
     { treasuryAdaPot = treasury_,
@@ -416,10 +423,10 @@ totalAdaPots (ChainState nes _ _ _ _ _ _) =
     (UTxOState u deposits fees_ _) = _utxoState ls
     (DPState ds _) = _delegationState ls
     rewards_ = fold (Map.elems (_rewards ds))
-    circulation = balance u
+    circulation = Val.coin $ balance u
 
 -- | Calculate the total ada in the chain state
-totalAda :: ChainState (Shelley c) -> Coin
+totalAda :: (Core.ValType era, Val.Val (Core.Value era)) =>  ChainState era -> Coin
 totalAda cs =
   treasuryAdaPot
     <> reservesAdaPot

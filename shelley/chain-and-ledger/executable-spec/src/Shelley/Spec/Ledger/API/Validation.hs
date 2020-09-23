@@ -21,8 +21,9 @@ module Shelley.Spec.Ledger.API.Validation
   )
 where
 
+import qualified Cardano.Ledger.Core as Core
 import Cardano.Ledger.Era (Era)
-import Cardano.Ledger.Shelley (Shelley)
+import qualified Cardano.Ledger.Val as Val
 import Cardano.Prelude (NoUnexpectedThunks (..))
 import Control.Arrow (left, right)
 import Control.Monad.Except
@@ -103,8 +104,11 @@ deriving stock instance
 -- This handles checks and updates that happen on a slot tick, as well as a few
 -- header level checks, such as size constraints.
 applyTickTransition ::
-  forall era c.
-  (Era era, era ~ Shelley c) =>
+  forall era.
+  ( Era era,
+    Core.ValType era,
+    Val.Val (Core.Value era)
+  ) =>
   Globals ->
   ShelleyState era ->
   SlotNo ->
@@ -135,9 +139,10 @@ instance
 
 -- | Apply the block level ledger transition.
 applyBlockTransition ::
-  forall era m c.
+  forall era m.
   ( Era era,
-    era ~ Shelley c,
+    Core.ValType era,
+    Val.Val (Core.Value era),
     MonadError (BlockTransitionError era) m,
     DSignable era (Hash era (Tx.TxBody era))
   ) =>
@@ -171,9 +176,10 @@ applyBlockTransition globals state blk =
 --   the caller implicitly guarantees that they have previously called
 --   `applyBlockTransition` on the same block and that this was successful.
 reapplyBlockTransition ::
-  forall era c.
+  forall era.
   ( Era era,
-    era ~ Shelley c,
+    Core.ValType era,
+    Val.Val (Core.Value era),
     DSignable era (Hash era (Tx.TxBody era))
   ) =>
   Globals ->

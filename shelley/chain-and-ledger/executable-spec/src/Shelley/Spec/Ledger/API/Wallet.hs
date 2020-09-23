@@ -75,7 +75,7 @@ getTotalStake globals ss =
 -- non-myopic pool member reward for that stake pool.
 getNonMyopicMemberRewards ::
   ( Era era,
-    Core.Compactible (Core.Value era),
+    Core.ValType era,
     Val.Val (Core.Value era)
   ) =>
   Globals ->

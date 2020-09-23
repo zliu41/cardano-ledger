@@ -18,8 +18,8 @@ module Shelley.Spec.Ledger.STS.Epoch
   )
 where
 
-import Cardano.Ledger.Era (Era)
 import qualified Cardano.Ledger.Core as Core
+import Cardano.Ledger.Era (Era)
 import qualified Cardano.Ledger.Val as Val
 import Cardano.Prelude (NoUnexpectedThunks (..), asks)
 import Control.Iterate.SetAlgebra (eval, (⨃))

@@ -1,8 +1,8 @@
 {-# LANGUAGE DeriveGeneric #-}
 {-# LANGUAGE DerivingStrategies #-}
 {-# LANGUAGE EmptyDataDecls #-}
-{-# LANGUAGE FlexibleInstances #-}
 {-# LANGUAGE FlexibleContexts #-}
+{-# LANGUAGE FlexibleInstances #-}
 {-# LANGUAGE MultiParamTypeClasses #-}
 {-# LANGUAGE ScopedTypeVariables #-}
 {-# LANGUAGE StandaloneDeriving #-}
@@ -19,9 +19,9 @@ module Shelley.Spec.Ledger.STS.NewEpoch
   )
 where
 
+import qualified Cardano.Ledger.Core as Core
 import Cardano.Ledger.Era (Era)
 import qualified Cardano.Ledger.Val as Val
-import qualified Cardano.Ledger.Core as Core
 import Cardano.Prelude (NoUnexpectedThunks (..))
 import Control.State.Transition
 import Data.Foldable (fold)
@@ -82,9 +82,10 @@ instance (Era era, Core.ValType era, Val.Val (Core.Value era)) => STS (NEWEPOCH 
 
 newEpochTransition ::
   forall era.
-  (Era era,
-  Core.ValType era,
-  Val.Val (Core.Value era)) =>
+  ( Era era,
+    Core.ValType era,
+    Val.Val (Core.Value era)
+  ) =>
   TransitionRule (NEWEPOCH era)
 newEpochTransition = do
   TRC

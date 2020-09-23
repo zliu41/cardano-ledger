@@ -163,14 +163,14 @@ txid = TxId . hashAnnotated
 
 -- | Compute the UTxO inputs of a transaction.
 txins ::
-  (Era era, Core.ValType era, ToCBOR (Core.CompactForm (Core.Value era))) =>
+  (Era era, Core.ValType era) =>
   TxBody era ->
   Set (TxIn era)
 txins = _inputs
 
 -- | Compute the transaction outputs of a transaction.
 txouts ::
-  (Era era, Core.ValType era, ToCBOR (Core.CompactForm (Core.Value era))) =>
+  (Era era, Core.ValType era) =>
   TxBody era ->
   UTxO era
 txouts tx =
@@ -268,7 +268,7 @@ getKeyHashFromRegPool (DCertPool (RegPool p)) = Just . _poolPubKey $ p
 getKeyHashFromRegPool _ = Nothing
 
 txup ::
-  (Era era, Core.ValType era, ToCBOR (Core.Value era)) =>
+  (Era era, Core.ValType era) =>
   Tx era ->
   Maybe (Update era)
 txup (Tx txbody _ _) = strictMaybeToMaybe (_txUpdate txbody)
@@ -297,8 +297,7 @@ scriptCred (ScriptHashObj hs) = Just hs
 -- and the withdrawals.
 scriptsNeeded ::
   ( Era era,
-    Core.ValType era,
-    ToCBOR (Core.Value era)
+    Core.ValType era
   ) =>
   UTxO era ->
   Tx era ->

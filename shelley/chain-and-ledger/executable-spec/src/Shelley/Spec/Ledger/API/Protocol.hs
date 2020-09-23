@@ -36,7 +36,8 @@ import Cardano.Crypto.KES.Class
 import Cardano.Crypto.VRF.Class
 import Cardano.Ledger.Crypto hiding (Crypto)
 import Cardano.Ledger.Era (Crypto, Era)
-import Cardano.Ledger.Shelley (Shelley)
+import qualified Cardano.Ledger.Core as Core
+import qualified Cardano.Ledger.Val as Val
 import Cardano.Prelude (NoUnexpectedThunks (..))
 import Control.Arrow (left, right)
 import Control.Monad.Except
@@ -204,9 +205,10 @@ deriving stock instance
 --   slot corresponding to the passed-in 'ShelleyState'), return a 'LedgerView'
 --   appropriate to that slot.
 futureLedgerView ::
-  forall era m c.
+  forall era m.
   ( Era era,
-    era ~ Shelley c,
+    Core.ValType era,
+    Val.Val (Core.Value era),
     MonadError (FutureLedgerViewError era) m
   ) =>
   Globals ->
@@ -310,9 +312,8 @@ tickChainDepState
 --
 --   This also updates the last applied block hash.
 updateChainDepState ::
-  forall era m c.
+  forall era m.
   ( Era era,
-    era ~ Shelley c,
     MonadError (ChainTransitionError era) m,
     Cardano.Crypto.DSIGN.Class.Signable
       (DSIGN (Crypto era))

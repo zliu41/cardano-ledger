@@ -20,8 +20,8 @@ module Shelley.Spec.Ledger.STS.Tick
   )
 where
 
-import Cardano.Ledger.Era (Era)
 import qualified Cardano.Ledger.Core as Core
+import Cardano.Ledger.Era (Era)
 import qualified Cardano.Ledger.Val as Val
 import Cardano.Prelude (NoUnexpectedThunks (..))
 import Control.Iterate.SetAlgebra (eval, (⨃))
@@ -62,9 +62,10 @@ deriving stock instance Eq (TickPredicateFailure era)
 instance NoUnexpectedThunks (TickPredicateFailure era)
 
 instance
-  (Era era,
-  Core.ValType era,
-  Val.Val (Core.Value era)) =>
+  ( Era era,
+    Core.ValType era,
+    Val.Val (Core.Value era)
+  ) =>
   STS (TICK era)
   where
   type
@@ -111,9 +112,10 @@ adoptGenesisDelegs es slot = es'
 
 bheadTransition ::
   forall era.
-  (Era era,
-  Core.ValType era,
-  Val.Val (Core.Value era)) =>
+  ( Era era,
+    Core.ValType era,
+    Val.Val (Core.Value era)
+  ) =>
   TransitionRule (TICK era)
 bheadTransition = do
   TRC (TickEnv gkeys, nes@(NewEpochState _ bprev _ es _ _ _), slot) <-

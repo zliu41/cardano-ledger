@@ -173,7 +173,7 @@ data TxSeq era = TxSeq'
           (TxSeq era)
 
 deriving stock instance
-  (Era era, Core.Compactible (Core.Value era), Show (Core.Value era)) =>
+  (Era era, Core.Compactible (Core.Value era), Show (Core.Value era), Core.ValType era) =>
   Show (TxSeq era)
 
 pattern TxSeq :: Era era => StrictSeq (Tx era) -> TxSeq era
@@ -504,7 +504,7 @@ data Block era
   = Block' !(BHeader era) !(TxSeq era) LByteString
 
 deriving stock instance
-  (Era era, Core.Compactible (Core.Value era), Show (Core.Value era)) =>
+  (Era era, Core.Compactible (Core.Value era), Show (Core.Value era), Core.ValType era) =>
   Show (Block era)
 
 pattern Block :: Era era => BHeader era -> TxSeq era -> Block era
@@ -532,7 +532,7 @@ instance
   toCBOR (Block' _ _ blockBytes) = encodePreEncoded $ BSL.toStrict blockBytes
 
 blockDecoder ::
-  (Era era, FromCBOR (Core.CompactForm (Core.Value era))) =>
+  (Era era, Core.ValType era) =>
   Bool ->
   forall s. Decoder s (Annotator (Block era))
 blockDecoder lax = annotatorSlice $
@@ -542,7 +542,7 @@ blockDecoder lax = annotatorSlice $
     pure $ Block' <$> header <*> txns
 
 txSeqDecoder ::
-  (Era era, FromCBOR (Core.CompactForm (Core.Value era))) =>
+  (Era era, Core.ValType era) =>
   Bool ->
   forall s. Decoder s (Annotator (TxSeq era))
 txSeqDecoder lax = do
@@ -579,7 +579,7 @@ txSeqDecoder lax = do
   pure $ TxSeq' <$> txns <*> bodiesAnn <*> witsAnn <*> metadataAnn
 
 instance
-  (Era era, FromCBOR (Core.CompactForm (Core.Value era))) =>
+  (Era era, FromCBOR (Core.CompactForm (Core.Value era)), Core.ValType era) =>
   FromCBOR (Annotator (Block era))
   where
   fromCBOR = blockDecoder False
@@ -589,11 +589,11 @@ newtype LaxBlock era
   deriving (ToCBOR) via (Block era)
 
 deriving stock instance
-  (Era era, Core.Compactible (Core.Value era), Show (Core.Value era)) =>
+  (Era era, Core.Compactible (Core.Value era), Show (Core.Value era), Core.ValType era) =>
   Show (LaxBlock era)
 
 instance
-  (Era era, FromCBOR (Core.CompactForm (Core.Value era))) =>
+  (Era era, FromCBOR (Core.CompactForm (Core.Value era)), Core.ValType era) =>
   FromCBOR (Annotator (LaxBlock era))
   where
   fromCBOR = fmap LaxBlock <$> blockDecoder True

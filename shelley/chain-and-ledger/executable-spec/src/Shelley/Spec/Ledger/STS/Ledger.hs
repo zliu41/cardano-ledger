@@ -27,9 +27,9 @@ import Cardano.Binary
     ToCBOR (..),
     encodeListLen,
   )
-import Cardano.Ledger.Crypto (Crypto)
+import qualified Cardano.Ledger.Core as Core
 import Cardano.Ledger.Era (Era)
-import Cardano.Ledger.Shelley (Shelley)
+import qualified Cardano.Ledger.Val as Val
 import Cardano.Prelude (NoUnexpectedThunks (..))
 import Control.State.Transition
   ( Assertion (..),
@@ -80,13 +80,18 @@ data LedgerPredicateFailure era
   | DelegsFailure (PredicateFailure (DELEGS era)) -- Subtransition Failures
   deriving (Generic)
 
-deriving stock instance Crypto c => Show (LedgerPredicateFailure (Shelley c))
+deriving stock instance
+  (Era era, Core.ValType era) =>
+  Show (LedgerPredicateFailure era)
 
-deriving stock instance Crypto c => Eq (LedgerPredicateFailure (Shelley c))
+deriving stock instance
+  (Era era, Core.ValType era) =>
+  Eq (LedgerPredicateFailure era)
 
 instance
   ( Era era,
-    era ~ Shelley c,
+    Core.ValType era,
+    Val.Val (Core.Value era),
     DSignable era (Hash era (TxBody era))
   ) =>
   STS (LEDGER era)
@@ -119,19 +124,16 @@ instance
         )
     ]
 
-instance Crypto c => NoUnexpectedThunks (LedgerPredicateFailure (Shelley c))
+instance (Era era, Core.ValType era) => NoUnexpectedThunks (LedgerPredicateFailure era)
 
-instance
-  (Crypto c) =>
-  ToCBOR (LedgerPredicateFailure (Shelley c))
-  where
+instance (Era era, Core.ValType era) => ToCBOR (LedgerPredicateFailure era) where
   toCBOR = \case
     (UtxowFailure a) -> encodeListLen 2 <> toCBOR (0 :: Word8) <> toCBOR a
     (DelegsFailure a) -> encodeListLen 2 <> toCBOR (1 :: Word8) <> toCBOR a
 
 instance
-  (Crypto c) =>
-  FromCBOR (LedgerPredicateFailure (Shelley c))
+  (Era era, Core.ValType era) =>
+  FromCBOR (LedgerPredicateFailure era)
   where
   fromCBOR =
     decodeRecordSum "PredicateFailure (LEDGER era)" $
@@ -146,9 +148,10 @@ instance
       )
 
 ledgerTransition ::
-  forall era c.
+  forall era.
   ( Era era,
-    era ~ Shelley c,
+    Val.Val (Core.Value era),
+    Core.ValType era,
     DSignable era (Hash era (TxBody era))
   ) =>
   TransitionRule (LEDGER era)
@@ -178,7 +181,8 @@ ledgerTransition = do
 
 instance
   ( Era era,
-    era ~ Shelley c,
+    Core.ValType era,
+    Val.Val (Core.Value era),
     DSignable era (Hash era (TxBody era))
   ) =>
   Embed (DELEGS era) (LEDGER era)
@@ -187,7 +191,8 @@ instance
 
 instance
   ( Era era,
-    era ~ Shelley c,
+    Core.ValType era,
+    Val.Val (Core.Value era),
     DSignable era (Hash era (TxBody era))
   ) =>
   Embed (UTXOW era) (LEDGER era)

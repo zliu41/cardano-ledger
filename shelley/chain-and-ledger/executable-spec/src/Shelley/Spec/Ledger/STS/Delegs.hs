@@ -27,9 +27,7 @@ import Cardano.Binary
     encodeListLen,
   )
 import qualified Cardano.Ledger.Core as Core
-import Cardano.Ledger.Crypto (Crypto)
 import Cardano.Ledger.Era (Era)
-import Cardano.Ledger.Shelley (Shelley)
 import Cardano.Prelude (NoUnexpectedThunks (..), asks)
 import Control.Iterate.SetAlgebra (dom, eval, (∈), (⨃))
 import Control.State.Transition (Embed (..), STS (..), TRC (..), TransitionRule, judgmentContext, liftSTS, trans, (?!), (?!:))
@@ -83,7 +81,7 @@ data DelegsEnv era = DelegsEnv
   }
 
 deriving stock instance
-  (Era era, Core.Compactible (Core.Value era), Show (Core.Value era)) =>
+  (Era era, Core.ValType era) =>
   Show (DelegsEnv era)
 
 data DelegsPredicateFailure era
@@ -95,19 +93,19 @@ data DelegsPredicateFailure era
   deriving (Show, Eq, Generic)
 
 instance
-  Crypto c =>
-  STS (DELEGS (Shelley c))
+  (Era era, Core.ValType era) =>
+  STS (DELEGS era)
   where
-  type State (DELEGS (Shelley c)) = DPState (Shelley c)
-  type Signal (DELEGS (Shelley c)) = Seq (DCert (Shelley c))
-  type Environment (DELEGS (Shelley c)) = DelegsEnv (Shelley c)
-  type BaseM (DELEGS (Shelley c)) = ShelleyBase
-  type PredicateFailure (DELEGS (Shelley c)) = DelegsPredicateFailure (Shelley c)
+  type State (DELEGS era) = DPState era
+  type Signal (DELEGS era) = Seq (DCert era)
+  type Environment (DELEGS era) = DelegsEnv era
+  type BaseM (DELEGS era) = ShelleyBase
+  type PredicateFailure (DELEGS era) = DelegsPredicateFailure era
 
   initialRules = [pure emptyDelegation]
   transitionRules = [delegsTransition]
 
-instance NoUnexpectedThunks (DelegsPredicateFailure (Shelley c))
+instance NoUnexpectedThunks (DelegsPredicateFailure era)
 
 instance
   (Typeable era, Era era) =>
@@ -148,13 +146,8 @@ instance
 delegsTransition ::
   forall era.
   ( Era era,
-    BaseM (DELEGS era) ~ ShelleyBase,
-    Environment (DELEGS era) ~ DelegsEnv era,
-    State (DELEGS era) ~ DPState era,
-    PredicateFailure (DELEGS era) ~ DelegsPredicateFailure era,
-    Signal (DELEGS era) ~ Seq (DCert era),
-    ToCBOR (Core.CompactForm (Core.Value era)),
-    Embed (DELPL era) (DELEGS era)
+    Embed (DELPL era) (DELEGS era),
+    Core.ValType era
   ) =>
   TransitionRule (DELEGS era)
 delegsTransition = do
@@ -215,7 +208,7 @@ delegsTransition = do
             ]
 
 instance
-  (Crypto c) =>
-  Embed (DELPL (Shelley c)) (DELEGS (Shelley c))
+  (Era era, Core.ValType era) =>
+  Embed (DELPL era) (DELEGS era)
   where
   wrapFailed = DelplFailure

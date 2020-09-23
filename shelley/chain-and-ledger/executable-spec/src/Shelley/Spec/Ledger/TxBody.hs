@@ -423,11 +423,10 @@ deriving instance (Era era) => NFData (TxIn era)
 instance NoUnexpectedThunks (TxIn era)
 
 -- | The output of a UTxO.
-data (Core.ValType era) => TxOut era
+data TxOut era
   = TxOutCompact
       {-# UNPACK #-} !BSS.ShortByteString
-      -- TODO UNPACK should be handled by the Compactible class functions??
-      !(Core.CompactForm (Core.Value era))
+      {-# UNPACK #-} !(Core.CompactForm (Core.Value era))
 
 instance
   (Era era, Show (Core.Value era), Core.ValType era) =>
@@ -585,7 +584,9 @@ deriving via AllowThunksIn '["bodyBytes"] (TxBody era) instance Era era => NoUne
 instance Era era => HashAnnotated (TxBody era) era
 
 pattern TxBody ::
-  (Era era, ToCBOR (Core.CompactForm (Core.Value era))) =>
+  ( Era era,
+    Core.ValType era
+  ) =>
   Set (TxIn era) ->
   StrictSeq (TxOut era) ->
   StrictSeq (DCert era) ->

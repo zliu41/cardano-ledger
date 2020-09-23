@@ -19,6 +19,7 @@ module Test.Shelley.Spec.Ledger.Generator.Utxo
 where
 
 import Cardano.Ledger.Era (Crypto, Era)
+import qualified Cardano.Ledger.Val as Val
 import qualified Control.Exception as Exn
 import Control.Iterate.SetAlgebra (forwards)
 import qualified Data.Either as Either (partitionEithers)
@@ -88,7 +89,6 @@ import Shelley.Spec.Ledger.UTxO
     makeWitnessesFromScriptKeys,
     makeWitnessesVKey,
   )
-import qualified Cardano.Ledger.Val as Val
 import Test.QuickCheck (Gen)
 import qualified Test.QuickCheck as QC
 import Test.Shelley.Spec.Ledger.ConcreteCryptoTypes

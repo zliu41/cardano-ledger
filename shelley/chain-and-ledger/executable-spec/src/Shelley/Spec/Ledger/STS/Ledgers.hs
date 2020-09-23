@@ -19,9 +19,9 @@ module Shelley.Spec.Ledger.STS.Ledgers
 where
 
 import Cardano.Binary (FromCBOR (..), ToCBOR (..))
-import Cardano.Ledger.Crypto (Crypto)
+import qualified Cardano.Ledger.Core as Core
 import Cardano.Ledger.Era (Era)
-import Cardano.Ledger.Shelley (Shelley)
+import qualified Cardano.Ledger.Val as Val
 import Cardano.Prelude (NoUnexpectedThunks (..))
 import Control.Monad (foldM)
 import Control.State.Transition
@@ -61,15 +61,16 @@ data LedgersPredicateFailure era
   = LedgerFailure (PredicateFailure (LEDGER era)) -- Subtransition Failures
   deriving (Generic)
 
-deriving stock instance Crypto c => Show (LedgersPredicateFailure (Shelley c))
+deriving stock instance (Era era, Core.ValType era) => Show (LedgersPredicateFailure era)
 
-deriving stock instance Crypto c => Eq (LedgersPredicateFailure (Shelley c))
+deriving stock instance (Era era, Core.ValType era) => Eq (LedgersPredicateFailure era)
 
-instance (Crypto c) => NoUnexpectedThunks (LedgersPredicateFailure (Shelley c))
+instance (Era era, Core.ValType era) => NoUnexpectedThunks (LedgersPredicateFailure era)
 
 instance
   ( Era era,
-    era ~ Shelley c,
+    Core.ValType era,
+    Val.Val (Core.Value era),
     DSignable era (Hash era (TxBody era))
   ) =>
   STS (LEDGERS era)
@@ -84,21 +85,22 @@ instance
   transitionRules = [ledgersTransition]
 
 instance
-  (era ~ Shelley c, Era era) =>
+  (Core.ValType era, Era era) =>
   ToCBOR (LedgersPredicateFailure era)
   where
   toCBOR (LedgerFailure e) = toCBOR e
 
 instance
-  (Era era, era ~ Shelley c) =>
+  (Era era, Core.ValType era) =>
   FromCBOR (LedgersPredicateFailure era)
   where
   fromCBOR = LedgerFailure <$> fromCBOR
 
 ledgersTransition ::
-  forall era c.
+  forall era.
   ( Era era,
-    era ~ Shelley c,
+    Core.ValType era,
+    Val.Val (Core.Value era),
     DSignable era (Hash era (TxBody era))
   ) =>
   TransitionRule (LEDGERS era)
@@ -119,7 +121,8 @@ ledgersTransition = do
 
 instance
   ( Era era,
-    era ~ Shelley c,
+    Core.ValType era,
+    Val.Val (Core.Value era),
     DSignable era (Hash era (TxBody era))
   ) =>
   Embed (LEDGER era) (LEDGERS era)

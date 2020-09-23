@@ -1,6 +1,7 @@
 {-# LANGUAGE FlexibleContexts #-}
 {-# LANGUAGE FlexibleInstances #-}
 {-# LANGUAGE TypeFamilies #-}
+{-# LANGUAGE UndecidableInstances #-}
 
 -- | This module defines core type families which we know to vary from era to
 -- era.
@@ -12,30 +13,36 @@
 module Cardano.Ledger.Core
   ( -- * Compactible
     Compactible (..),
-    ValType, Value
+    Compact (..),
+    ValType,
+    Value,
   )
 where
 
+import Cardano.Binary (FromCBOR (..), ToCBOR (..))
+import Cardano.Prelude (NFData, NoUnexpectedThunks (..))
 import Data.Kind (Type)
-import Cardano.Binary (FromCBOR (..), ToCBOR (..), Annotator)
 import Data.Typeable (Typeable)
-import Cardano.Prelude (NoUnexpectedThunks (..))
 
 class
-  ( Eq (Value era),
-    Show (Value era),
+  ( Compactible (Value era),
+    Eq (Value era),
+    FromCBOR (CompactForm (Value era)),
+    FromCBOR (Value era),
+    FromCBOR (Value era),
+    NFData (Value era),
     NoUnexpectedThunks (Value era),
-    Compactible (Value era),
+    Show (Value era),
+    ToCBOR (CompactForm (Value era)),
+    ToCBOR (Value era),
+    ToCBOR (Value era),
     Typeable (Value era)
   ) =>
   ValType era
 
 type family Value era :: Type
 
-
-
 -- | A value is something which quantifies a transaction output.
-
 
 --------------------------------------------------------------------------------
 
@@ -52,20 +59,20 @@ class Compactible a where
   toCompact :: a -> CompactForm a
   fromCompact :: CompactForm a -> a
 
--- TODO: consider which of these are worth the performance impact
--- some of these should instead be implemented directly for
--- CompactForm a
+newtype Compact a = Compact {unCompact :: a}
+
+instance
+  (Typeable a, Compactible a, ToCBOR (CompactForm a)) =>
+  ToCBOR (Compact a)
+  where
+  toCBOR = toCBOR . toCompact . unCompact
+
+instance
+  (Typeable a, Compactible a, FromCBOR (CompactForm a)) =>
+  FromCBOR (Compact a)
+  where
+  fromCBOR = Compact . fromCompact <$> fromCBOR
+
+-- TODO: consider if this is better the other way around
 instance (Eq a, Compactible a) => Eq (CompactForm a) where
   a == b = fromCompact a == fromCompact b
-
--- instance (Compactible a, ToCBOR a) => ToCBOR (CompactForm a) where
---   toCBOR = toCBOR . fromCompact
-
-instance (Compactible a, ToCBOR (CompactForm a)) => ToCBOR a where
-  toCBOR = toCBOR . toCompact
-
-instance (Compactible a, FromCBOR a) => FromCBOR (CompactForm a) where
-  fromCBOR = toCompact <$> fromCBOR
-
-instance (Typeable a, Compactible a, FromCBOR (Annotator a)) => FromCBOR (Annotator (CompactForm a)) where
-  fromCBOR = (fmap . fmap) toCompact fromCBOR
