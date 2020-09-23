@@ -29,12 +29,10 @@ class
     Eq (Value era),
     FromCBOR (CompactForm (Value era)),
     FromCBOR (Value era),
-    FromCBOR (Value era),
     NFData (Value era),
     NoUnexpectedThunks (Value era),
     Show (Value era),
     ToCBOR (CompactForm (Value era)),
-    ToCBOR (Value era),
     ToCBOR (Value era),
     Typeable (Value era)
   ) =>
