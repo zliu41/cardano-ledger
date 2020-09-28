@@ -38,6 +38,7 @@ library
   -- other-modules:
   -- other-extensions:
   build-depends:       base >=4.11 && <5
+                     , async
                      , bytestring
                      , containers
                      , cryptonite
@@ -50,6 +51,7 @@ library
                      , cardano-prelude
                      , cardano-binary
                      , cborg
+                     , stm
   hs-source-dirs:      src
   default-language:    Haskell2010
   ghc-options:        -Wall

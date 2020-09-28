@@ -39,7 +39,6 @@ module Control.State.Transition.Extended
     judgmentContext,
     trans,
     liftSTS,
-
     -- Type Apply STS
     AssertionPolicy (..),
     ValidationPolicy (..),
@@ -55,6 +54,8 @@ module Control.State.Transition.Extended
 where
 
 import Cardano.Prelude (NoUnexpectedThunks (..))
+import Control.Concurrent.Async (Async)
+import Control.Concurrent.STM (STM, TMVar)
 import Control.Exception (Exception (..), throw)
 import Control.Monad (when)
 import Control.Monad.Except (MonadError (..))
@@ -68,7 +69,7 @@ import Data.Foldable (find, traverse_)
 import Data.Functor ((<&>))
 import Data.Kind (Type)
 import Data.Proxy (Proxy (..))
-import Data.Typeable (typeRep)
+import Data.Typeable (TypeRep, typeRep)
 
 data RuleType
   = Initial
@@ -219,6 +220,15 @@ data Clause sts (rtype :: RuleType) a where
     -- Subsequent computation with state introduced
     (State sub -> a) ->
     Clause sts rtype a
+  SubTransDeferred ::
+    Embed sub sts =>
+    RuleContext rtype sub ->
+    (Deferred sub -> a) ->
+    Clause sts rtype a
+  WaitDeferred ::
+    Deferred b ->
+    (State b -> a) ->
+    Clause sts rtype a
   Predicate ::
     Either e a ->
     -- Type of failure to return if the predicate fails
@@ -261,6 +271,21 @@ liftSTS f = wrap $ Lift f pure
 -- | Get the judgment context
 judgmentContext :: Rule sts rtype (RuleContext rtype sts)
 judgmentContext = wrap $ GetCtx pure
+
+{------------------------------------------------------------------------------
+-- Deferred transitions
+------------------------------------------------------------------------------}
+
+class MonadAsync m where
+  liftSTM :: STM a -> m a
+  spawnAsync :: m a -> m (Async a)
+  waitAsync :: Async a -> m a
+
+data Deferred sts = Deferred
+  { dContext :: RuleContext 'Transition sts,
+    dComputation :: TypeRep,
+    dCurrent :: TMVar (State sts)
+  }
 
 {------------------------------------------------------------------------------
 -- STS interpreters
@@ -352,7 +377,7 @@ applySTS ctx =
 --   be checked when calling this function.
 reapplySTS ::
   forall s m rtype.
-  (STS s, RuleTypeRep rtype, m ~ BaseM s) =>
+  (STS s, RuleTypeRep rtype, m ~ BaseM s, MonadAsync m) =>
   RuleContext rtype s ->
   m (State s)
 reapplySTS ctx =
@@ -406,6 +431,17 @@ applyRuleInternal vp goSTS jc r = flip runStateT [] $ foldF runClause r
       (ss, sfails) <- lift $ goSTS subCtx
       traverse_ (\a -> modify (a :)) $ wrapFailed <$> concat sfails
       next <$> pure ss
+    runClause (SubTransDeferred (subCtx :: RuleContext rtype sub) next) = do
+      tv <- initTMVar
+      let d =
+            Deferred
+              { dContext = subCtx,
+                dComputation = typeRep (Proxy @sub),
+                dCurrent = tv
+              }
+      _ <- spawnAsync $ do
+        (ss, _sfails) <- lift $ goSTS subCtx
+
 
 applySTSInternal ::
   forall s m rtype.
