@@ -1,148 +1,161 @@
 \section{Protocol Parameters}
 \label{sec:protocol-parameters}
 
-The transition from a Shelley ledger to a Goguen ledger model includes, most
-notably, a change from a basic UTxO model to an extended UTxO model, which
-we denote EUTxO in this document.
-For Plutus integration, the EUTxO model, and other Goguen features, we
-require following types
-in addition to those already defined in the Shelley specification
-(see Figure~\ref{fig:defs:protocol-parameters}):
 
-\begin{itemize}
-  \item $\Language$: This represents the language name/tag (including the Plutus
+% The transition from a Shelley ledger to a Goguen ledger model includes,
+The most significant change that is needed is a change from the original Byron/Shelley UTxO (Unspent Transaction Output) model
+to the extended UTxO model that is used for Goguen.
+We denote the latter as EUTxO in this document, and use UTxO to refer to the original form.
+\todo{Make sure that this is done.}
+% For Plutus integration, the EUTxO model, and other Goguen features,
+We require the following types (see Figure~\ref{fig:defs:protocol-parameters})
+in addition to those that are already defined in the Shelley specification.
+
+
+\vspace{12pt}
+\begin{tabular}{lp{5in}}
+  $\Language$ &
+  This represents the language name/tag (including the Plutus
   version number).
-  \item $\ExUnits$: A term of this type has two integer values,
-  $(mem, steps)$. These represent the amount of memory used and number
-  of steps performed during the execution of a script
-  respectively. These values are intentionally not in terms of any
-  concrete units.
-  \item $\CostMod$: A term of this type represents the vector of coefficients used to generate
-  a term of type $\ExUnits$ given a vector of some resource primitives. This type is
-  abstract in our specification, and will come from the Plutus interpreter
-  implementation. The
-  conversion to $\ExUnits$ is also done by the interpreter (thus, is opaque to the ledger rules).
-  \item $\Prices$: A term of type is made up of three integer values,
-  $\var{(pr_{init}, pr_{mem}, pr_{steps})}$. The first ($pr_{init}$) represents the initial
-  cost of running a script. The $pr_{mem}$ is a price for a unit of memory
-  used by script execution, and $pr_{steps}$ is the price per
-  reduction step. It is used to calculate the cost of using an amount of execution
-  units.
-\end{itemize}
+  \\
+  $\ExUnits$ &
+  A term of this type has two integer values,
+  $(mem, steps)$.
+  These represent abstract notions of the relative memory usage and script execution steps,
+  respectively (a ``unit model'').
+  \\
+  $\CostMod$ &
+  A term of this type represents the vector of coefficients that are used to generate
+  a term of type $\ExUnits$ given a vector of some resource primitives.  The mapping is defined
+  concretely by the specific version of the Plutus interpreter that is associated with $\Language$.
+%  We keep this type as
+%   abstract in the specification - it is defined concretely in the Plutus interpreter.
+%  The
+%  conversion to $\ExUnits$ is also done by the interpreter (thus, is opaque to the ledger rules).
+  \\
+  $\Prices$ &
+  A term of this type comprises three integer values,
+  $\var{(pr_{init}, pr_{mem}, pr_{steps})}$: ($pr_{init}$) represents the initial
+  cost of running a script; $pr_{mem}$ is the price (in Ada)\todo[inline]{Confirm}) per unit of memory, and $pr_{steps}$ is the price (in Ada)\todo[inline]{Also confirm} per
+  reduction step. This is used to calculate the Ada cost for a specific script execution.
+\end{tabular}
+\vspace{12pt}
 
-We also added several protocol parameters and accessor functions necessary for
-Plutus integration.
+
+
+\todo[inline]{Confirm - does it make sense to compare/add etc ExUnits, rather than treating them as semantic values.}
+\todo[inline]{Confirm - is price in Ada?}
+
+We have also need a number of additional protocol parameters and accessor functions: ...\todo{List these.}
 
 \subsection{Plutus vs. Native Script Languages}
 \label{sec:plutus-native}
 
-All the newly added protocol parameter values have to do with limiting and calculating
-the script execution cost.
-These are only relevant for processing scripts that are opaque
-to the ledger, that is, scripts that are not processed by the ledger rules,
-but rather by using an interpreter. Currently, this refers specifically
-to Plutus scripts. Because the ledger knows only the validation result, and
-nothing about their execution, it relies on the interpreter to compute resources
-used during the validation process. Hence the need for these parameters,
-the use of which is discussed below.
+The new protocol parameter values are concerned with determining the cost of executing Plutus scripts (which
+involve calling an external interpreter).
+% These are only relevant for processing scripts that are opaque
+% to the ledger, that is, scripts that are not processed by the ledger rules,
+% but rather by using an interpreter. Currently, this refers specifically
+% to Plutus scripts.
+% Because the ledger knows only the validation result, and
+% nothing about their execution, it relies on the interpreter to compute resources
+% used during the validation process. Hence the need for these parameters,
+% the use of which is discussed below.
+%
+In contrast, \emph{native ledger scripts} (such as Shelley  multi-signature scripts), are processed entirely by the ledger rules,
+% Currently, this includes only the multisignature scripts.
+and their costs can therefore be easily assessed prior to execution.
+% In the current version of the Shelley ledger, there is no assessment of cost
+% of checking multisignatures (abbreviated MSig's). Instead,
+Fees for such scripts are charged based on the transaction size,
+which approximates the storage and processing costs.
+% incurred as a result of
+% spending MSig-locked outputs are proportional to the change in transaction
+% size due to including all the necessary signatures (rather than the
+% cost of verifying them). Therefore, the transaction size is the only
+% value needed to calculate the fees of all Shelley transactions, and MSig
+% scripts do not require any cost model.
+%% Doesn't add anything -- KH
+%% Scripts in any future native scripting languages will also
+%% have their cost analyzed by the ledger rules ahead of running them.
+%% The $\Prices, \ExUnits$ or $\CostMod$ types will not be used
+%% in processing native scripts. There will be language-specific
+%% costing strategies added as needed to asses the running cost.
+%% The running cost will be used in calculating the minimum transaction
+%% fee, and its payment verified by comparing the minimum fee to the fee the transaction
+%% is actually paying.
 
-Native scripts on the other hand, are processed entirely by the ledger rules.
-Currently, this includes only the multisignature scripts.
-Because of this, their execution cost can easily be assessed before processing them.
-In the current version of the Shelley ledger, there is no assessment of cost
-of checking multisignatures (abbreviated MSig's). Instead, any additional fees 
-incurred as a result of
-spending MSig-locked outputs are proportional to the change in transaction
-size due to including all the necessary signatures (rather than the
-cost of verifying them). Therefore, the transaction size is the only
-value needed to calculate the fees of all Shelley transactions, and MSig
-scripts do not require any cost model.
-
-Scripts in any future native scripting languages will also
-have their cost analyzed by the ledger rules ahead of running them.
-The $\Prices, \ExUnits$ or $\CostMod$ types will not be used
-in processing native scripts. There will be language-specific
-costing strategies added as needed to asses the running cost.
-The running cost will be used in calculating the minimum transaction
-fee, and its payment verified by comparing the minimum fee to the fee the transaction
-is actually paying.
-
-\subsection{Plutus Versions}
+\subsection{Plutus Versions and Backwards Compatibility Requirements}
 \label{sec:versions}
 
-Each
-version of Plutus (identified by a $\Language$ value) is considered a different
-language. Each language
-has a (version-specific) set of arguments passed to the interpreter
-for script evaluation. At the time of this writing, the type should contain
-the value $\Plutus$, but it is expected to contain more values in the future.
+Each version of Plutus (as identified by a $\Language$ value) is considered to be a different
+\emph{language}.  Each such language needs to be interpreted by a language-specific interpreter, called from the ledger implementation,
+and provided with the arguments that it requires (which may be version-specific).
+% Each language has a (version-specific) set of arguments that is passed to the corresponding script interpreter.
+The $\Language$ type initially contains the value $\Plutus$\todo{V0?}.
+Note that it is necessary to execute scripts both for the current language, and for all previous languages.
+%
+% The ledger is expected to be capable of running Plutus scripts of
+% all existing versions at all times.
+This implies that it is necessary to maintain all ledger
+data that is needed by any past or current Plutus version. Introducing a new Plutus version will also
+involve a hard fork, since the ledger rules must be updated to use the new interpreter.
 
-The ledger is expected to be capable of running Plutus scripts of
-all existing versions at all times. This means maintaining any ledger
-data nedeed by any version. Introducing a new version of Plutus
-into the set of supported versions is a hard fork, as the actual ledger rules
-and code must be updated manually to use the new interpreter.
-
-\subsection{Plutus Script Evaluation Determinism}
+\subsection{Determinism of Plutus Script Evaluation}
 \label{sec:determinism}
 
-A change in data passed to the interpreter for
-validating a given script can cause a change in the validation result. Such
-a change may occur between the time a transaction is submitted by the wallet
-and the time the block containing it is processed. Data passed to the interpreter
-includes the validator, redeemer, information about the transaction carrying
+The data that is passed to the interpreter
+includes the validator\todo{explain}, redeemer\todo{explain}, information about the transaction carrying
 the script, and some ledger data or protocol parameters.
-The exact set of arguments may be different for different versions.
-It is necessary to maintain a predictable
-(deterministic) validation outcome over this period (between transaction
-submission and script processing).
-
-To guarantee a deterministic outcome,
-any data passed to the interpreter must be
-the same as it was at the time the transaction carrying this script was
+%The exact set of arguments may be different for different versions.
+%% A change in data passed to the interpreter for
+%% validating a given script can cause a change in the validation result. Such
+%% a change may occur between the time a transaction is submitted by the wallet
+%% and the time the block containing it is processed.
+It is necessary to maintain a predictable (deterministic) validation outcome over the period between transaction
+submission and script processing.
+%
+In order to achieve this,
+any data that is passed to the interpreter must be
+identical to the data that was provided when the transaction that carries the script was
 constructed.
-Because of this requirement, the carrying transation includes the hash of any such data.
-This hash is compared with
-a hash of the same subset of ledger or parameter data computed at the time the transaction is being
-processed. If these hashes do not match, the interpreter is never invoked.
-This check is part of the two-phase validation model for saving time and computation
+Because of this requirement, the carrying transation thus includes a hash of any such data.
+When the transaction is processed, this hash is compared with a hash of the equivalent data. If the hashes do not match, the interpreter is not invoked.
+This check is part of the \emph{two-phase validation model} that conserves time and computation
 resources during transaction processing (see Section~\ref{sec:utxo}).
 
-The function $\fun{hashLanguagePP}$ selects the protocol parameters relevant to
-the a given set of languages and computes their hash.
-See Figure~\ref{fig:defs:protocol-parameters}.
-
-The only parameter passed to the interpreter (at this time, for any version) is the cost model
-corresponding to that version. For the rule
-where this comparison is performed, see Section~\ref{sec:block-body-trans}.
+The function $\fun{hashLanguagePP}$ (Figure~\ref{fig:defs:protocol-parameters}) selects the protocol parameters that are relevant to
+a given set of languages and computes their hash
+%
+At this time, the only parameter that is passed to the interpreter is the version-specific cost model.
+%% Not sure what this means??
+% For the rule
+% where this comparison is performed, see Section~\ref{sec:block-body-trans}.
 
 \subsection{Plutus Script Evaluation Cost Model and Prices}
 \label{sec:cost-mod}
 
-A cost model is a set of the values used to convert resource
-primitives used during script validation into the
+A version-specific cost model is used to convert resource
+primitives into the
 more abstract $\ExUnits$. As this conversion is done by the Plutus interpreter,
-we leave the cost model type abstract in this specification.
-The cost models for each version are stored in the protocol
-parameters in the variable $\var{costmdls}$.
-
-Having distinct cost models for each version will allow us to discourage users from
-paying into scripts made using old versions of Plutus, which could have bugs
-in them that are fixed in newer versions. Changing the conversion coefficients
-of resource primitives into $\ExUnits$ can make paying into old versions
-more expensive.
-
-Note here that the calculation of the actual cost, in Ada, of running
-running a script that takes $\var{exunits} \in \ExUnits$ resources to run,
-is done by a formula specified in the ledger rules, and uses the parameter
-$\var{prices}$. This is a parameter that applies to all
-scripts and cannot be toggled for individual languages. This parameter is
-used to reflect real-world prices of things like electicity or hardware.
+we will keep the cost model abstract in this specification.
+The actual cost models are recorded in the protocol
+parameters ($\var{costmdls}$).
+%
+By having distinct cost models for each version and changing the conversion coefficients, we can discourage users from
+paying into scripts that have been made using old versions of Plutus, by making these more expensive to execute.
+%
+The calculation of the actual cost, in Ada, of running
+a script that takes $\var{exunits} \in \ExUnits$ resources to run,
+is done by a formula specified in the ledger rules, which uses the
+$\var{prices}$ parameter. This is a parameter that applies to all
+scripts and cannot be varied for individual languages. This parameter
+reflects the real-world costs of electicity, hardware etc.
 
 \textbf{Limiting Script Execution Costs.}
-The protocol parameters $\var{maxTxExUnits}$ and $\var{maxBlockExUnits}$ are
-used to limit the total per-transaction and per-script resource use of all
-types of scripts. Recall here that these only have non-trivial values for
+The $\var{maxTxExUnits}$ and $\var{maxBlockExUnits}$  protocol parameters are
+used to limit the total per-transaction and per-script resource use for every
+type of scripts. These will only have non-trivial values for
 (non-native) Plutus scripts.
 
 \begin{figure*}[htb]
@@ -200,8 +213,8 @@ types of scripts. Recall here that these only have non-trivial values for
                            & \text{if~} \var{lgs} \restrictdom \fun{costmdls}~{pp} \neq \{\} \\
               \Nothing & \text{otherwise} \\
       \end{cases} \\
-    & \text{this calculation hashes the current protocol parameters relevant to
-    the given set of versions}
+    & \text{this calculation creates a hash for the protocol parameters that are relevant to
+    a given set of versions}
   \end{align*}
   %
   \caption{Definitions Used in Protocol Parameters}
