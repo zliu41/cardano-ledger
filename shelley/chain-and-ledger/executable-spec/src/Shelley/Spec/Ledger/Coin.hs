@@ -24,9 +24,9 @@ where
 
 import Cardano.Binary (FromCBOR (..), ToCBOR (..))
 import qualified Cardano.Ledger.Core as Core
-import Cardano.Ledger.Val (ASSET, Asset (Ada), Val (..))
+import Cardano.Ledger.Val (Coin,ASSET(Coin),Val(..))
 import Control.DeepSeq (NFData)
-import Data.Aeson (FromJSON, ToJSON)
+-- import Data.Aeson (FromJSON, ToJSON)
 import Data.Group (Abelian, Group (..))
 import Data.Monoid (Sum (..))
 import Data.PartialOrd (PartialOrd)
@@ -35,6 +35,9 @@ import GHC.Generics (Generic)
 import NoThunks.Class (NoThunks (..))
 import Quiet
 
+
+
+{-
 -- | The amount of value held by a transaction output.
 newtype instance ASSET 'Ada era = Coin {unCoin :: Integer}
   deriving
@@ -61,6 +64,7 @@ instance Val Coin where
   size _ = 1
   modifyCoin f v = f v
   pointwise p (Coin x) (Coin y) = p x y
+-}
 
 newtype DeltaCoin = DeltaCoin Integer
   deriving (Eq, Ord, Generic, Enum, NoThunks, NFData, FromCBOR, ToCBOR)

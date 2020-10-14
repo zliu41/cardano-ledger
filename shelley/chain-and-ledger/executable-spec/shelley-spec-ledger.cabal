@@ -23,6 +23,7 @@ library
     Cardano.Ledger.Era
     Cardano.Ledger.Shelley
     Cardano.Ledger.Val
+    Cardano.Ledger.CannonicalMaps
     Shelley.Spec.Ledger.Address
     Shelley.Spec.Ledger.Address.Bootstrap
     Shelley.Spec.Ledger.API

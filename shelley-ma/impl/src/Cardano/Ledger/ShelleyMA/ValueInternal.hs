@@ -75,6 +75,7 @@ newtype AssetID = AssetID {assetID :: ByteString}
 newtype PolicyID era = PolicyID {policyID :: ScriptHash era}
   deriving (Show, Eq, ToCBOR, FromCBOR, Ord, NoThunks, NFData)
 
+{-
 -- | The Value representing MultiAssets
 data instance ASSET 'MultiAsset era = Value !Integer !(Map (PolicyID era) (Map AssetID Integer))
   deriving (Show, Generic)
@@ -100,6 +101,7 @@ instance Group (Value era) where
   invert (Value c m) = Value (- c) (cannonicalMap (cannonicalMap ((-1 :: Integer) *)) m)
 
 instance Abelian (Value era)
+
 
 -- ===================================================
 -- Make the Val instance of Value
@@ -131,6 +133,7 @@ instance Era era => Val (Value era) where
       -- address hash length is always same as Policy ID length
       addrHashLen :: Integer
       addrHashLen = 28
+-}
 
 -- =====================================================================================
 -- Operations on Map from keys to values that are specialised to `CanonicalZero` values.
@@ -311,46 +314,46 @@ gettriples (Value c m1) = (c, foldr accum1 [] (assocs m1))
 
 -- =======================================================
 
-instance Blessed ('G 'Ada) where
-  prezero = COIN 0
-  precoin (COIN c) = Coin c
-  preinject (Coin c) = COIN c
+instance Blessed ('Ada) where
+  prezero = Coin 0
+  precoin (Coin c) = Coin c
+  preinject (Coin c) = Coin c
 
-instance Blessed ('G 'MultiAsset) where
-  prezero = VALUE 0 Map.empty
-  precoin (VALUE c _) = Coin c
-  preinject (Coin c) = VALUE c Map.empty
+instance Blessed ('MultiAsset) where
+  prezero = Value 0 Map.empty
+  precoin (Value c _) = Coin c
+  preinject (Coin c) = Value c Map.empty
 
-data instance ASSET ('G t) era where
-  COIN:: Integer -> ASSET ('G 'Ada) era
-  VALUE:: !Integer -> !(Map (PolicyID era) (Map AssetID Integer)) -> ASSET (G 'MultiAsset) era
+data instance ASSET t era where
+  Coin:: Integer -> ASSET 'Ada ()
+  Value:: !Integer -> !(Map (PolicyID era) (Map AssetID Integer)) -> ASSET 'MultiAsset era
 
-instance Semigroup (ASSET ('G t) era) where
-  VALUE c m <> VALUE c1 m1 =
-    VALUE (c + c1) (cannonicalMapUnion (cannonicalMapUnion (+)) m m1)
-  COIN c <> COIN d = COIN(c+d)
+instance Semigroup (ASSET t era) where
+  Value c m <> Value c1 m1 =
+    Value (c + c1) (cannonicalMapUnion (cannonicalMapUnion (+)) m m1)
+  Coin c <> Coin d = Coin(c+d)
 
-instance Blessed ('G t) => Monoid (ASSET ('G t) era) where
+instance Blessed t => Monoid (ASSET t era) where
   mempty = prezero
 
-instance Blessed ('G t) => Group (ASSET ('G t) era) where
-  invert (VALUE c m) = VALUE (- c) (cannonicalMap (cannonicalMap ((-1 :: Integer) *)) m)
-  invert (COIN c) = COIN (-c)
+instance Blessed t => Group (ASSET t era) where
+  invert (Value c m) = Value (- c) (cannonicalMap (cannonicalMap ((-1 :: Integer) *)) m)
+  invert (Coin c) = Coin (-c)
 
-instance Blessed ('G t) => Abelian (ASSET ('G t) era)
+instance Blessed t => Abelian (ASSET t era)
 
-deriving instance Eq (ASSET (G t) era)
+deriving instance Eq (ASSET t era)
 
 instance Blessed ('G t) => Val (ASSET ('G t) era) where
-  n <×> (COIN c) = COIN (fromIntegral n * c)
-  n <×> (VALUE c v) = VALUE (fromIntegral n * c) (cannonicalMap (cannonicalMap ((fromIntegral n) *)) v)
-  isZero (COIN c) = c==0
-  isZero (VALUE c m) = c==0 && Map.null m
+  n <×> (Coin c) = Coin (fromIntegral n * c)
+  n <×> (Value c v) = Value (fromIntegral n * c) (cannonicalMap (cannonicalMap ((fromIntegral n) *)) v)
+  isZero (Coin c) = c==0
+  isZero (Value c m) = c==0 && Map.null m
   coin x = precoin x
   inject c = preinject c
-  size (COIN c) = 1
-  size (VALUE c n) = fromIntegral (Map.size n)
-  modifyCoin f (COIN c) = COIN d where (Coin d) = f (Coin c)
-  modifyCoin f (VALUE c m) = VALUE d m where (Coin d) = f(Coin c)
-  pointwise f (COIN x) (COIN y) = f x y
-  pointwise f (VALUE c m) (VALUE d n) = c==d && pointWise (pointWise f) m n
+  size (Coin c) = 1
+  size (Value c n) = fromIntegral (Map.size n)
+  modifyCoin f (Coin c) = Coin d where (Coin d) = f (Coin c)
+  modifyCoin f (Value c m) = Value d m where (Coin d) = f(Coin c)
+  pointwise f (Coin x) (Coin y) = f x y
+  pointwise f (Value c m) (Value d n) = c==d && pointWise (pointWise f) m n
