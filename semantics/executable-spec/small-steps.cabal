@@ -57,8 +57,6 @@ library
                       -Wincomplete-record-updates
                       -Wincomplete-uni-patterns
                       -Wredundant-constraints
-  if (!flag(development))
-    ghc-options:      -Werror
   if (flag(sts_assert))
     cpp-options:      -DSTS_ASSERT
 
