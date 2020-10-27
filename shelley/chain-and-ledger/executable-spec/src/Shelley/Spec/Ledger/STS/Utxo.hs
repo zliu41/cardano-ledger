@@ -14,6 +14,7 @@
 
 module Shelley.Spec.Ledger.STS.Utxo
   ( UTXO,
+    unUTxO,
     UtxoEnv (..),
     UtxoPredicateFailure (..),
     PredicateFailure,
@@ -285,7 +286,8 @@ utxoInductive = do
       txFee = _txfee txb
   minFee <= txFee ?! FeeTooSmallUTxO minFee txFee
 
-  eval (txins txb ⊆ dom utxo) ?! BadInputsUTxO (txins txb `Set.difference` eval (dom utxo))
+  eval (txins txb ⊆ dom utxo) ?! BadInputsUTxO (Set.filter (\ x -> not(Map.member x (unUTxO utxo))) (txins txb))
+                            -- (txins txb `Set.difference` eval (dom utxo))
 
   ni <- liftSTS $ asks networkId
   let addrsWrongNetwork =
