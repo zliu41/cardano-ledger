@@ -418,7 +418,8 @@ rewardOnePool
           (StakeShare $ fromIntegral ostake % tot)
           (StakeShare sigma)
       potentialRewards =
-        Map.insert
+        Map.insertWith
+          (<>)
           (getRwdCred $ _poolRAcnt pool)
           iReward
           mRewards
