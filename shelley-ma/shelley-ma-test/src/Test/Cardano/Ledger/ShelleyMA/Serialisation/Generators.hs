@@ -25,6 +25,12 @@ where
 import Cardano.Binary
   ( toCBOR,
   )
+import Cardano.Slotting.Slot (SlotNo (..))
+import Cardano.Ledger.Era(Era(..))
+import Cardano.Ledger.ShelleyMA.Timelocks
+  ( Timelock (RequireSignature, RequireAllOf, RequireAnyOf, RequireMOf, RequireTimeExpire, RequireTimeStart),
+    ValidityInterval(..),
+  )
 import Cardano.Crypto.Hash (HashAlgorithm, hashWithSerialiser)
 import qualified Cardano.Crypto.Hash as Hash
 import Cardano.Ledger.Allegra (AllegraEra)
@@ -55,9 +61,15 @@ import Test.Shelley.Spec.Ledger.ConcreteCryptoTypes (Mock)
 import Test.Shelley.Spec.Ledger.Serialisation.EraIndepGenerators ()
 import Test.Tasty.QuickCheck (Gen)
 
+import Shelley.Spec.Ledger.Keys (KeyHash (..))
+import Shelley.Spec.Ledger.BaseTypes (StrictMaybe (SJust, SNothing))
+import qualified Cardano.Ledger.Mary.Value as ConcreteValue
+import Test.Shelley.Spec.Ledger.Serialisation.Generators(mkDummyHash) -- imports arbitray instance for MultiSig
+-- import Test.Tasty.QuickCheck hiding (scale)
+
+
 {-------------------------------------------------------------------------------
   ShelleyMAEra Generators
-
   Generators used for roundtrip tests, generated values are not
   necessarily valid
 -------------------------------------------------------------------------------}
@@ -120,6 +132,7 @@ instance Mock c => Arbitrary (MA.TxBody (MaryEra c)) where
 instance Mock c => Arbitrary (Timelock (MaryEra c)) where
   arbitrary = sizedTimelock maxTimelockDepth
 
+
 instance Mock c => Arbitrary (Mary.PolicyID (MaryEra c)) where
   arbitrary = Mary.PolicyID <$> arbitrary
 
@@ -148,3 +161,15 @@ instance Arbitrary ValidityInterval where
 
 instance Mock c => Arbitrary (MA.STS.UtxoPredicateFailure (AllegraEra c)) where
   arbitrary = genericArbitraryU
+
+instance Arbitrary ValidityInterval where
+  arbitrary = ValidityInterval <$> arbitrary <*> arbitrary
+
+instance Arbitrary (ConcreteValue.AssetID) where
+  arbitrary = ConcreteValue.AssetID <$> arbitrary
+
+instance Era era => Arbitrary (ConcreteValue.PolicyID era) where
+  arbitrary = ConcreteValue.PolicyID <$> arbitrary
+
+instance Era era => Arbitrary (ConcreteValue.Value era) where
+  arbitrary = ConcreteValue.Value <$> arbitrary <*> arbitrary
