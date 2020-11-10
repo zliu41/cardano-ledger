@@ -14,12 +14,11 @@ module Test.Cardano.Ledger.ShelleyMA.TxBody
     TestEra,
     genShelleyBody,
     genMaryBody,
+    genMaryTxBody,
     oldStyleRoundTrip,
   ) where
 
-import Cardano.Ledger.Core (Script, TxBody, Value)
-import qualified Cardano.Ledger.Mary.Value ()
-import qualified Cardano.Ledger.Mary.Value as ConcreteValue
+import Cardano.Ledger.Core (Value)
 import Cardano.Ledger.ShelleyMA.Timelocks (ValidityInterval (..))
 import qualified Cardano.Ledger.ShelleyMA.TxBody as Mary
 import Cardano.Ledger.Val (Val (..))
@@ -37,7 +36,7 @@ import Shelley.Spec.Ledger.TxBody (Wdrl (..))
 import qualified Shelley.Spec.Ledger.TxBody as Shelley
 import Test.Tasty
 import Test.Tasty.HUnit
-import Test.Cardano.Ledger.ShelleyMA.TestEra(TestEra,TestScript)
+import Test.Cardano.Ledger.ShelleyMA.TestEra(TestCrypto)
 import Cardano.Ledger.ShelleyMA.TxBody
   ( TxBodyRaw(..),
     FamsFrom,
@@ -56,17 +55,16 @@ import Test.Cardano.Ledger.ShelleyMA.Serialisation.Coders
     roundTripAnn,
     RoundTripResult
   )
+import Cardano.Ledger.Mary (MaryEra)
 -- ============================================================================================
 -- make an example
 -- ============================================================================================
 
 -- First make a fully concrete Era where the Hashing is concrete
 -- without this we won't be able to Serialize or Hash TxID. We use
---the tools supplied by Test.Cardano.Ledger.ShelleyMA.TestEra(TestEra,TestScript)
+-- TestCrypto from Test.Cardano.Ledger.ShelleyMA.TestEra(TestCrypto)
 
-type instance Value TestEra = ConcreteValue.Value TestEra
-type instance Script TestEra = TestScript
-type instance TxBody TestEra = Mary.TxBody TestEra
+type TestEra = MaryEra TestCrypto
 
 -- ====================================================================================================
 -- Make a TxBody to test with
@@ -148,10 +146,6 @@ instance Arbitrary (TxBodyRaw TestEra) where
 genMaryTxBody :: Gen (Mary.TxBody TestEra)
 genMaryTxBody = Mary.TxBody <$> arbitrary <*> pure eseq <*> arbitrary <*> arbitrary
                       <*> arbitrary <*> arbitrary <*> arbitrary <*> arbitrary <*> arbitrary
-
-instance Arbitrary (Mary.TxBody TestEra) where
-  arbitrary = genMaryTxBody
-
 
 checkSparseAnn :: Mary.TxBody TestEra -> Bool
 checkSparseAnn tx = case roundTripAnn tx of

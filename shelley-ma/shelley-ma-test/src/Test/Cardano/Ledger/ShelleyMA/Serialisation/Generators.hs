@@ -22,26 +22,18 @@ module Test.Cardano.Ledger.ShelleyMA.Serialisation.Generators
   )
 where
 
-import Cardano.Binary
-  ( toCBOR,
-  )
-import Cardano.Slotting.Slot (SlotNo (..))
+import Cardano.Binary(toCBOR)
 import Cardano.Ledger.Era(Era(..))
-import Cardano.Ledger.ShelleyMA.Timelocks
-  ( Timelock (RequireSignature, RequireAllOf, RequireAnyOf, RequireMOf, RequireTimeExpire, RequireTimeStart),
-    ValidityInterval(..),
-  )
+import Cardano.Ledger.ShelleyMA.Timelocks(Timelock(..), ValidityInterval(..))
 import Cardano.Crypto.Hash (HashAlgorithm, hashWithSerialiser)
 import qualified Cardano.Crypto.Hash as Hash
 import Cardano.Ledger.Allegra (AllegraEra)
 import qualified Cardano.Ledger.Core as Abstract
-import Cardano.Ledger.Era (Era)
 import Cardano.Ledger.Mary (MaryEra)
 import qualified Cardano.Ledger.Mary.Value as Mary (AssetID (..), PolicyID (..), Value (..))
 import Cardano.Ledger.Shelley (ShelleyBased)
 import qualified Cardano.Ledger.ShelleyMA.Rules.Utxo as MA.STS
 import qualified Cardano.Ledger.ShelleyMA.Scripts as MA (Timelock (..))
-import Cardano.Ledger.ShelleyMA.Timelocks (Timelock (..), ValidityInterval)
 import qualified Cardano.Ledger.ShelleyMA.TxBody as MA (TxBody (..))
 import Data.Coerce (coerce)
 import Data.Sequence.Strict (fromList)
@@ -60,13 +52,8 @@ import Test.QuickCheck
 import Test.Shelley.Spec.Ledger.ConcreteCryptoTypes (Mock)
 import Test.Shelley.Spec.Ledger.Serialisation.EraIndepGenerators ()
 import Test.Tasty.QuickCheck (Gen)
-
-import Shelley.Spec.Ledger.Keys (KeyHash (..))
-import Shelley.Spec.Ledger.BaseTypes (StrictMaybe (SJust, SNothing))
 import qualified Cardano.Ledger.Mary.Value as ConcreteValue
-import Test.Shelley.Spec.Ledger.Serialisation.Generators(mkDummyHash) -- imports arbitray instance for MultiSig
--- import Test.Tasty.QuickCheck hiding (scale)
-
+import Test.Shelley.Spec.Ledger.Serialisation.Generators() -- imports arbitray instance for MultiSig
 
 {-------------------------------------------------------------------------------
   ShelleyMAEra Generators
@@ -162,14 +149,8 @@ instance Arbitrary ValidityInterval where
 instance Mock c => Arbitrary (MA.STS.UtxoPredicateFailure (AllegraEra c)) where
   arbitrary = genericArbitraryU
 
-instance Arbitrary ValidityInterval where
-  arbitrary = ValidityInterval <$> arbitrary <*> arbitrary
-
-instance Arbitrary (ConcreteValue.AssetID) where
-  arbitrary = ConcreteValue.AssetID <$> arbitrary
-
-instance Era era => Arbitrary (ConcreteValue.PolicyID era) where
+instance Mock c => Arbitrary (ConcreteValue.PolicyID  (AllegraEra c)) where
   arbitrary = ConcreteValue.PolicyID <$> arbitrary
 
-instance Era era => Arbitrary (ConcreteValue.Value era) where
+instance Mock c => Arbitrary (ConcreteValue.Value  (AllegraEra c)) where
   arbitrary = ConcreteValue.Value <$> arbitrary <*> arbitrary
