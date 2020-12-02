@@ -46,6 +46,19 @@ instance Semigroup ExUnits where
 instance Monoid ExUnits where
   mempty = ExUnits 0 0
 
+-- | Prices in ada per script execution unit.
+data Prices = Prices
+  { prInit :: !Coin,
+    prMem :: !Coin,
+    prSteps :: !Coin
+  }
+  deriving (Eq, Show, Ord)
+
+-- | Cost model type family
+type family CostModel era :: Type
+
+-- | script fee calculation 
+
 --------------------------------------------------------------------------------
 -- Serialisation
 --------------------------------------------------------------------------------
