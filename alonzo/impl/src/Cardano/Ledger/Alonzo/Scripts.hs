@@ -4,6 +4,9 @@ module Cardano.Ledger.Alonzo.Scripts
   ( Tag (..),
     Script (..),
     ExUnits (..),
+    Prices (..),
+    CostModelAllEras,
+    CostModel,
   )
 where
 
@@ -56,9 +59,7 @@ data Prices = Prices
 
 -- | Cost model type family
 type family CostModel era :: Type
-
--- | script fee calculation 
-
+CostModelAllEras
 --------------------------------------------------------------------------------
 -- Serialisation
 --------------------------------------------------------------------------------
