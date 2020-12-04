@@ -1,3 +1,4 @@
+with import <nixpkgs> {};
 { stdenv, lib, pythonPackages, sphinx-markdown-tables, sphinxemoji, ... }:
 stdenv.mkDerivation {
   name = "ledger-docs";
