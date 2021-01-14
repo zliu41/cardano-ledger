@@ -25,6 +25,7 @@ module Cardano.Ledger.Val
   )
 where
 
+import Debug.Trace
 import Cardano.Binary (Decoder, Encoding, decodeWord64, toCBOR)
 import Cardano.Ledger.Compactible (Compactible (..))
 import Data.Group (Abelian)
@@ -130,7 +131,7 @@ scaledMinDeposit v (Coin mv)
   -- The calculation should represent this equation
   -- minValueParameter / coinUTxOSize = actualMinValue / valueUTxOSize
   -- actualMinValue = (minValueParameter / coinUTxOSize) * valueUTxOSize
-  | otherwise = Coin $ adaPerUTxOByte * (utxoEntrySizeWithoutVal + size v) -- round down
+  | otherwise = Coin $ adaPerUTxOByte * (utxoEntrySizeWithoutVal + (trace ("value size : " ++ (show $ size v) ++ "\n") (size v))) -- round down
   where
     -- address hash length is always same as Policy ID length
     addrHashLen :: Integer

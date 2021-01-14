@@ -30,6 +30,8 @@ module Shelley.Spec.Ledger.TxBody
     Delegation (..),
     GenesisDelegCert (..),
     Ix,
+    constHWTxOut,
+    constHWTxIn,
     MIRCert (..),
     MIRPot (..),
     PoolCert (..),
@@ -85,6 +87,8 @@ import Cardano.Binary
     serializeEncoding,
     szCases,
   )
+import qualified Cardano.Crypto.Hash.Class as HS
+import qualified Cardano.Prelude as HW
 import Cardano.Ledger.AuxiliaryData (AuxiliaryDataHash)
 import Cardano.Ledger.Compactible
 import qualified Cardano.Ledger.Core as Core
@@ -92,9 +96,12 @@ import qualified Cardano.Ledger.Crypto as CC (Crypto)
 import Cardano.Ledger.Era
 import Cardano.Ledger.Shelley.Constraints (TransValue)
 import Cardano.Ledger.Val (DecodeNonNegative (..))
+import qualified Cardano.Ledger.Val as Val
 import Cardano.Prelude
   ( panic,
+    HeapWords (..)
   )
+import Debug.Trace
 import Control.DeepSeq (NFData (rnf))
 import Control.SetAlgebra (BaseRep (MapR), Embed (..), Exp (Base), HasExp (toExp))
 import Data.Aeson (FromJSON (..), ToJSON (..), Value, (.!=), (.:), (.:?), (.=))
@@ -417,13 +424,19 @@ instance CC.Crypto crypto => FromJSON (PoolParams crypto) where
 -- | A unique ID of a transaction, which is computable from the transaction.
 newtype TxId crypto = TxId {_unTxId :: Hash crypto EraIndependentTxBody}
   deriving (Show, Eq, Ord, Generic)
-  deriving newtype (NoThunks)
+  deriving newtype (NoThunks, HeapWords)
+
+
+deriving newtype instance HeapWords (HS.Hash h a)
 
 deriving newtype instance CC.Crypto crypto => ToCBOR (TxId crypto)
 
 deriving newtype instance CC.Crypto crypto => FromCBOR (TxId crypto)
 
 deriving newtype instance CC.Crypto crypto => NFData (TxId crypto)
+
+instance HeapWords (TxIn crypto) where
+  heapWords (TxInCompact txid ix) = 3 + HW.heapWordsUnpacked txid + HW.heapWordsUnpacked (ix)
 
 type TransTxId (c :: Type -> Constraint) era =
   -- Transaction Ids are the hash of a transaction body, which contains
@@ -450,7 +463,7 @@ pattern TxIn addr index <-
   TxInCompact addr (fromIntegral -> index)
   where
     TxIn addr index =
-      TxInCompact addr (fromIntegral index)
+      TxInCompact addr (trace ("txin : " ++ (show $ heapWords (TxInCompact addr (fromIntegral index))) ++ "\n") (fromIntegral index))
 
 {-# COMPLETE TxIn #-}
 
@@ -491,7 +504,24 @@ instance NFData (TxOut era) where
 
 deriving via InspectHeapNamed "TxOut" (TxOut era) instance NoThunks (TxOut era)
 
-pattern TxOut ::
+-- *not really heapwords, does not include vl size*
+instance HeapWords (TxOut era) where
+  heapWords tout = 3 + HW.heapWordsUnpacked packed57Bytestring
+
+-- *not really heapwords, does not include vl size*
+constHWTxOut :: TxOut era -> Int
+constHWTxOut _ = 3 + HW.heapWordsUnpacked packed57Bytestring
+
+-- *not really heapwords, does not include vl size*
+constHWTxIn :: TxIn era -> Int
+constHWTxIn tin = HW.heapWordsUnpacked tin
+
+-- the length of a shelley base address estimate (stake and payment are 28-long)
+-- TODO do we want a different estimate here instead?
+packed57Bytestring :: ByteString
+packed57Bytestring = Char8.pack (replicate 57 'a')
+
+pattern TxOut :: forall era.
   (Era era, Show (Core.Value era), Compactible (Core.Value era)) =>
   Addr (Crypto era) ->
   Core.Value era ->
@@ -500,9 +530,12 @@ pattern TxOut addr vl <-
   (viewCompactTxOut -> (addr, vl))
   where
     TxOut addr vl =
-      TxOutCompact
+      trace ("txout : " ++ (show (heapWords (TxOutCompact @era
         (compactAddr addr)
-        (fromMaybe (error $ "illegal value in txout: " <> show vl) $ toCompact vl)
+        (fromMaybe (error $ "illegal value in txout: " <> show vl) $ toCompact vl)))) ++ "\n")
+        (TxOutCompact @era
+          (compactAddr addr)
+          (fromMaybe (error $ "illegal value in txout: " <> show vl) $ toCompact vl))
 
 {-# COMPLETE TxOut #-}
 

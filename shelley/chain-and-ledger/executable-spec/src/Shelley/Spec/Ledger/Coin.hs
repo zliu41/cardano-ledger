@@ -31,6 +31,9 @@ import Data.Word (Word64)
 import GHC.Generics (Generic)
 import NoThunks.Class (NoThunks (..))
 import Quiet
+import Cardano.Prelude
+  ( HeapWords 
+  )
 
 -- | The amount of value held by a transaction output.
 newtype Coin = Coin {unCoin :: Integer}
@@ -46,7 +49,7 @@ newtype Coin = Coin {unCoin :: Integer}
     )
   deriving (Show) via Quiet Coin
   deriving (Semigroup, Monoid, Group, Abelian) via Sum Integer
-  deriving newtype (PartialOrd, FromCBOR, ToCBOR)
+  deriving newtype (PartialOrd, FromCBOR, ToCBOR, HeapWords)
 
 newtype DeltaCoin = DeltaCoin Integer
   deriving (Eq, Ord, Generic, Enum, NoThunks, NFData, FromCBOR, ToCBOR)

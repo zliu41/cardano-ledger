@@ -43,6 +43,7 @@ module Shelley.Spec.Ledger.UTxO
     scriptCred,
     scriptStakeCred,
     txinsScript,
+    sizeUTxOEntryNoVal
   )
 where
 
@@ -106,8 +107,11 @@ import Shelley.Spec.Ledger.TxBody
     TransTxId,
     TxId (..),
     TxIn (..),
+    TxOut (..),
     Wdrl (..),
     WitVKey (..),
+    constHWTxOut,
+    constHWTxIn,
     getRwdCred,
     pattern DeRegKey,
     pattern Delegate,
@@ -132,6 +136,11 @@ instance
 -- | The unspent transaction outputs.
 newtype UTxO era = UTxO {unUTxO :: Map (TxIn (Crypto era)) (Core.TxOut era)}
   deriving (Generic)
+
+-- heapwords for just a single entry in a UTxO map
+-- *not including the Value*
+sizeUTxOEntryNoVal :: TxIn era -> TxOut era -> Int
+sizeUTxOEntryNoVal tin tout = 6 + (constHWTxIn tin) + (constHWTxOut tout)
 
 type TransUTxO (c :: Type -> Constraint) era = (c (Core.TxOut era), TransTxId c era)
 
