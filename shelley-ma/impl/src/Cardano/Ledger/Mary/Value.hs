@@ -184,14 +184,14 @@ instance CC.Crypto crypto => Val (Value crypto) where
     | otherwise =
       fromIntegral $  wordLength * (adaWords + noMAs) + repSize
       where
-        repSize  = wordLength * quanSize * totalNoAssets + noPIDs * (index * wordLength + pidLength)
+        repSize  = wordLength * quanSize * totalNoAssets + totalNoAssets * (index * wordLength) + pidLength * noPIDs
           + totalNoAssets * (index * wordLength) + assetNamesLength
           where
             noPIDs = length $ Map.keys v
             allAssets :: [AssetName]
             allAssets = (Map.foldr (\a b -> (Map.keys a) ++ b) [] v)
             totalNoAssets = length allAssets
-            assetNames = LS.nub allAssets
+            assetNames = LS.nub $ LS.sort allAssets
             noAssetNames = length assetNames
             assetNamesLength = LS.foldr (\(AssetName a) b -> (BS.length a) + b) 0 assetNames
 
@@ -206,17 +206,17 @@ adaWords = 2
 
 -- number of words used to represent quantity
 quanSize :: Int
-quanSize = 2
+quanSize = 1
 
--- number of words bytes to represent index
+-- number of bytes to represent index
 index :: Int
-index = 4
+index = 2
 
 -- number of words used to store number of MAs in a value
 noMAs :: Int
-noMAs = 2
+noMAs = 1
 
--- number of words used to store a PID
+-- length of PID in bytes
 pidLength :: Int
 pidLength = 28
 
