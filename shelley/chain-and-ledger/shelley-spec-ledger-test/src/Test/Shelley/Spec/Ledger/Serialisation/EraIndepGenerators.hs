@@ -51,7 +51,7 @@ import Cardano.Ledger.Shelley.Constraints
     UsesScript,
     UsesTxBody,
     UsesTxOut,
-    UsesValue
+    UsesValue,
   )
 import Cardano.Slotting.Block (BlockNo (..))
 import Cardano.Slotting.Slot (EpochNo (..), EpochSize (..), SlotNo (..))

@@ -1,65 +1,90 @@
+{-# LANGUAGE ConstraintKinds #-}
 {-# LANGUAGE DataKinds #-}
+{-# LANGUAGE FlexibleContexts #-}
 {-# LANGUAGE NamedFieldPuns #-}
 {-# LANGUAGE PartialTypeSignatures #-}
 {-# LANGUAGE Rank2Types #-}
 {-# LANGUAGE ScopedTypeVariables #-}
 {-# LANGUAGE TupleSections #-}
 {-# LANGUAGE TypeApplications #-}
-{-# LANGUAGE ConstraintKinds #-}
 {-# LANGUAGE TypeFamilies #-}
-{-# LANGUAGE FlexibleContexts #-}
 
-module Test.Shelley.Spec.Ledger.Rewards (rewardTests,C,defaultMain) where
+module Test.Shelley.Spec.Ledger.Rewards (rewardTests, C, defaultMain) where
 
 import Cardano.Binary (toCBOR)
 import qualified Cardano.Crypto.DSIGN as Crypto
 import Cardano.Crypto.Hash (MD5, hashToBytes)
 import Cardano.Crypto.Seed (mkSeedFromBytes)
 import qualified Cardano.Crypto.VRF as Crypto
+import Cardano.Ledger.Crypto (VRF)
 import qualified Cardano.Ledger.Crypto as CC (Crypto)
 import Cardano.Ledger.Era (Crypto, Era)
-import Cardano.Ledger.Crypto (VRF)
+-- Arbitrary(NewEpochState era)
+-- instance (EraGen (ShelleyEra C))
+
+import Cardano.Ledger.Val (invert, (<+>), (<->))
 import Cardano.Slotting.Slot (EpochSize (..))
+import Control.Iterate.SetAlgebra (eval, (◁))
 import Control.Monad (replicateM)
+import Control.Monad.Identity (Identity (..))
+import Control.Monad.Trans.Reader (asks, runReader)
+import Control.Provenance (preservesJust, preservesNothing, runProvM, runWithProvM)
+import Data.Default.Class (Default (def))
 import Data.Foldable (fold)
 import Data.Map (Map)
 import qualified Data.Map as Map
+import Data.Maybe (catMaybes, fromMaybe)
 import Data.Proxy
 import Data.Ratio (Ratio, (%))
 import qualified Data.Sequence.Strict as StrictSeq
 import qualified Data.Set as Set
 import Data.Word (Word64)
 import Numeric.Natural (Natural)
+import Shelley.Spec.Ledger.API.Wallet (getRewardInfo)
 import Shelley.Spec.Ledger.BaseTypes
-  ( Globals (..),
+  ( ActiveSlotCoeff,
+    Globals (..),
     Network (..),
+    ShelleyBase,
     StrictMaybe (..),
     UnitInterval,
-    mkActiveSlotCoeff,
-    ActiveSlotCoeff,
-    ShelleyBase,
-    unitIntervalToRational,
     activeSlotVal,
     intervalValue,
+    mkActiveSlotCoeff,
+    unitIntervalToRational,
   )
-import Shelley.Spec.Ledger.Coin (Coin (..), DeltaCoin(..), rationalToCoinViaFloor, toDeltaCoin)
+import Shelley.Spec.Ledger.Coin (Coin (..), DeltaCoin (..), rationalToCoinViaFloor, toDeltaCoin)
 import Shelley.Spec.Ledger.Credential (Credential (..))
 import Shelley.Spec.Ledger.EpochBoundary
   ( BlocksMade (..),
+    SnapShot (..),
+    SnapShots (..),
     Stake (..),
     maxPool,
     poolStake,
-    SnapShot(..),
-    SnapShots(..),
   )
+import qualified Shelley.Spec.Ledger.EpochBoundary as EB
+import qualified Shelley.Spec.Ledger.HardForks as HardForks
 import Shelley.Spec.Ledger.Keys
-  ( KeyPair (..),
+  ( KeyHash,
+    KeyPair (..),
     KeyRole (..),
     VKey (..),
     hashKey,
     hashWithSerialiser,
     vKey,
-    KeyHash,
+  )
+import Shelley.Spec.Ledger.LedgerState
+  ( AccountState (..),
+    DPState (..),
+    DState (..),
+    EpochState (..),
+    LedgerState (..),
+    NewEpochState (..),
+    RewardUpdate (..),
+    circulation,
+    createRUpd,
+    updateNonMypopic,
   )
 import Shelley.Spec.Ledger.PParams
   ( PParams,
@@ -67,22 +92,27 @@ import Shelley.Spec.Ledger.PParams
     emptyPParams,
   )
 import Shelley.Spec.Ledger.Rewards
-  ( reward,
-    Likelihood,
-    mkApparentPerformance,
-    memberRew,
-    StakeShare(..),
-    likelihood,
-    leaderRew,
+  ( Likelihood,
+    StakeShare (..),
     leaderProbability,
+    leaderRew,
+    likelihood,
+    memberRew,
+    mkApparentPerformance,
+    reward,
   )
+import Shelley.Spec.Ledger.Slot (epochInfoSize)
 import Shelley.Spec.Ledger.TxBody (PoolParams (..), RewardAcnt (..))
+import Test.Shelley.Spec.Ledger.ConcreteCryptoTypes (C)
 import Test.Shelley.Spec.Ledger.Generator.Core (genCoin, genNatural)
+import Test.Shelley.Spec.Ledger.Generator.ShelleyEraGen ()
+import Test.Shelley.Spec.Ledger.Serialisation.EraIndepGenerators ()
 import Test.Shelley.Spec.Ledger.Utils
   ( testGlobals,
     unsafeMkUnitInterval,
   )
-import Test.Tasty (TestTree, testGroup,defaultMain)
+import Test.Tasty (TestTree, defaultMain, testGroup)
+import Test.Tasty.HUnit (testCaseInfo)
 import Test.Tasty.QuickCheck
   ( Gen,
     Property,
@@ -90,40 +120,11 @@ import Test.Tasty.QuickCheck
     choose,
     counterexample,
     elements,
+    generate,
     property,
     testProperty,
     withMaxSuccess,
-    generate,
   )
-import Test.Tasty.HUnit(testCaseInfo)
-import Control.Monad.Identity(Identity(..))
-import Data.Default.Class(Default(def))
-import Control.Provenance(runProvM,runWithProvM, preservesNothing, preservesJust)
-import Test.Shelley.Spec.Ledger.ConcreteCryptoTypes (C)
-import Test.Shelley.Spec.Ledger.Serialisation.EraIndepGenerators() -- Arbitrary(NewEpochState era)
-import Test.Shelley.Spec.Ledger.Generator.ShelleyEraGen() -- instance (EraGen (ShelleyEra C))
-import Control.Monad.Trans.Reader (runReader, asks)
-import qualified Shelley.Spec.Ledger.EpochBoundary as EB
-import Shelley.Spec.Ledger.Slot(epochInfoSize)
-import Shelley.Spec.Ledger.LedgerState
-  ( NewEpochState(..),
-    EpochState(..),
-    RewardUpdate(..),
-    DPState(..),
-    DState(..),
-    createRUpd,
-    AccountState(..),
-    LedgerState(..),
-    circulation,
-    updateNonMypopic,
-  )
-import Shelley.Spec.Ledger.API.Wallet(getRewardInfo)
-import qualified Shelley.Spec.Ledger.HardForks as HardForks
-import Data.Maybe(fromMaybe, catMaybes)
-import Control.Iterate.SetAlgebra (eval, (◁))
-import Cardano.Ledger.Val ((<+>), (<->), invert)
-
-
 
 -- ========================================================================
 -- Bounds and Constants --
@@ -295,18 +296,19 @@ rewardsBoundedByPot _ = property $ do
             pools
       totalLovelace = undelegatedLovelace <> fold stake
       slotsPerEpoch = EpochSize . fromIntegral $ totalBlocks + silentSlots
-      Identity rs = runProvM $
-        reward @Identity @era
-          pp
-          bs
-          rewardPot
-          rewardAcnts
-          poolParams
-          (Stake stake)
-          delegs
-          totalLovelace
-          asc
-          slotsPerEpoch
+      Identity rs =
+        runProvM $
+          reward @Identity @era
+            pp
+            bs
+            rewardPot
+            rewardAcnts
+            poolParams
+            (Stake stake)
+            delegs
+            totalLovelace
+            asc
+            slotsPerEpoch
   pure $
     counterexample
       ( mconcat
@@ -361,19 +363,20 @@ rewardsProvenance _ = generate $ do
             pools
       totalLovelace = undelegatedLovelace <> fold stake
       slotsPerEpoch = EpochSize . fromIntegral $ totalBlocks + silentSlots
-      Identity (_,prov) = runWithProvM def $
-        reward @Identity @era
-          pp
-          bs
-          rewardPot
-          rewardAcnts
-          poolParams
-          (Stake stake)
-          delegs
-          totalLovelace
-          asc
-          slotsPerEpoch
-  pure (show(snd(Map.findMin prov)))
+      Identity (_, prov) =
+        runWithProvM def $
+          reward @Identity @era
+            pp
+            bs
+            rewardPot
+            rewardAcnts
+            poolParams
+            (Stake stake)
+            delegs
+            totalLovelace
+            asc
+            slotsPerEpoch
+  pure (show (snd (Map.findMin prov)))
 
 -- Analog to getRewardInfo, but does not produce Provenance
 justRewardInfo ::
@@ -381,7 +384,7 @@ justRewardInfo ::
   Globals ->
   NewEpochState era ->
   RewardUpdate (Crypto era)
-justRewardInfo globals newepochstate  =
+justRewardInfo globals newepochstate =
   runReader
     (runProvM $ createRUpd slotsPerEpoch blocksmade epochstate maxsupply)
     globals
@@ -396,15 +399,17 @@ justRewardInfo globals newepochstate  =
     slotsPerEpoch = runReader (epochInfoSize (epochInfo globals) epochnumber) globals
 
 sameWithOrWithoutProvenance ::
- forall era.
+  forall era.
   Globals ->
-  NewEpochState era -> Bool
+  NewEpochState era ->
+  Bool
 sameWithOrWithoutProvenance globals newepochstate = with == without
-  where (with,_) = getRewardInfo globals newepochstate
-        without = justRewardInfo globals newepochstate
+  where
+    (with, _) = getRewardInfo globals newepochstate
+    without = justRewardInfo globals newepochstate
 
 nothingInNothingOut :: forall era. NewEpochState era -> Bool
-nothingInNothingOut newepochstate  =
+nothingInNothingOut newepochstate =
   runReader
     (preservesNothing $ createRUpd slotsPerEpoch blocksmade epochstate maxsupply)
     globals
@@ -420,7 +425,7 @@ nothingInNothingOut newepochstate  =
     slotsPerEpoch = runReader (epochInfoSize (epochInfo globals) epochnumber) globals
 
 justInJustOut :: forall era. NewEpochState era -> Bool
-justInJustOut newepochstate  =
+justInJustOut newepochstate =
   runReader
     (preservesJust def $ createRUpd slotsPerEpoch blocksmade epochstate maxsupply)
     globals
@@ -625,9 +630,8 @@ createRUpdOld slotsPerEpoch b@(BlocksMade b') es@(EpochState acnt ss ls pr _ nm)
         nonMyopic = (updateNonMypopic nm _R newLikelihoods)
       }
 
-
-oldEqualsNew:: forall era. NewEpochState era -> Bool
-oldEqualsNew  newepochstate  = old == new
+oldEqualsNew :: forall era. NewEpochState era -> Bool
+oldEqualsNew newepochstate = old == new
   where
     globals = testGlobals
     epochstate = nesEs newepochstate
@@ -641,8 +645,8 @@ oldEqualsNew  newepochstate  = old == new
     new = runReader (runProvM $ createRUpd slotsPerEpoch blocksmade epochstate maxsupply) globals
     old = runReader (createRUpdOld slotsPerEpoch blocksmade epochstate maxsupply) globals
 
-oldEqualsNewOn:: forall era. NewEpochState era -> Bool
-oldEqualsNewOn  newepochstate  = old == new
+oldEqualsNewOn :: forall era. NewEpochState era -> Bool
+oldEqualsNewOn newepochstate = old == new
   where
     globals = testGlobals
     epochstate = nesEs newepochstate
@@ -653,12 +657,10 @@ oldEqualsNewOn  newepochstate  = old == new
     epochnumber = nesEL newepochstate
     slotsPerEpoch :: EpochSize
     slotsPerEpoch = runReader (epochInfoSize (epochInfo globals) epochnumber) globals
-    (new,_) = runReader (runWithProvM def $ createRUpd slotsPerEpoch blocksmade epochstate maxsupply) globals
+    (new, _) = runReader (runWithProvM def $ createRUpd slotsPerEpoch blocksmade epochstate maxsupply) globals
     old = runReader (createRUpdOld slotsPerEpoch blocksmade epochstate maxsupply) globals
 
-
 -- ==================================================================
-
 
 rewardTests :: TestTree
 rewardTests =
@@ -666,11 +668,11 @@ rewardTests =
     "Reward Tests"
     [ testProperty
         "Sum of rewards is bounded by reward pot"
-        (withMaxSuccess numberOfTests (rewardsBoundedByPot (Proxy @C)))
-    , testProperty "provenance does not affect result" (sameWithOrWithoutProvenance @C testGlobals)
-    , testProperty "ProvM preserves Nothing" (nothingInNothingOut @C)
-    , testProperty "ProvM preserves Just" (justInJustOut @C)
-    , testProperty "oldstyle matches provenance off style" (oldEqualsNew @C)
-    , testProperty "oldstyle matches provenance on style" (oldEqualsNewOn @C)
-    , testCaseInfo "Reward Provenance works" (rewardsProvenance (Proxy @C))
+        (withMaxSuccess numberOfTests (rewardsBoundedByPot (Proxy @C))),
+      testProperty "provenance does not affect result" (sameWithOrWithoutProvenance @C testGlobals),
+      testProperty "ProvM preserves Nothing" (nothingInNothingOut @C),
+      testProperty "ProvM preserves Just" (justInJustOut @C),
+      testProperty "oldstyle matches provenance off style" (oldEqualsNew @C),
+      testProperty "oldstyle matches provenance on style" (oldEqualsNewOn @C),
+      testCaseInfo "Reward Provenance works" (rewardsProvenance (Proxy @C))
     ]

@@ -88,7 +88,6 @@ import Cardano.Binary
     szCases,
   )
 import qualified Cardano.Crypto.Hash.Class as HS
-import qualified Cardano.Prelude as HW
 import Cardano.Ledger.AuxiliaryData (AuxiliaryDataHash)
 import Cardano.Ledger.Compactible
 import qualified Cardano.Ledger.Core as Core
@@ -98,10 +97,10 @@ import Cardano.Ledger.Shelley.Constraints (TransValue)
 import Cardano.Ledger.Val (DecodeNonNegative (..))
 import qualified Cardano.Ledger.Val as Val
 import Cardano.Prelude
-  ( panic,
-    HeapWords (..)
+  ( HeapWords (..),
+    panic,
   )
-import Debug.Trace
+import qualified Cardano.Prelude as HW
 import Control.DeepSeq (NFData (rnf))
 import Control.SetAlgebra (BaseRep (MapR), Embed (..), Exp (Base), HasExp (toExp))
 import Data.Aeson (FromJSON (..), ToJSON (..), Value, (.!=), (.:), (.:?), (.=))
@@ -141,6 +140,7 @@ import qualified Data.Set as Set
 import qualified Data.Text.Encoding as Text
 import Data.Typeable (Typeable)
 import Data.Word (Word64, Word8)
+import Debug.Trace
 import GHC.Generics (Generic)
 import GHC.Records
 import NoThunks.Class (AllowThunksIn (..), InspectHeapNamed (..), NoThunks (..))
@@ -426,7 +426,6 @@ newtype TxId crypto = TxId {_unTxId :: Hash crypto EraIndependentTxBody}
   deriving (Show, Eq, Ord, Generic)
   deriving newtype (NoThunks, HeapWords)
 
-
 deriving newtype instance HeapWords (HS.Hash h a)
 
 deriving newtype instance CC.Crypto crypto => ToCBOR (TxId crypto)
@@ -504,15 +503,18 @@ instance NFData (TxOut era) where
 
 deriving via InspectHeapNamed "TxOut" (TxOut era) instance NoThunks (TxOut era)
 
--- *not really heapwords, does not include vl size*
+-- * not really heapwords, does not include vl size*
+
 instance HeapWords (TxOut era) where
   heapWords tout = 3 + HW.heapWordsUnpacked packed57Bytestring
 
--- *not really heapwords, does not include vl size*
+-- * not really heapwords, does not include vl size*
+
 constHWTxOut :: TxOut era -> Int
 constHWTxOut _ = 3 + HW.heapWordsUnpacked packed57Bytestring
 
--- *not really heapwords, does not include vl size*
+-- * not really heapwords, does not include vl size*
+
 constHWTxIn :: TxIn era -> Int
 constHWTxIn tin = HW.heapWordsUnpacked tin
 
@@ -521,7 +523,8 @@ constHWTxIn tin = HW.heapWordsUnpacked tin
 packed57Bytestring :: ByteString
 packed57Bytestring = Char8.pack (replicate 57 'a')
 
-pattern TxOut :: forall era.
+pattern TxOut ::
+  forall era.
   (Era era, Show (Core.Value era), Compactible (Core.Value era)) =>
   Addr (Crypto era) ->
   Core.Value era ->
@@ -530,12 +533,22 @@ pattern TxOut addr vl <-
   (viewCompactTxOut -> (addr, vl))
   where
     TxOut addr vl =
-      trace ("txout : " ++ (show (heapWords (TxOutCompact @era
-        (compactAddr addr)
-        (fromMaybe (error $ "illegal value in txout: " <> show vl) $ toCompact vl)))) ++ "\n")
-        (TxOutCompact @era
-          (compactAddr addr)
-          (fromMaybe (error $ "illegal value in txout: " <> show vl) $ toCompact vl))
+      trace
+        ( "txout : "
+            ++ ( show
+                   ( heapWords
+                       ( TxOutCompact @era
+                           (compactAddr addr)
+                           (fromMaybe (error $ "illegal value in txout: " <> show vl) $ toCompact vl)
+                       )
+                   )
+               )
+            ++ "\n"
+        )
+        ( TxOutCompact @era
+            (compactAddr addr)
+            (fromMaybe (error $ "illegal value in txout: " <> show vl) $ toCompact vl)
+        )
 
 {-# COMPLETE TxOut #-}
 
@@ -1004,9 +1017,12 @@ instance
   ToCBOR (TxIn crypto)
   where
   toCBOR (TxInCompact txId index) =
-    encodeListLen 2
-      <> toCBOR txId
-      <> toCBOR index
+    trace
+      ("txin : " ++ (show (heapWords $ TxInCompact @crypto txId index)) ++ "\n")
+      ( encodeListLen 2
+          <> toCBOR txId
+          <> toCBOR index
+      )
 
 instance
   CC.Crypto crypto =>
@@ -1024,9 +1040,12 @@ instance-- use the weakest constraint necessary
   ToCBOR (TxOut era)
   where
   toCBOR (TxOutCompact addr coin) =
-    encodeListLen 2
-      <> toCBOR addr
-      <> toCBOR coin
+    seq
+      (trace ("txout : " ++ (show (heapWords $ TxOutCompact @era addr coin) ++ "\n")) "")
+      ( encodeListLen 2
+          <> toCBOR addr
+          <> toCBOR coin
+      )
 
 instance-- use the weakest constraint necessary
 

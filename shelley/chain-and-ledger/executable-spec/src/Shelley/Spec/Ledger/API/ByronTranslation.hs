@@ -39,7 +39,7 @@ import Shelley.Spec.Ledger.Slot
 -- We don't care about the type that is hashed, which will differ going from
 -- Byron to Shelley, we just use the hashes as IDs.
 translateTxIdByronToShelley ::
-  (CC.Crypto c, CC.ADDRHASH c ~ Crypto.Blake2b_224) =>
+  (CC.Crypto c, CC.ADDRHASH c ~ Crypto.Blake2b_256) =>
   Byron.TxId ->
   TxId c
 translateTxIdByronToShelley =
@@ -63,7 +63,7 @@ translateCompactTxOutByronToShelley (Byron.CompactTxOut compactAddr amount) =
     (CompactCoin (Byron.unsafeGetLovelace amount))
 
 translateCompactTxInByronToShelley ::
-  (CC.Crypto c, CC.ADDRHASH c ~ Crypto.Blake2b_224) =>
+  (CC.Crypto c, CC.ADDRHASH c ~ Crypto.Blake2b_256) =>
   Byron.CompactTxIn ->
   TxIn c
 translateCompactTxInByronToShelley (Byron.CompactTxInUtxo compactTxId idx) =
@@ -73,7 +73,7 @@ translateCompactTxInByronToShelley (Byron.CompactTxInUtxo compactTxId idx) =
 
 translateUTxOByronToShelley ::
   forall c.
-  (CC.Crypto c, CC.ADDRHASH c ~ Crypto.Blake2b_224) =>
+  (CC.Crypto c, CC.ADDRHASH c ~ Crypto.Blake2b_256) =>
   Byron.UTxO ->
   UTxO (ShelleyEra c)
 translateUTxOByronToShelley (Byron.UTxO utxoByron) =
@@ -87,7 +87,7 @@ translateUTxOByronToShelley (Byron.UTxO utxoByron) =
 
 translateToShelleyLedgerState ::
   forall c.
-  (CC.Crypto c, CC.ADDRHASH c ~ Crypto.Blake2b_224) =>
+  (CC.Crypto c, CC.ADDRHASH c ~ Crypto.Blake2b_256) =>
   ShelleyGenesis (ShelleyEra c) ->
   EpochNo ->
   Byron.ChainValidationState ->

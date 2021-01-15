@@ -277,4 +277,4 @@ instance Cardano.Ledger.Crypto.Crypto C_crypto where
   type VRF C_crypto = VRF Original.C_Crypto
   type DSIGN C_crypto = DSIGN.Ed25519DSIGN
   type HASH C_crypto = HASH Original.C_Crypto
-  type ADDRHASH C_crypto = Hash.Blake2b_224
+  type ADDRHASH C_crypto = Hash.Blake2b_256

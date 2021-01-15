@@ -43,7 +43,7 @@ module Shelley.Spec.Ledger.UTxO
     scriptCred,
     scriptStakeCred,
     txinsScript,
-    sizeUTxOEntryNoVal
+    sizeUTxOEntryNoVal,
   )
 where
 
@@ -110,8 +110,8 @@ import Shelley.Spec.Ledger.TxBody
     TxOut (..),
     Wdrl (..),
     WitVKey (..),
-    constHWTxOut,
     constHWTxIn,
+    constHWTxOut,
     getRwdCred,
     pattern DeRegKey,
     pattern Delegate,
@@ -138,7 +138,9 @@ newtype UTxO era = UTxO {unUTxO :: Map (TxIn (Crypto era)) (Core.TxOut era)}
   deriving (Generic)
 
 -- heapwords for just a single entry in a UTxO map
--- *not including the Value*
+
+-- * not including the Value*
+
 sizeUTxOEntryNoVal :: TxIn era -> TxOut era -> Int
 sizeUTxOEntryNoVal tin tout = 6 + (constHWTxIn tin) + (constHWTxOut tout)
 

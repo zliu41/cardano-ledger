@@ -108,7 +108,7 @@ instance CryptoClass.Crypto BenchCrypto where
   type KES BenchCrypto = Sum6KES Ed25519DSIGN Blake2b_256
   type VRF BenchCrypto = PraosVRF
   type HASH BenchCrypto = Blake2b_256
-  type ADDRHASH BenchCrypto = Blake2b_224
+  type ADDRHASH BenchCrypto = Blake2b_256
 
 instance PraosCrypto BenchCrypto
 
@@ -486,7 +486,7 @@ main = do
             ( \cs ->
                 bench "createRUpd" $ whnf (createRUpd testGlobals) cs
             ),
-           env
+          env
             (generate $ genChainInEpoch 5)
             ( \cs ->
                 bench "createRUpdWithProvenance" $ whnf (createRUpdWithProv testGlobals) cs

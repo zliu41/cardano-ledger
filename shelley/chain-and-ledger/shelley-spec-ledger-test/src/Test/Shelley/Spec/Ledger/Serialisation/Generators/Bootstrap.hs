@@ -33,4 +33,3 @@ genSignature =
 
 genBootstrapAddress :: Gen (BootstrapAddress crypto)
 genBootstrapAddress = BootstrapAddress <$> hedgehog Byron.genAddress
-

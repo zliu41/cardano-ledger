@@ -16,7 +16,7 @@ where
 import qualified Cardano.Chain.Common as Byron
 import Cardano.Crypto.DSIGN.Ed25519 (Ed25519DSIGN)
 import Cardano.Crypto.Hash (Hash (..), HashAlgorithm (..), hashFromBytes, sizeHash)
-import Cardano.Crypto.Hash.Blake2b (Blake2b_224, Blake2b_256)
+import Cardano.Crypto.Hash.Blake2b (Blake2b_256)
 import Cardano.Crypto.KES.Sum
 import Cardano.Crypto.VRF.Simple (SimpleVRF)
 import Cardano.Ledger.Crypto (Crypto (..))
@@ -141,7 +141,7 @@ instance Cardano.Ledger.Crypto.Crypto ShelleyCrypto where
   type KES ShelleyCrypto = Sum7KES Ed25519DSIGN Blake2b_256
   type VRF ShelleyCrypto = SimpleVRF
   type HASH ShelleyCrypto = Blake2b_256
-  type ADDRHASH ShelleyCrypto = Blake2b_224
+  type ADDRHASH ShelleyCrypto = Blake2b_256
 
 data Shelley
 
@@ -215,17 +215,17 @@ goldenTests_ShelleyCrypto =
     ptr :: Ptr
     ptr = Ptr (SlotNo 128) 2 3
     -- 32-byte verification key is expected, vk, ie., public key without chain code.
-    -- The verification key undergoes Blake2b_224 hashing
+    -- The verification key undergoes Blake2b_256 hashing
     -- and should be 28-byte in the aftermath
     keyBlake2b224 :: BS.ByteString -> Credential kh ShelleyCrypto
     keyBlake2b224 vk =
       KeyHashObj . KeyHash . fromJust . hashFromBytes $ hk
       where
-        hash = digest (Proxy :: Proxy Blake2b_224)
+        hash = digest (Proxy :: Proxy Blake2b_256)
         vk' = invariantSize 32 vk
         hk =
           invariantSize
-            (fromIntegral $ sizeHash (Proxy :: Proxy Blake2b_224))
+            (fromIntegral $ sizeHash (Proxy :: Proxy Blake2b_256))
             (hash vk')
     invariantSize :: HasCallStack => Int -> BS.ByteString -> BS.ByteString
     invariantSize expectedLength bytes

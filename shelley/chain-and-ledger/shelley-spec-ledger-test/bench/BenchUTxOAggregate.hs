@@ -10,8 +10,8 @@ module BenchUTxOAggregate where
 import Cardano.Ledger.Compactible (toCompact)
 import qualified Cardano.Ledger.Val as Val
 import Control.Iterate.SetAlgebra (compile, compute, run)
-import Control.SetAlgebra (Bimap, biMapFromList, dom, (▷), (◁))
 import Control.Monad (replicateM)
+import Control.SetAlgebra (Bimap, biMapFromList, dom, (▷), (◁))
 import Data.Map (Map)
 import qualified Data.Map as Map
 import Data.Maybe (fromJust)
@@ -56,12 +56,12 @@ genTestCase numUTxO numAddr = do
   addrs :: [Addr C_Crypto] <- replicateM numAddr arbitrary
   let packedAddrs = Seq.fromList addrs
   txOuts <- replicateM numUTxO $ do
-      i <- choose (0, numAddr -1)
-      let addr = Seq.index packedAddrs i
-      pure $
-        TxOutCompact
-          (compactAddr addr)
-          (fromJust $ toCompact $ Val.inject (Coin $ fromIntegral i))
+    i <- choose (0, numAddr -1)
+    let addr = Seq.index packedAddrs i
+    pure $
+      TxOutCompact
+        (compactAddr addr)
+        (fromJust $ toCompact $ Val.inject (Coin $ fromIntegral i))
   let mktxid i = TxId $ mkDummyHash i
   let mktxin i = TxIn (mktxid i) (fromIntegral i)
   let utxo = Map.fromList $ zip (mktxin <$> [1 ..]) txOuts

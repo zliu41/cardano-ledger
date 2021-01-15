@@ -15,7 +15,7 @@ module Test.Shelley.Spec.Ledger.Serialisation.CDDL
 where
 
 import Cardano.Crypto.DSIGN.Ed25519 (Ed25519DSIGN)
-import Cardano.Crypto.Hash.Blake2b (Blake2b_224, Blake2b_256)
+import Cardano.Crypto.Hash.Blake2b (Blake2b_256)
 import Cardano.Crypto.KES.Sum
 import Cardano.Crypto.VRF.Praos (PraosVRF)
 import Cardano.Ledger.Crypto (Crypto (..))
@@ -68,7 +68,7 @@ instance Cardano.Ledger.Crypto.Crypto ShelleyC where
   type KES ShelleyC = Sum6KES Ed25519DSIGN Blake2b_256
   type VRF ShelleyC = PraosVRF
   type HASH ShelleyC = Blake2b_256
-  type ADDRHASH ShelleyC = Blake2b_224
+  type ADDRHASH ShelleyC = Blake2b_256
 
 type ShelleyE = ShelleyEra ShelleyC
 

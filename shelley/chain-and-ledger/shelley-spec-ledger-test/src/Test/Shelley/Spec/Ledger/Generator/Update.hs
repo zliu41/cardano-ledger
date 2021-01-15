@@ -14,6 +14,7 @@ module Test.Shelley.Spec.Ledger.Generator.Update
   )
 where
 
+import Cardano.Ledger.Era (Crypto, Era)
 import Data.Map.Strict (Map)
 import qualified Data.Map.Strict as Map
 import Data.Maybe (catMaybes)
@@ -32,8 +33,6 @@ import Shelley.Spec.Ledger.BaseTypes
     mkNonceFromNumber,
   )
 import Shelley.Spec.Ledger.Coin (Coin (..))
-
-import Cardano.Ledger.Era (Crypto, Era)
 import Shelley.Spec.Ledger.Keys
   ( GenDelegPair (..),
     GenDelegs (..),
@@ -71,7 +70,7 @@ import Test.Shelley.Spec.Ledger.Generator.Core
 import Test.Shelley.Spec.Ledger.Utils
   ( GenesisKeyPair,
     epochFromSlotNo,
-    unsafeMkUnitInterval
+    unsafeMkUnitInterval,
   )
 
 genRationalInThousands :: HasCallStack => Integer -> Integer -> Gen Rational

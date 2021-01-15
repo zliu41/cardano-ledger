@@ -15,8 +15,8 @@ module Test.Shelley.Spec.Ledger.UnitTests (unitTests) where
 import Cardano.Binary (serialize')
 import Cardano.Crypto.DSIGN.Class (SignKeyDSIGN, VerKeyDSIGN)
 import qualified Cardano.Crypto.VRF as VRF
-import qualified Cardano.Ledger.Crypto as CC (Crypto)
 import Cardano.Ledger.Crypto (DSIGN, VRF)
+import qualified Cardano.Ledger.Crypto as CC (Crypto)
 import Cardano.Ledger.Val ((<+>), (<->))
 import Control.State.Transition.Extended (PredicateFailure, TRC (..))
 import Control.State.Transition.Trace (checkTrace, (.-), (.->))

@@ -21,6 +21,9 @@ where
 import Cardano.Binary (FromCBOR (..), ToCBOR (..))
 import Cardano.Ledger.Compactible
 import qualified Cardano.Ledger.Torsor as Torsor
+import Cardano.Prelude
+  ( HeapWords,
+  )
 import Control.DeepSeq (NFData)
 import Data.Aeson (FromJSON, ToJSON)
 import Data.Group (Abelian, Group (..))
@@ -31,9 +34,6 @@ import Data.Word (Word64)
 import GHC.Generics (Generic)
 import NoThunks.Class (NoThunks (..))
 import Quiet
-import Cardano.Prelude
-  ( HeapWords 
-  )
 
 -- | The amount of value held by a transaction output.
 newtype Coin = Coin {unCoin :: Integer}
@@ -83,7 +83,7 @@ rationalToCoinViaFloor r = Coin . floor $ r
 -- with an erroring bounds check here. where should this really live?
 instance Compactible Coin where
   newtype CompactForm Coin = CompactCoin Word64
-    deriving (Eq, Show, NoThunks, NFData, Typeable)
+    deriving (Eq, Show, NoThunks, NFData, Typeable, HeapWords)
 
   toCompact (Coin c) = CompactCoin <$> integerToWord64 c
   fromCompact (CompactCoin c) = word64ToCoin c

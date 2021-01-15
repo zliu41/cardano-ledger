@@ -30,7 +30,11 @@ import qualified Cardano.Ledger.Crypto as CC
 import Cardano.Ledger.Era (Crypto (..))
 import Cardano.Ledger.Shelley (ShelleyEra)
 import Cardano.Ledger.Shelley.Constraints (UsesAuxiliary, UsesScript, UsesTxBody)
-import Cardano.Prelude (LByteString)
+import Cardano.Prelude
+  ( HeapWords (..),
+    LByteString,
+    panic,
+  )
 import Codec.CBOR.Encoding (Encoding (..), Tokens (..))
 import Data.ByteString (ByteString)
 import qualified Data.ByteString.Char8 as BS (pack)
@@ -42,6 +46,7 @@ import Data.Ratio ((%))
 import qualified Data.Sequence.Strict as StrictSeq
 import qualified Data.Set as Set
 import Data.String (fromString)
+import Debug.Trace
 import Numeric.Natural (Natural)
 import Shelley.Spec.Ledger.API
   ( MultiSig,
@@ -775,8 +780,8 @@ tests =
                 <> S e
             ),
       -- checkEncodingCBOR "minimal_txn_body"
-      let tin = TxIn @C_Crypto genesisId 1
-          tout = TxOut @C testAddrE (Coin 2)
+      let tin = trace ("txin : " ++ (show (heapWords $ TxIn @C_Crypto genesisId 1)) ++ "\n") (TxIn @C_Crypto genesisId 1)
+          tout = trace ("txout : " ++ (show (heapWords $ TxOut @C testAddrE (Coin 2)) ++ "\n")) (TxOut @C testAddrE (Coin 2))
        in checkEncodingCBORAnnotated
             "txbody"
             ( TxBody @C -- minimal transaction body

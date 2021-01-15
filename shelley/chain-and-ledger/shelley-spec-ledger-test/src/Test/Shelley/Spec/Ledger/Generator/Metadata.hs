@@ -2,7 +2,7 @@
 
 module Test.Shelley.Spec.Ledger.Generator.Metadata
   ( genMetadata,
-    genMetadata'
+    genMetadata',
   )
 where
 

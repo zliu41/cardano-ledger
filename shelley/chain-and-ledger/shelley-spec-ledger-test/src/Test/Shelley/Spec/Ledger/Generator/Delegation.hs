@@ -268,7 +268,7 @@ genDelegation ::
   Constants ->
   KeyPairs (Crypto era) ->
   [(Core.Script era, Core.Script era)] ->
-  DPState (Crypto era)  ->
+  DPState (Crypto era) ->
   Gen (Maybe (DCert (Crypto era), CertCred era))
 genDelegation
   Constants {frequencyKeyCredDelegation, frequencyScriptCredDelegation}
