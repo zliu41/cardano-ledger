@@ -27,6 +27,9 @@ where
 
 import Cardano.Binary (Decoder, Encoding, decodeWord64, toCBOR)
 import Cardano.Ledger.Compactible (Compactible (..))
+import Cardano.Prelude
+  ( heapWordsUnpacked,
+  )
 import Data.Group (Abelian)
 import Shelley.Spec.Ledger.Coin (Coin (..), DeltaCoin (..))
 
@@ -130,45 +133,30 @@ scaledMinDeposit v (Coin mv)
   -- The calculation should represent this equation
   -- minValueParameter / coinUTxOSize = actualMinValue / valueUTxOSize
   -- actualMinValue = (minValueParameter / coinUTxOSize) * valueUTxOSize
-  | otherwise = Coin $ adaPerUTxOByte * (utxoEntrySizeWithoutVal + size v) -- round down
+  | otherwise = Coin $ adaPerUTxOByte * (utxoEntrySizeWithoutVal + size v)
   where
-    -- address hash length is always same as Policy ID length
-    addrHashLen :: Integer
-    addrHashLen = 28
+    -- lengths obtained from tracing on HeapWords of inputs and outputs, plus 6 for Map overhead
+    txoutLen :: Integer
+    txoutLen = 14
 
-    smallArray :: Integer
-    smallArray = 1
+    txinLen :: Integer
+    txinLen = 7
 
-    hashLen :: Integer
-    hashLen = 32
+    -- unpacked CompactCoin Word64 size in words
+    coinSize :: Integer
+    coinSize = fromIntegral $ heapWordsUnpacked (Coin 0)
 
-    uint :: Integer
-    uint = 5
+    -- bytes in a word
+    wordSize :: Integer
+    wordSize = 8
 
-    hashObj :: Integer
-    hashObj = 2 + hashLen
-
-    addrHeader :: Integer
-    addrHeader = 1
-
-    address :: Integer
-    address = 2 + addrHeader + 2 * addrHashLen
-
-    -- input size
-    inputSize :: Integer
-    inputSize = smallArray + uint + hashObj
-
-    -- size of output not including the Val (compute that part with vsize later)
-    outputSizeWithoutVal :: Integer
-    outputSizeWithoutVal = smallArray + address
-
-    -- size of the UTxO entry (ie the space the scaled minUTxOValue deposit pays)
     utxoEntrySizeWithoutVal :: Integer
-    utxoEntrySizeWithoutVal = inputSize + outputSizeWithoutVal
+    utxoEntrySizeWithoutVal = (6 + txoutLen + txinLen) * wordSize
 
-    -- parameter is implicit from the minAdaValue parameter
+    -- how much ada does a byte of UTxO space cost, calculated from minAdaValue PP
+    -- round down
     adaPerUTxOByte :: Integer
-    adaPerUTxOByte = quot mv (utxoEntrySizeWithoutVal + uint)
+    adaPerUTxOByte = quot mv (utxoEntrySizeWithoutVal + coinSize * wordSize)
 
 -- =============================================================
 

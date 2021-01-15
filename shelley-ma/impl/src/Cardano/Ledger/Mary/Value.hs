@@ -24,6 +24,7 @@ module Cardano.Ledger.Mary.Value
   )
 where
 
+import qualified Data.List as LS
 import Cardano.Binary
   ( Decoder,
     DecoderError (..),
@@ -154,26 +155,74 @@ instance CC.Crypto crypto => Val (Value crypto) where
   modifyCoin f (Value c m) = Value n m where (Coin n) = f (Coin c)
   pointwise p (Value c x) (Value d y) = (p c d) && (pointWise (pointWise p) x y)
 
-  size (Value _ v) =
-    -- add uint for the Coin portion in this size calculation
-    foldr accum uint v
-    where
-      -- add addrHashLen for each Policy ID
-      accum u ans = foldr accumIns (ans + policyIdLen) u
-        where
-          -- add assetNameLen and uint for each asset of that Policy ID
-          accumIns _ ans1 = ans1 + assetNameLen + uint
-      -- TODO move these constants somewhere (they are also specified in CDDL)
-      uint :: Integer
-      uint = 9
+-- CompactValueAdaOnly - 2 words
+-- CompactValueMultiAsset
+--  for each distinct asset we have 1.5 words (round up)
+--   4 -- heap object  (3 fields)
+--   2 ShortByteString
+--   size of asset names + pids
 
-      assetNameLen :: Integer
-      assetNameLen = 32
+  -- = CompactValueAdaOnly {-# UNPACK #-} !Word64
+  -- | CompactValueMultiAsset
+  --  adaWords size :   {-# UNPACK #-} !Word64 -- ada
+  --  noMAs size :    {-# UNPACK #-} !Word -- number of ma's
+  --  repSize   {-# UNPACK #-} !ShortByteString -- rep
+ --
+ -- The rep consists of five parts
 
-      -- TODO dig up these constraints from Era
-      -- address hash length is always same as Policy ID length
-      policyIdLen :: Integer
-      policyIdLen = 28
+      --
+ --   A) a sequence of Word64s representing quantities
+ --   B) a sequence of Word16s representing policyId indices
+ --   C) Word16s representing asset name indices
+ --      (as a special case for empty asset names,
+ --       the index points to the end of the string)
+ --   D) a blob of policyIDs
+ --   E) a blob of asset names
+
+  size (Value _ v)
+    -- based on size in words stored in the compact representation of Value
+    | v == mempty = fromIntegral $ adaWords * wordLength
+    | otherwise =
+      fromIntegral $  wordLength * (adaWords + noMAs) + repSize
+      where
+        repSize  = wordLength * quanSize * totalNoAssets
+          + totalNoAssets * (index * wordLength)
+          + pidLength * noPIDs
+          + totalNoAssets * (index * wordLength)
+          + assetNamesLength
+          where
+            noPIDs = length $ Map.keys v
+            allAssets :: [AssetName]
+            allAssets = (Map.foldr (\a b -> (Map.keys a) ++ b) [] v)
+            totalNoAssets = length allAssets
+            assetNames = LS.nub $ LS.sort allAssets
+            noAssetNames = length assetNames
+            assetNamesLength = LS.foldr (\(AssetName a) b -> (BS.length a) + b) 0 assetNames
+
+
+-- 64 bit machine word length
+wordLength :: Int
+wordLength = 8
+
+-- ada is represented by 2 words
+adaWords :: Int
+adaWords = 2
+
+-- number of words used to represent quantity
+quanSize :: Int
+quanSize = 1
+
+-- number of bytes to represent index
+index :: Int
+index = 2
+
+-- number of words used to store number of MAs in a value
+noMAs :: Int
+noMAs = 1
+
+-- length of PID in bytes
+pidLength :: Int
+pidLength = 28
 
 -- ==============================================================
 -- CBOR
