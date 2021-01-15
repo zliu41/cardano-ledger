@@ -69,6 +69,7 @@ import Data.Coders
   )
 import Data.Group (Abelian, Group (..))
 import Data.Int (Int64)
+import qualified Data.List as LS
 import Data.Map.Internal
   ( Map (..),
     link,
@@ -154,26 +155,71 @@ instance CC.Crypto crypto => Val (Value crypto) where
   modifyCoin f (Value c m) = Value n m where (Coin n) = f (Coin c)
   pointwise p (Value c x) (Value d y) = (p c d) && (pointWise (pointWise p) x y)
 
-  size (Value _ v) =
-    -- add uint for the Coin portion in this size calculation
-    foldr accum uint v
+  {- Explanation of the Value size calculation :
+
+  The size calculation is to approximate the number of bytes in a
+  compact representation of Value (CompactValue). CompactValue has two constructors :
+
+  1. CompactValueAdaOnly is used when v == mempty
+  it takes a Word64 to represent an ada amount (unpacked in the compact representation)
+
+  2. CompactValueMultiAsset (used otherwise) takes an ada amount and token bundle data
+    i) Word64 (ada)
+    ii) Word (number of distinct types of multi-assets in the bundle)
+    iii) rep :
+      The rep consists of five parts
+        A) a sequence of Word64s representing quantities
+        B) a sequence of Word16s representing policyId indices
+        C) Word16s representing asset name indices
+           (as a special case for empty asset names,
+            the index points to the end of the string)
+        D) a blob of policyIDs
+        E) a blob of asset names
+  -}
+
+  size (Value _ v)
+    -- based on size in words stored in the compact representation of Value
+    | v == mempty = fromIntegral $ adaWords * wordLength
+    | otherwise =
+      fromIntegral $ wordLength * (adaWords + noMAs) + repSize
     where
-      -- add addrHashLen for each Policy ID
-      accum u ans = foldr accumIns (ans + policyIdLen) u
+      repSize =
+        wordLength * quanSize * totalNoAssets
+          + totalNoAssets * (index * wordLength)
+          + pidLength * noPIDs
+          + totalNoAssets * (index * wordLength)
+          + assetNamesLength
         where
-          -- add assetNameLen and uint for each asset of that Policy ID
-          accumIns _ ans1 = ans1 + assetNameLen + uint
-      -- TODO move these constants somewhere (they are also specified in CDDL)
-      uint :: Integer
-      uint = 9
+          noPIDs = length $ Map.keys v
+          allAssets :: [AssetName]
+          allAssets = (Map.foldr (\a b -> (Map.keys a) ++ b) [] v)
+          totalNoAssets = length allAssets
+          assetNames = LS.nub $ LS.sort allAssets
+          assetNamesLength = LS.foldr (\(AssetName a) b -> (BS.length a) + b) 0 assetNames
 
-      assetNameLen :: Integer
-      assetNameLen = 32
+-- 64 bit machine word length
+wordLength :: Int
+wordLength = 8
 
-      -- TODO dig up these constraints from Era
-      -- address hash length is always same as Policy ID length
-      policyIdLen :: Integer
-      policyIdLen = 28
+-- ada is represented by 2 words
+adaWords :: Int
+adaWords = 2
+
+-- number of words used to represent quantity
+quanSize :: Int
+quanSize = 1
+
+-- number of bytes to represent index
+index :: Int
+index = 2
+
+-- number of words used to store number of MAs in a value
+noMAs :: Int
+noMAs = 1
+
+-- length of PID in bytes
+pidLength :: Int
+pidLength = 28
 
 -- ==============================================================
 -- CBOR
