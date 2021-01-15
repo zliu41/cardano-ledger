@@ -155,29 +155,27 @@ instance CC.Crypto crypto => Val (Value crypto) where
   modifyCoin f (Value c m) = Value n m where (Coin n) = f (Coin c)
   pointwise p (Value c x) (Value d y) = (p c d) && (pointWise (pointWise p) x y)
 
--- CompactValueAdaOnly - 2 words
--- CompactValueMultiAsset
---  for each distinct asset we have 1.5 words (round up)
---   4 -- heap object  (3 fields)
---   2 ShortByteString
---   size of asset names + pids
+{- Explanation of the Value size calculation :
 
-  -- = CompactValueAdaOnly {-# UNPACK #-} !Word64
-  -- | CompactValueMultiAsset
-  --  adaWords size :   {-# UNPACK #-} !Word64 -- ada
-  --  noMAs size :    {-# UNPACK #-} !Word -- number of ma's
-  --  repSize   {-# UNPACK #-} !ShortByteString -- rep
- --
- -- The rep consists of five parts
+The size calculation is to approximate the number of bytes in a
+compact representation of Value (CompactValue). CompactValue has two constructors :
 
-      --
- --   A) a sequence of Word64s representing quantities
- --   B) a sequence of Word16s representing policyId indices
- --   C) Word16s representing asset name indices
- --      (as a special case for empty asset names,
- --       the index points to the end of the string)
- --   D) a blob of policyIDs
- --   E) a blob of asset names
+1. CompactValueAdaOnly is used when v == mempty
+it takes a Word64 to represent an ada amount (unpacked in the compact representation)
+
+2. CompactValueMultiAsset (used otherwise) takes an ada amount and token bundle data
+  i) Word64 (ada)
+  ii) Word (number of distinct types of multi-assets in the bundle)
+  iii) rep :
+    The rep consists of five parts
+      A) a sequence of Word64s representing quantities
+      B) a sequence of Word16s representing policyId indices
+      C) Word16s representing asset name indices
+         (as a special case for empty asset names,
+          the index points to the end of the string)
+      D) a blob of policyIDs
+      E) a blob of asset names
+-}
 
   size (Value _ v)
     -- based on size in words stored in the compact representation of Value
