@@ -70,6 +70,7 @@ import Data.Coders
   )
 import Data.Group (Abelian, Group (..))
 import Data.Int (Int64)
+import qualified Data.List as LS
 import Data.Map.Internal
   ( Map (..),
     link,
@@ -155,47 +156,46 @@ instance CC.Crypto crypto => Val (Value crypto) where
   modifyCoin f (Value c m) = Value n m where (Coin n) = f (Coin c)
   pointwise p (Value c x) (Value d y) = (p c d) && (pointWise (pointWise p) x y)
 
-{- Explanation of the Value size calculation :
+  {- Explanation of the Value size calculation :
 
-The size calculation is to approximate the number of bytes in a
-compact representation of Value (CompactValue). CompactValue has two constructors :
+  The size calculation is to approximate the number of bytes in a
+  compact representation of Value (CompactValue). CompactValue has two constructors :
 
-1. CompactValueAdaOnly is used when v == mempty
-it takes a Word64 to represent an ada amount (unpacked in the compact representation)
+  1. CompactValueAdaOnly is used when v == mempty
+  it takes a Word64 to represent an ada amount (unpacked in the compact representation)
 
-2. CompactValueMultiAsset (used otherwise) takes an ada amount and token bundle data
-  i) Word64 (ada)
-  ii) Word (number of distinct types of multi-assets in the bundle)
-  iii) rep :
-    The rep consists of five parts
-      A) a sequence of Word64s representing quantities
-      B) a sequence of Word16s representing policyId indices
-      C) Word16s representing asset name indices
-         (as a special case for empty asset names,
-          the index points to the end of the string)
-      D) a blob of policyIDs
-      E) a blob of asset names
--}
+  2. CompactValueMultiAsset (used otherwise) takes an ada amount and token bundle data
+    i) Word64 (ada)
+    ii) Word (number of distinct types of multi-assets in the bundle)
+    iii) rep :
+      The rep consists of five parts
+        A) a sequence of Word64s representing quantities
+        B) a sequence of Word16s representing policyId indices
+        C) Word16s representing asset name indices
+           (as a special case for empty asset names,
+            the index points to the end of the string)
+        D) a blob of policyIDs
+        E) a blob of asset names
+  -}
 
   size (Value _ v)
     -- based on size in words stored in the compact representation of Value
     | v == mempty = fromIntegral $ adaWords * wordLength
     | otherwise =
-      fromIntegral $  wordLength * (adaWords + noMAs) + repSize
-      where
-        repSize  = wordLength * quanSize * totalNoAssets
-          + totalNoAssets * (index * wordLength)
+      fromIntegral $ wordLength * (adaWords + noMAs) + repSize
+    where
+      repSize =
+        wordLength * quanSize * totalNoAssets
+          + 2 * totalNoAssets * (index * wordLength)
           + pidLength * noPIDs
-          + totalNoAssets * (index * wordLength)
           + assetNamesLength
-          where
-            noPIDs = length $ Map.keys v
-            allAssets :: [AssetName]
-            allAssets = (Map.foldr (\a b -> (Map.keys a) ++ b) [] v)
-            totalNoAssets = length allAssets
-            assetNames = LS.nub $ LS.sort allAssets
-            assetNamesLength = LS.foldr (\(AssetName a) b -> (BS.length a) + b) 0 assetNames
-
+        where
+          noPIDs = length $ Map.keys v
+          allAssets :: [AssetName]
+          allAssets = (Map.foldr (\a b -> (Map.keys a) ++ b) [] v)
+          totalNoAssets = length allAssets
+          assetNames = LS.nub $ LS.sort allAssets
+          assetNamesLength = LS.foldr (\(AssetName a) b -> (BS.length a) + b) 0 assetNames
 
 -- 64 bit machine word length
 wordLength :: Int
