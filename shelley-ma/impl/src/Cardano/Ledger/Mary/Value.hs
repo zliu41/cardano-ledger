@@ -196,7 +196,6 @@ instance CC.Crypto crypto => Val (Value crypto) where
             allAssets = (Map.foldr (\a b -> (Map.keys a) ++ b) [] v)
             totalNoAssets = length allAssets
             assetNames = LS.nub $ LS.sort allAssets
-            noAssetNames = length assetNames
             assetNamesLength = LS.foldr (\(AssetName a) b -> (BS.length a) + b) 0 assetNames
 
 
