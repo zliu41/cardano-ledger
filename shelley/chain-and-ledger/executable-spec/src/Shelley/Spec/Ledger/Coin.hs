@@ -21,9 +21,7 @@ where
 import Cardano.Binary (FromCBOR (..), ToCBOR (..))
 import Cardano.Ledger.Compactible
 import qualified Cardano.Ledger.Torsor as Torsor
-import Cardano.Prelude
-  ( HeapWords,
-  )
+import Cardano.Prelude (HeapWords)
 import Control.DeepSeq (NFData)
 import Data.Aeson (FromJSON, ToJSON)
 import Data.Group (Abelian, Group (..))

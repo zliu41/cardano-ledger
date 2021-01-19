@@ -24,7 +24,6 @@ module Cardano.Ledger.Mary.Value
   )
 where
 
-import qualified Data.List as LS
 import Cardano.Binary
   ( Decoder,
     DecoderError (..),
