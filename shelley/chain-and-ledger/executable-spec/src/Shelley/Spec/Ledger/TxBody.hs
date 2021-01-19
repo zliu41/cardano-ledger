@@ -88,7 +88,7 @@ import Cardano.Binary
 import Cardano.Ledger.AuxiliaryData (AuxiliaryDataHash)
 import Cardano.Ledger.Compactible
 import qualified Cardano.Ledger.Core as Core
-import qualified Cardano.Ledger.Crypto as CC (Crypto)
+import qualified Cardano.Ledger.Crypto as CC (Crypto, ADDRHASH)
 import Cardano.Ledger.Era
 import Cardano.Ledger.Shelley.Constraints (TransValue)
 import Cardano.Ledger.Val (DecodeNonNegative (..))
@@ -482,15 +482,12 @@ type TransTxOut (c :: Type -> Constraint) era =
     Compactible (Core.Value era)
   )
 
--- TODO do we add value size or ignore it?
-instance HeapWords (TxOut era) where
-  heapWords _ = 3 + HW.heapWordsUnpacked packed57Bytestring
-
--- the length of a shelley base address estimate (stake and payment are 28-long)
--- TODO do we want a different estimate here instead?
--- use real crypto
-packed57Bytestring :: ByteString
-packed57Bytestring = Char8.pack (replicate 57 'a')
+-- assume Shelley+ type address : payment addr, staking addr (same length as payment), plus 1 word overhead
+instance (CC.Crypto (Crypto era),
+  HeapWords (CompactForm (Core.Value era))) => HeapWords (TxOut era)
+  where
+    heapWords (TxOutCompact _ vl) = 3
+      + (1 + 2 * fromIntegral (HS.sizeHash (Proxy :: Proxy (CC.ADDRHASH (Crypto era))))) + heapWords vl
 
 instance
   (TransTxOut Show era, Era era) => -- Use the weakest constraint possible here

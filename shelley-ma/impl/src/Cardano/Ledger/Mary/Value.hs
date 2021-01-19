@@ -161,17 +161,12 @@ instance CC.Crypto crypto => Val (Value crypto) where
       -- when Value contains ada as well as other tokens
       -- sums up :
         -- i) adaWords : the space taken up by the ada amount
-        -- ii) noMAs : the space taken by number of words used to store number of non-ada assets in a value
+        -- ii) numberMulAssets : the space taken by number of words used to store number of non-ada assets in a value
         -- iii) the space taken up by the rest of the representation (quantities, PIDs, AssetNames, indeces)
-        -- these are all unpacked, so there is no extra overhead
-    | otherwise   = fromIntegral $ adaWords + noMAs + (roundupBytesToWords $ repSize v)
+    | otherwise   = fromIntegral $ adaWords + numberMulAssets + (roundupBytesToWords $ representationSize v) + repOverhead
 
 instance CC.Crypto crypto => HeapWords (Value crypto) where
    heapWords v = fromIntegral $ size v
-
--- TODO temp repSize
-repSize :: Map (PolicyID crypto) (Map AssetName Integer) -> Int
-repSize _ = 0
 
 -- space (in Word64s) taken up by the ada amount
 adaWords :: Int
@@ -181,9 +176,13 @@ adaWords = 1
 wordLength :: Int
 wordLength = 8
 
+-- overhead in MA compact rep
+repOverhead :: Int
+repOverhead = 4 + 2
+
 -- number of words used to store number of MAs in a value
-noMAs :: Int
-noMAs = 1
+numberMulAssets :: Int
+numberMulAssets = 1
 
 -- converts bytes to words (rounding up)
 roundupBytesToWords :: Int -> Int
@@ -191,8 +190,8 @@ roundupBytesToWords b
   | r == 0 = q
   | r > 0  = q + 1
   where
-    q = quot (b + (wordLength - 1)) wordLength
-    r = rem (b + (wordLength - 1)) wordLength
+    q = quot b wordLength
+    r = rem b wordLength
 
 -- ==============================================================
 -- CBOR

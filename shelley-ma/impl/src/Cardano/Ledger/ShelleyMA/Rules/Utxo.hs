@@ -119,30 +119,25 @@ scaledMinDeposit v (Coin mv)
   -- The calculation should represent this equation
   -- minValueParameter / coinUTxOSize = actualMinValue / valueUTxOSize
   -- actualMinValue = (minValueParameter / coinUTxOSize) * valueUTxOSize
-  --
-  | otherwise = Coin $ max mv (adaPerUTxOByte * (utxoEntrySizeWithoutVal + Val.size v))
+  | otherwise = Coin $ max mv (adaPerUTxOWord * (utxoEntrySizeWithoutVal + Val.size v))
   where
     -- lengths obtained from tracing on HeapWords of inputs and outputs
     -- obtained experimentally, and number used here
     -- units are Word64s
-    txoutLen = 14
+    txoutLenNoVal = 14
     txinLen  = 7
 
     -- unpacked CompactCoin Word64 size in Word64s
     coinSize :: Integer
     coinSize = fromIntegral $ heapWordsUnpacked (CompactCoin 0)
 
-    -- bytes in a Word64
-    wordSize :: Integer
-    wordSize = 8
-
     utxoEntrySizeWithoutVal :: Integer
-    utxoEntrySizeWithoutVal = (6 + txoutLen + txinLen) * wordSize
+    utxoEntrySizeWithoutVal = 6 + txoutLenNoVal + txinLen
 
-    -- how much ada does a byte of UTxO space cost, calculated from minAdaValue PP
+    -- how much ada does a Word64 of UTxO space cost, calculated from minAdaValue PP
     -- round down
-    adaPerUTxOByte :: Integer
-    adaPerUTxOByte = quot mv (utxoEntrySizeWithoutVal + coinSize * wordSize)
+    adaPerUTxOWord :: Integer
+    adaPerUTxOWord = quot mv (utxoEntrySizeWithoutVal + coinSize)
 
 
 data UtxoPredicateFailure era
