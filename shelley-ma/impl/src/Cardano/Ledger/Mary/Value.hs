@@ -70,7 +70,6 @@ import Data.Coders
   )
 import Data.Group (Abelian, Group (..))
 import Data.Int (Int64)
-import qualified Data.List as LS
 import Data.Map.Internal
   ( Map (..),
     link,
