@@ -52,7 +52,7 @@ newtype Coin = Coin {unCoin :: Integer}
   deriving newtype (PartialOrd, FromCBOR, ToCBOR, HeapWords)
 
 newtype DeltaCoin = DeltaCoin Integer
-  deriving (Eq, Ord, Generic, Enum, NoThunks, NFData, FromCBOR, ToCBOR)
+  deriving (Eq, Ord, Generic, Enum, NoThunks, NFData, FromCBOR, ToCBOR, HeapWords)
   deriving (Show) via Quiet DeltaCoin
   deriving (Semigroup, Monoid, Group, Abelian) via Sum Integer
   deriving newtype (PartialOrd)

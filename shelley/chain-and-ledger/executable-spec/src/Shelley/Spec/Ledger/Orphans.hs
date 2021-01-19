@@ -1,4 +1,7 @@
 {-# OPTIONS_GHC -Wno-orphans #-}
+{-# LANGUAGE StandaloneDeriving #-}
+{-# LANGUAGE DerivingStrategies #-}
+{-# LANGUAGE GeneralizedNewtypeDeriving #-}
 
 module Shelley.Spec.Ledger.Orphans where
 
@@ -23,6 +26,8 @@ import NoThunks.Class (NoThunks (..))
 import Shelley.Spec.Ledger.BaseTypes (Network (..), StrictMaybe (..), UnitInterval, interval0)
 import Shelley.Spec.Ledger.Keys (KeyHash (..))
 import Shelley.Spec.Ledger.Slot (BlockNo, EpochNo)
+import Cardano.Prelude (HeapWords (..))
+import qualified Cardano.Crypto.Hash.Class as HS
 
 instance FromJSON IPv4 where
   parseJSON =
@@ -107,3 +112,5 @@ instance Default (Hash a b) where
 
 instance Default Bool where
   def = False
+
+deriving newtype instance HeapWords (HS.Hash h a)

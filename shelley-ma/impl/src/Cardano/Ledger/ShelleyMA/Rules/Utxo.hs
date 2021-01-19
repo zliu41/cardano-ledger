@@ -26,6 +26,7 @@ import Cardano.Ledger.Shelley.Constraints
     UsesTxOut,
     UsesValue,
   )
+import Cardano.Prelude (heapWordsUnpacked)
 import Cardano.Ledger.ShelleyMA.Timelocks
 import Cardano.Ledger.ShelleyMA.TxBody (TxBody)
 import Cardano.Ledger.Torsor (Torsor (..))
@@ -112,26 +113,26 @@ See the formal specification for details.
 
 -- This scaling function is right for UTxO, not EUTxO
 --
-scaledMinDeposit :: (Val v) => v -> Coin -> Coin
+scaledMinDeposit :: (Val.Val v) => v -> Coin -> Coin
 scaledMinDeposit v (Coin mv)
-  | inject (coin v) == v = Coin mv -- without non-Coin assets, scaled deposit should be exactly minUTxOValue
+  | Val.inject (Val.coin v) == v = Coin mv -- without non-Coin assets, scaled deposit should be exactly minUTxOValue
   -- The calculation should represent this equation
   -- minValueParameter / coinUTxOSize = actualMinValue / valueUTxOSize
   -- actualMinValue = (minValueParameter / coinUTxOSize) * valueUTxOSize
-  | otherwise = Coin $ max mv (adaPerUTxOByte * (utxoEntrySizeWithoutVal + size v))
+  --
+  | otherwise = Coin $ max mv (adaPerUTxOByte * (utxoEntrySizeWithoutVal + Val.size v))
   where
     -- lengths obtained from tracing on HeapWords of inputs and outputs
-    txoutLen :: Integer
+    -- obtained experimentally, and number used here
+    -- units are Word64s
     txoutLen = 14
+    txinLen  = 7
 
-    txinLen :: Integer
-    txinLen = 7
-
-    -- unpacked CompactCoin Word64 size in words
+    -- unpacked CompactCoin Word64 size in Word64s
     coinSize :: Integer
     coinSize = fromIntegral $ heapWordsUnpacked (CompactCoin 0)
 
-    -- bytes in a word
+    -- bytes in a Word64
     wordSize :: Integer
     wordSize = 8
 
@@ -303,7 +304,7 @@ utxoTransition = do
                     Val.pointwise
                       (>=)
                       v
-                      (Val.inject $ Val.scaledMinDeposit v minUTxOValue)
+                      (Val.inject $ scaledMinDeposit v minUTxOValue)
           )
           outputs
   null outputsTooSmall ?! OutputTooSmallUTxO outputsTooSmall

@@ -49,7 +49,7 @@ import Cardano.Ledger.Val
     EncodeMint (..),
     Val (..),
   )
-import Cardano.Prelude (cborError)
+import Cardano.Prelude (cborError, HeapWords (..))
 import Control.DeepSeq (NFData (..))
 import Control.Monad (guard)
 import Data.Array (Array)
@@ -168,9 +168,12 @@ instance CC.Crypto crypto => Val (Value crypto) where
         -- these are all unpacked, so there is no extra overhead
     | otherwise   = fromIntegral $ adaWords + noMAs + (roundupBytesToWords $ repSize v)
 
+instance CC.Crypto crypto => HeapWords (Value crypto) where
+   heapWords v = fromIntegral $ size v
+
 -- TODO temp repSize
 repSize :: Map (PolicyID crypto) (Map AssetName Integer) -> Int
-repSize = 0
+repSize _ = 0
 
 -- space (in Word64s) taken up by the ada amount
 adaWords :: Int
@@ -186,7 +189,12 @@ noMAs = 1
 
 -- converts bytes to words (rounding up)
 roundupBytesToWords :: Int -> Int
-roundupBytesToWords b = ceiling $ (b + (wordLength - 1)) / wordLength
+roundupBytesToWords b
+  | r == 0 = q
+  | r > 0  = q + 1
+  where
+    q = quot (b + (wordLength - 1)) wordLength
+    r = rem (b + (wordLength - 1)) wordLength
 
 -- ==============================================================
 -- CBOR

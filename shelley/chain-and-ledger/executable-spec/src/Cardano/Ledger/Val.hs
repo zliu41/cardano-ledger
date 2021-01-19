@@ -18,7 +18,6 @@ module Cardano.Ledger.Val
     scale,
     invert,
     sumVal,
-    scaledMinDeposit,
     DecodeNonNegative (..),
     DecodeMint (..),
     EncodeMint (..),
@@ -27,9 +26,6 @@ where
 
 import Cardano.Binary (Decoder, Encoding, decodeWord64, toCBOR)
 import Cardano.Ledger.Compactible (Compactible (..))
-import Cardano.Prelude
-  ( heapWordsUnpacked,
-  )
 import Data.Group (Abelian)
 import Shelley.Spec.Ledger.Coin (Coin (..), DeltaCoin (..))
 

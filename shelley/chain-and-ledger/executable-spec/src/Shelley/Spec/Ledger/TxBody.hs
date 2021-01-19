@@ -94,7 +94,9 @@ import Cardano.Ledger.Shelley.Constraints (TransValue)
 import Cardano.Ledger.Val (DecodeNonNegative (..))
 import Cardano.Prelude
   ( panic,
+    HeapWords (..)
   )
+import qualified Cardano.Crypto.Hash.Class as HS
 import Control.DeepSeq (NFData (rnf))
 import Control.SetAlgebra (BaseRep (MapR), Embed (..), Exp (Base), HasExp (toExp))
 import Data.Aeson (FromJSON (..), ToJSON (..), Value, (.!=), (.:), (.:?), (.=))
@@ -420,8 +422,6 @@ newtype TxId crypto = TxId {_unTxId :: Hash crypto EraIndependentTxBody}
   deriving (Show, Eq, Ord, Generic)
   deriving newtype (NoThunks, HeapWords)
 
-deriving newtype instance HeapWords (HS.Hash h a)
-
 deriving newtype instance CC.Crypto crypto => ToCBOR (TxId crypto)
 
 deriving newtype instance CC.Crypto crypto => FromCBOR (TxId crypto)
@@ -482,8 +482,9 @@ type TransTxOut (c :: Type -> Constraint) era =
     Compactible (Core.Value era)
   )
 
+-- TODO do we add value size or ignore it?
 instance HeapWords (TxOut era) where
-  heapWords (TxOutCompact a vl) = 3 + HW.heapWordsUnpacked packed57Bytestring + size vl
+  heapWords _ = 3 + HW.heapWordsUnpacked packed57Bytestring
 
 -- the length of a shelley base address estimate (stake and payment are 28-long)
 -- TODO do we want a different estimate here instead?
