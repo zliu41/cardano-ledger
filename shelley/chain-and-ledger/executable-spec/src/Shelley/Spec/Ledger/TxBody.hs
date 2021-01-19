@@ -116,6 +116,7 @@ import Data.Coders
     field,
     (!>),
   )
+import qualified Cardano.Prelude as HW
 import Data.Coerce (coerce)
 import Data.Constraint (Constraint)
 import Data.Foldable (asum)
@@ -417,13 +418,18 @@ instance CC.Crypto crypto => FromJSON (PoolParams crypto) where
 -- | A unique ID of a transaction, which is computable from the transaction.
 newtype TxId crypto = TxId {_unTxId :: Hash crypto EraIndependentTxBody}
   deriving (Show, Eq, Ord, Generic)
-  deriving newtype (NoThunks)
+  deriving newtype (NoThunks, HeapWords)
+
+deriving newtype instance HeapWords (HS.Hash h a)
 
 deriving newtype instance CC.Crypto crypto => ToCBOR (TxId crypto)
 
 deriving newtype instance CC.Crypto crypto => FromCBOR (TxId crypto)
 
 deriving newtype instance CC.Crypto crypto => NFData (TxId crypto)
+
+instance HeapWords (TxIn crypto) where
+  heapWords (TxInCompact txid ix) = 3 + HW.heapWordsUnpacked txid + HW.heapWordsUnpacked (ix)
 
 type TransTxId (c :: Type -> Constraint) era =
   -- Transaction Ids are the hash of a transaction body, which contains
@@ -475,6 +481,15 @@ type TransTxOut (c :: Type -> Constraint) era =
     c (CompactForm (Core.Value era)),
     Compactible (Core.Value era)
   )
+
+instance HeapWords (TxOut era) where
+  heapWords (TxOutCompact a vl) = 3 + HW.heapWordsUnpacked packed57Bytestring + size vl
+
+-- the length of a shelley base address estimate (stake and payment are 28-long)
+-- TODO do we want a different estimate here instead?
+-- use real crypto
+packed57Bytestring :: ByteString
+packed57Bytestring = Char8.pack (replicate 57 'a')
 
 instance
   (TransTxOut Show era, Era era) => -- Use the weakest constraint possible here

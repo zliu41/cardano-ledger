@@ -156,70 +156,37 @@ instance CC.Crypto crypto => Val (Value crypto) where
   modifyCoin f (Value c m) = Value n m where (Coin n) = f (Coin c)
   pointwise p (Value c x) (Value d y) = (p c d) && (pointWise (pointWise p) x y)
 
-  {- Explanation of the Value size calculation :
-
-  The size calculation is to approximate the number of bytes in a
-  compact representation of Value (CompactValue). CompactValue has two constructors :
-
-  1. CompactValueAdaOnly is used when v == mempty
-  it takes a Word64 to represent an ada amount (unpacked in the compact representation)
-
-  2. CompactValueMultiAsset (used otherwise) takes an ada amount and token bundle data
-    i) Word64 (ada)
-    ii) Word (number of distinct types of multi-assets in the bundle)
-    iii) rep :
-      The rep consists of five parts
-        A) a sequence of Word64s representing quantities
-        B) a sequence of Word16s representing policyId indices
-        C) Word16s representing asset name indices
-           (as a special case for empty asset names,
-            the index points to the end of the string)
-        D) a blob of policyIDs
-        E) a blob of asset names
-  -}
-
+  -- returns the size, in Word64's, of the CompactValue representation of Value
   size (Value _ v)
-    -- based on size in words stored in the compact representation of Value
-    | v == mempty = fromIntegral $ adaWords * wordLength
-    | otherwise =
-      fromIntegral $ wordLength * (adaWords + noMAs) + repSize
-    where
-      repSize =
-        wordLength * quanSize * totalNoAssets
-          + 2 * totalNoAssets * (index * wordLength)
-          + pidLength * noPIDs
-          + assetNamesLength
-        where
-          noPIDs = length $ Map.keys v
-          allAssets :: [AssetName]
-          allAssets = (Map.foldr (\a b -> (Map.keys a) ++ b) [] v)
-          totalNoAssets = length allAssets
-          assetNames = LS.nub $ LS.sort allAssets
-          assetNamesLength = LS.foldr (\(AssetName a) b -> (BS.length a) + b) 0 assetNames
+      -- when Value contains only ada
+    | v == mempty = fromIntegral $ adaWords
+      -- when Value contains ada as well as other tokens
+      -- sums up :
+        -- i) adaWords : the space taken up by the ada amount
+        -- ii) noMAs : the space taken by number of words used to store number of non-ada assets in a value
+        -- iii) the space taken up by the rest of the representation (quantities, PIDs, AssetNames, indeces)
+        -- these are all unpacked, so there is no extra overhead
+    | otherwise   = fromIntegral $ adaWords + noMAs + (roundupBytesToWords $ repSize v)
 
--- 64 bit machine word length
+-- TODO temp repSize
+repSize :: Map (PolicyID crypto) (Map AssetName Integer) -> Int
+repSize = 0
+
+-- space (in Word64s) taken up by the ada amount
+adaWords :: Int
+adaWords = 1
+
+-- 64 bit machine Word64 length
 wordLength :: Int
 wordLength = 8
-
--- ada is represented by 2 words
-adaWords :: Int
-adaWords = 2
-
--- number of words used to represent quantity
-quanSize :: Int
-quanSize = 1
-
--- number of bytes to represent index
-index :: Int
-index = 2
 
 -- number of words used to store number of MAs in a value
 noMAs :: Int
 noMAs = 1
 
--- length of PID in bytes
-pidLength :: Int
-pidLength = 28
+-- converts bytes to words (rounding up)
+roundupBytesToWords :: Int -> Int
+roundupBytesToWords b = ceiling $ (b + (wordLength - 1)) / wordLength
 
 -- ==============================================================
 -- CBOR
