@@ -1,0 +1,78 @@
+cabal-version:       2.2
+
+name:                cardano-ledger-pivo
+version:             0.1.0.0
+synopsis:            Integration of the Priviledge prototype with Mary.
+description:
+  This package integrates the Priviledge prototype to Mary. This prototype
+  features a new update mechanism for Cardano. Pivo stands for "Priviledge is
+  not voltaire". For more details see the following repository
+  https://github.com/input-output-hk/decentralized-software-updates/.
+license:             Apache-2.0
+author:              IO Research
+maintainer:          damian.nadales@iohk.io
+copyright:           2020 Input Output (Hong Kong) Ltd.
+category:            Network
+build-type:          Simple
+source-repository head
+  type:     git
+  location: https://github.com/input-output-hk/cardano-ledger-specs
+
+library
+  exposed-modules:
+    Cardano.Ledger.Pivo
+    Cardano.Ledger.Pivo.TxBody
+    Cardano.Ledger.Pivo.Update
+    Cardano.Ledger.Pivo.Rules
+    Cardano.Ledger.Pivo.Rules.Utxo
+    Cardano.Ledger.Pivo.Rules.Utxow
+    Cardano.Ledger.Pivo.Rules.Pup
+    Cardano.Ledger.Pivo.Rules.Upec
+  build-depends:
+    base >=4.9 && <4.15,
+    containers,
+    data-default-class,
+    deepseq,
+    nothunks,
+    text,
+    transformers,
+    -- Cardano related deps.
+    cardano-prelude,
+    cardano-binary,
+    cardano-crypto-class,
+    cardano-slotting,
+    small-steps,
+    shelley-spec-ledger,
+    cardano-ledger-shelley-ma
+  hs-source-dirs: src
+  ghc-options:
+    -Wall
+    -Wcompat
+    -Wincomplete-record-updates
+    -Wincomplete-uni-patterns
+    -Wredundant-constraints
+    -Wpartial-fields
+  default-language:    Haskell2010
+
+test-suite pivo-tests
+    type:                exitcode-stdio-1.0
+    main-is:             Main.hs
+    hs-source-dirs:      test
+    build-depends:       base >=4.9 && <4.15
+                       , tasty
+                       , tasty-hunit
+                       , tasty-quickcheck
+                       -- Cardano specific dependencies
+                       , shelley-spec-ledger-test
+                       , cardano-ledger-shelley-ma-test
+                       , cardano-ledger-pivo
+    other-modules:       Cardano.Ledger.Pivo.Update.Serialisation
+    ghc-options:         -threaded
+                         -rtsopts
+                         -with-rtsopts=-N
+                         -Wall
+                         -Wcompat
+                         -Wincomplete-record-updates
+                         -Wincomplete-uni-patterns
+                         -Wredundant-constraints
+                         -O2

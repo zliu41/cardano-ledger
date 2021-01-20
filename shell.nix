@@ -34,6 +34,8 @@ let
       hlint
       ormolu.ormolu
       pyEnv
+      graphmod
+      dot
     ];
 
     tools = {
