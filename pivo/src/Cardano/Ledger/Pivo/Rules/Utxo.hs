@@ -23,6 +23,7 @@ import Cardano.Ledger.Shelley.Constraints
     UsesAuxiliary,
     UsesScript,
     UsesTxOut,
+    UsesTxBody,
     UsesValue,
   )
 import Cardano.Ledger.ShelleyMA.Timelocks
@@ -64,6 +65,7 @@ import Shelley.Spec.Ledger.Coin
 import qualified Shelley.Spec.Ledger.LedgerState as Shelley
 import Shelley.Spec.Ledger.PParams (PParams, PParams' (..))
 import qualified Shelley.Spec.Ledger.STS.Utxo as Shelley
+import qualified Cardano.Ledger.ShelleyMA.Rules.Utxo as ShelleyMA (scaledMinDeposit)
 import Shelley.Spec.Ledger.Tx (Tx (..), TxIn, TxOut)
 import Shelley.Spec.Ledger.TxBody
   ( DCert,
@@ -179,6 +181,7 @@ instance
     UsesAuxiliary era,
     UsesScript era,
     UsesTxOut era,
+    UsesTxBody era,
     UsesValue era,
     TransValue ToCBOR era,
     Show (Delta (Core.Value era)),
@@ -259,7 +262,7 @@ instance
                          Val.pointwise
                            (>=)
                            v
-                           (Val.inject $ Val.scaledMinDeposit v minUTxOValue)
+                           (Val.inject $ ShelleyMA.scaledMinDeposit v minUTxOValue)
                )
                outputs
        null outputsTooSmall ?! OutputTooSmallUTxO outputsTooSmall
