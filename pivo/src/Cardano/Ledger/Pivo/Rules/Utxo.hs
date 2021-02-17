@@ -15,6 +15,7 @@
 
 module Cardano.Ledger.Pivo.Rules.Utxo where
 
+import Cardano.Prelude (heapWordsUnpacked)
 import Cardano.Binary (FromCBOR (..), ToCBOR (..), encodeListLen)
 import qualified Cardano.Ledger.Core as Core
 import Cardano.Ledger.Era (Crypto, Era)
@@ -23,11 +24,12 @@ import Cardano.Ledger.Shelley.Constraints
     UsesAuxiliary,
     UsesScript,
     UsesTxOut,
+    UsesTxBody,
     UsesValue,
+    UsesPParams
   )
 import Cardano.Ledger.ShelleyMA.Timelocks
 import Cardano.Ledger.Pivo.TxBody (TxBody)
-import Cardano.Ledger.Torsor (Torsor (..))
 import qualified Cardano.Ledger.Val as Val
 import Cardano.Slotting.Slot (SlotNo)
 import Control.Iterate.SetAlgebra (dom, eval, (∪), (⊆), (⋪), (◁))
@@ -83,6 +85,34 @@ import Shelley.Spec.Ledger.UTxO
 import qualified  Cardano.Ledger.Pivo.Update as Update
 import Cardano.Ledger.Pivo.Rules.Pup (PUP)
 
+-- This scaling function is right for UTxO, not EUTxO
+--
+scaledMinDeposit :: (Val.Val v) => v -> Coin -> Coin
+scaledMinDeposit v (Coin mv)
+  | Val.inject (Val.coin v) == v = Coin mv -- without non-Coin assets, scaled deposit should be exactly minUTxOValue
+  -- The calculation should represent this equation
+  -- minValueParameter / coinUTxOSize = actualMinValue / valueUTxOSize
+  -- actualMinValue = (minValueParameter / coinUTxOSize) * valueUTxOSize
+  | otherwise = Coin $ max mv (adaPerUTxOWord * (utxoEntrySizeWithoutVal + Val.size v))
+  where
+    -- lengths obtained from tracing on HeapWords of inputs and outputs
+    -- obtained experimentally, and number used here
+    -- units are Word64s
+    txoutLenNoVal = 14
+    txinLen = 7
+
+    -- unpacked CompactCoin Word64 size in Word64s
+    coinSize :: Integer
+    coinSize = fromIntegral $ heapWordsUnpacked (CompactCoin 0)
+
+    utxoEntrySizeWithoutVal :: Integer
+    utxoEntrySizeWithoutVal = 6 + txoutLenNoVal + txinLen
+
+    -- how much ada does a Word64 of UTxO space cost, calculated from minAdaValue PP
+    -- round down
+    adaPerUTxOWord :: Integer
+    adaPerUTxOWord = quot mv (utxoEntrySizeWithoutVal + coinSize)
+
 -- ==========================================================
 
 data UtxoPredicateFailure era
@@ -99,8 +129,8 @@ data UtxoPredicateFailure era
       !Coin -- the minimum fee for this transaction
       !Coin -- the fee supplied in this transaction
   | ValueNotConservedUTxO
-      !(Delta (Core.Value era)) -- the Coin consumed by this transaction
-      !(Delta (Core.Value era)) -- the Coin produced by this transaction
+      !(Core.Value era) -- the Coin consumed by this transaction
+      !(Core.Value era) -- the Coin produced by this transaction
   | WrongNetwork
       !Network -- the expected network id
       !(Set (Addr (Crypto era))) -- the set of addresses with incorrect network IDs
@@ -179,11 +209,14 @@ instance
     UsesAuxiliary era,
     UsesScript era,
     UsesTxOut era,
+    UsesTxBody era,
     UsesValue era,
+    UsesPParams era,
     TransValue ToCBOR era,
-    Show (Delta (Core.Value era)),
+    Show (Core.Value era),
     Core.TxBody era ~ TxBody era,
     Core.TxOut era ~ TxOut era,
+    Core.PParams era ~ PParams era,
     Embed (Core.EraRule "PPUP" era) (UTXO era),
     Signal (Core.EraRule "PPUP" era) ~ StrictMaybe (Update.Payload era),
     Environment (Core.EraRule "PPUP" era) ~ Update.Environment era,
@@ -237,8 +270,8 @@ instance
            (Set.fromList wdrlsWrongNetwork)
 
        let consumed_ = consumed pp utxo txb
-           produced_ = Shelley.produced pp stakepools txb
-       consumed_ == produced_ ?! ValueNotConservedUTxO (toDelta consumed_) (toDelta produced_)
+           produced_ = Shelley.produced @era pp stakepools txb
+       consumed_ == produced_ ?! ValueNotConservedUTxO consumed_ produced_
 
        -- process Protocol Parameter Update Proposals
        ppup' <-
@@ -249,8 +282,8 @@ instance
        -- the check `adaPolicy ∉ supp mint tx` in the spec.
        Val.coin (getField @"mint" txb) == Val.zero ?! TriesToForgeADA
 
-       let outputs = Map.elems $ unUTxO (txouts txb)
-           minUTxOValue = _minUTxOValue pp
+       let outputs = Map.elems $ unUTxO (txouts @era txb)
+           minUTxOValue = getField @"_minUTxOValue" pp
            outputsTooSmall =
              filter
                ( \out ->
@@ -259,7 +292,7 @@ instance
                          Val.pointwise
                            (>=)
                            v
-                           (Val.inject $ Val.scaledMinDeposit v minUTxOValue)
+                           (Val.inject $ scaledMinDeposit v minUTxOValue)
                )
                outputs
        null outputsTooSmall ?! OutputTooSmallUTxO outputsTooSmall
@@ -287,7 +320,7 @@ instance
                outputs
        null outputsAttrsTooBig ?! OutputBootAddrAttrsTooBig outputsAttrsTooBig
 
-       let maxTxSize_ = fromIntegral (_maxTxSize pp)
+       let maxTxSize_ = fromIntegral (getField @"_maxTxSize" pp)
            txSize_ = Shelley.txsize tx
        txSize_ <= maxTxSize_ ?! MaxTxSizeUTxO txSize_ maxTxSize_
 
@@ -297,7 +330,7 @@ instance
 
        pure
          Shelley.UTxOState
-           { Shelley._utxo = eval ((txins @era txb ⋪ utxo) ∪ txouts txb),
+           { Shelley._utxo = eval ((txins @era txb ⋪ utxo) ∪ txouts @era txb),
              Shelley._deposited = deposits' <> depositChange,
              Shelley._fees = fees <> getField @"txfee" txb,
              Shelley._ppups = ppup'

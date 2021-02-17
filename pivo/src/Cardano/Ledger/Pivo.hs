@@ -11,10 +11,8 @@ module Cardano.Ledger.Pivo where
 import GHC.Records (HasField)
 import Control.DeepSeq (deepseq)
 
-import Cardano.Crypto.Hash (castHash, hashWithSerialiser)
-import Cardano.Binary (toCBOR)
-
 import Shelley.Spec.Ledger.Metadata (validMetadatum)
+import Cardano.Ledger.SafeHash (hashAnnotated)
 import qualified Cardano.Ledger.Crypto
 import Cardano.Ledger.Era (Era (Crypto))
 import qualified Cardano.Ledger.Core as Core
@@ -28,7 +26,7 @@ import qualified Cardano.Ledger.Mary.Value as Mary.Value
 import qualified Cardano.Ledger.ShelleyMA.Timelocks as ShelleyMA.Timelocks
 import qualified Cardano.Ledger.ShelleyMA.AuxiliaryData as ShelleyMA.AuxiliaryData
 import qualified Shelley.Spec.Ledger.Tx as Shelley.Tx
-import Cardano.Ledger.Shelley.Constraints (UsesTxBody, UsesValue, UsesTxOut (makeTxOut))
+import Cardano.Ledger.Shelley.Constraints (UsesTxBody, UsesValue, UsesTxOut (makeTxOut), UsesPParams (..))
 
 -- Import needed to define era mapping instances
 import qualified Shelley.Spec.Ledger.API as Shelley.API
@@ -43,6 +41,7 @@ import qualified Shelley.Spec.Ledger.STS.Overlay as Shelley
 import qualified Shelley.Spec.Ledger.STS.Rupd as Shelley
 import qualified Shelley.Spec.Ledger.STS.Snap as Shelley
 import qualified Shelley.Spec.Ledger.STS.Tick as Shelley
+import qualified Shelley.Spec.Ledger.PParams as Shelley
 
 import Cardano.Ledger.Pivo.Rules as Pivo.Rules
 
@@ -80,6 +79,8 @@ type instance Core.Script (PivoEra c) = ShelleyMA.Timelocks.Timelock c
 
 type instance Core.AuxiliaryData (PivoEra c) = ShelleyMA.AuxiliaryData.AuxiliaryData (PivoEra c)
 
+type instance Core.PParams (PivoEra c) = Shelley.PParams (PivoEra c)
+
 --------------------------------------------------------------------------------
 -- Ledger data instances
 --------------------------------------------------------------------------------
@@ -101,8 +102,8 @@ instance
   ) =>
   ValidateAuxiliaryData (PivoEra c)
   where
-  hashAuxiliaryData
-    = AuxiliaryDataHash . castHash . hashWithSerialiser toCBOR
+  hashAuxiliaryData aux
+    = AuxiliaryDataHash (hashAnnotated aux)
   validateAuxiliaryData (ShelleyMA.AuxiliaryData.AuxiliaryData md as)
     = deepseq as $ all validMetadatum md
 
@@ -110,6 +111,17 @@ instance Cardano.Ledger.Crypto.Crypto c => UsesValue (PivoEra c)
 
 instance Cardano.Ledger.Crypto.Crypto c => UsesTxOut (PivoEra c) where
   makeTxOut _ a v = Shelley.API.TxOut a v
+
+instance
+  (Cardano.Ledger.Crypto.Crypto c) =>
+  UsesPParams (PivoEra c)
+  where
+  type
+    PParamsDelta (PivoEra c) =
+      Shelley.PParamsUpdate (PivoEra c)
+
+  mergePPUpdates _ = Shelley.updatePParams
+
 
 --------------------------------------------------------------------------------
 -- Ledger rules instances (era mapping)

@@ -78,7 +78,7 @@ import GHC.Records
 import NoThunks.Class (NoThunks (..))
 import Shelley.Spec.Ledger.BaseTypes (StrictMaybe (SJust, SNothing))
 import Shelley.Spec.Ledger.Coin (Coin (..))
-import Shelley.Spec.Ledger.Hashing (EraIndependentTxBody, HashAnnotated (..))
+import Cardano.Ledger.SafeHash (HashAnnotated, EraIndependentTxBody, SafeToHash)
 import Shelley.Spec.Ledger.Serialization (encodeFoldable)
 import Shelley.Spec.Ledger.TxBody
   ( DCert (..),
@@ -246,6 +246,7 @@ initial =
 
 newtype TxBody e = TxBodyConstr (MemoBytes (TxBodyRaw e))
   deriving (Typeable)
+  deriving newtype (SafeToHash)
 
 deriving instance
   TransValue Eq era =>
@@ -269,8 +270,9 @@ deriving via
     (FamsFrom era) =>
     FromCBOR (Annotator (TxBody era))
 
-instance Era era => HashAnnotated (TxBody era) era where
-  type HashIndex (TxBody era) = EraIndependentTxBody
+-- instance Era era => HashAnnotated (TxBody era) era where
+--   type HashIndex (TxBody era) = EraIndependentTxBody
+instance (c ~ Crypto era, Era era) => HashAnnotated (TxBody era) EraIndependentTxBody c
 
 -- Make a Pattern so the newtype and the MemoBytes are hidden
 

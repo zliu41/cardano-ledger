@@ -26,7 +26,6 @@ import Cardano.Ledger.Shelley.Constraints (UsesAuxiliary, UsesScript, UsesTxBody
 import Cardano.Ledger.ShelleyMA.AuxiliaryData ()
 import Cardano.Ledger.Pivo.Rules.Utxo (UTXO, UtxoPredicateFailure)
 import Cardano.Ledger.Pivo.TxBody ()
-import Cardano.Ledger.Torsor (Torsor (Delta))
 import Control.SetAlgebra (eval, (◁), (∩))
 import Control.State.Transition.Extended
 import Data.Foldable (Foldable (toList))
@@ -36,6 +35,7 @@ import Data.Sequence.Strict (StrictSeq)
 import Data.Set (Set)
 import qualified Data.Set as Set
 import GHC.Records (HasField (..))
+import Shelley.Spec.Ledger.PParams (ProtVer, Update)
 import Shelley.Spec.Ledger.BaseTypes
 import Shelley.Spec.Ledger.Coin (Coin)
 import Shelley.Spec.Ledger.Delegation.Certificates (requiresVKeyWitness, isInstantaneousRewards, delegCWitness, poolCWitness, genesisCWitness)
@@ -134,8 +134,6 @@ instance
     UsesTxOut era,
     UsesAuxiliary era,
     UsesScript era,
-    ChainData (Delta (Core.Value era)),
-    SerialisableData (Delta (Core.Value era)),
     ValidateScript era,
     ValidateAuxiliaryData era,
     GetPolicies (Core.Value era) (Crypto era),
@@ -154,7 +152,8 @@ instance
           (AuxiliaryDataHash (Crypto era))
       ),
     HasField "mint" (Core.TxBody era) (Core.Value era),
-    HasField "update" (Core.TxBody era) (StrictMaybe (Update.Payload era))
+    HasField "update" (Core.TxBody era) (StrictMaybe (Update.Payload era)),
+    HasField "_protocolVersion" (Core.PParams era) ProtVer
   ) =>
   STS (UTXOW era)
   where
