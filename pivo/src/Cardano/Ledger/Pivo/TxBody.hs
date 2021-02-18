@@ -21,7 +21,7 @@
 {-# LANGUAGE ViewPatterns #-}
 
 module Cardano.Ledger.Pivo.TxBody
-  (TxBody (TxBody))
+  (TxBody (..))
 where
 
 --------------------------------------------------------------------------------
