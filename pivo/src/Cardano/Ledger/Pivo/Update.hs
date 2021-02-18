@@ -22,6 +22,8 @@ import qualified Data.Text as Text
 import Data.Set (Set)
 import Data.Default.Class (Default, def)
 
+import Data.Aeson (ToJSON, FromJSON)
+
 import Cardano.Prelude (cborError)
 import Cardano.Binary (ToCBOR (toCBOR), encodeWord, FromCBOR (fromCBOR), decodeWord)
 
@@ -30,7 +32,7 @@ import Cardano.Ledger.Era (Crypto)
 import Shelley.Spec.Ledger.Keys (KeyHash, KeyRole (Witness))
 
 data Payload era = Payload
-  deriving (Show, NFData, Generic, Eq, NoThunks)
+  deriving (Show, NFData, Generic, Eq, NoThunks, ToJSON, FromJSON)
 
 instance Typeable era => ToCBOR (Payload era) where
   toCBOR Payload = encodeWord 0
@@ -50,7 +52,7 @@ witnesses = mempty
 --------------------------------------------------------------------------------
 
 data Environment era = Environment
-  deriving (Show, NFData, Generic, Eq, NoThunks)
+  deriving (Show, NFData, Generic, Eq, NoThunks, ToJSON, FromJSON)
 
 --------------------------------------------------------------------------------
 -- Update state
@@ -58,7 +60,7 @@ data Environment era = Environment
 
 -- | Update state. This is shared among all the update rules (e.g. PUP and UPEC)
 data State era = State
-  deriving (Show, NFData, Generic, Eq, NoThunks)
+  deriving (Show, NFData, Generic, Eq, NoThunks, ToJSON, FromJSON)
 
 instance Default (State era) where
   def = State
@@ -71,6 +73,8 @@ instance Typeable era => FromCBOR (State era) where
       0 -> pure State
       k -> cborError $  "Invalid key " <> (Text.pack (show k))
                      <> " when decoding a value of type State"
+
+--instance ToJSON (State era) where
 
 --------------------------------------------------------------------------------
 -- Predicate failure

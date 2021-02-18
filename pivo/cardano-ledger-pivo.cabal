@@ -30,6 +30,7 @@ library
     Cardano.Ledger.Pivo.Rules.Upec
   build-depends:
     base >=4.9 && <4.15,
+    aeson,
     containers,
     data-default-class,
     deepseq,
