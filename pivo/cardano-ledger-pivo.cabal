@@ -23,6 +23,7 @@ library
     Cardano.Ledger.Pivo
     Cardano.Ledger.Pivo.TxBody
     Cardano.Ledger.Pivo.Update
+    Cardano.Ledger.Pivo.Update.Payload.SIP
     Cardano.Ledger.Pivo.Rules
     Cardano.Ledger.Pivo.Rules.Utxo
     Cardano.Ledger.Pivo.Rules.Utxow
@@ -44,7 +45,8 @@ library
     cardano-slotting,
     small-steps,
     shelley-spec-ledger,
-    cardano-ledger-shelley-ma
+    cardano-ledger-shelley-ma,
+    decentralized-updates
   hs-source-dirs: src
   ghc-options:
     -Wall
@@ -63,7 +65,12 @@ test-suite pivo-tests
                        , tasty
                        , tasty-hunit
                        , tasty-quickcheck
+                       , text
                        -- Cardano specific dependencies
+                       , cardano-prelude
+                       , cardano-binary
+                       , cardano-crypto-class
+                       , shelley-spec-ledger
                        , shelley-spec-ledger-test
                        , cardano-ledger-shelley-ma-test
                        , cardano-ledger-pivo

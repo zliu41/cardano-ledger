@@ -21,7 +21,9 @@
 {-# LANGUAGE ViewPatterns #-}
 
 module Cardano.Ledger.Pivo.TxBody
-  (TxBody (..))
+  ( TxBody (..)
+  , pattern TxBody
+  )
 where
 
 --------------------------------------------------------------------------------
@@ -149,19 +151,21 @@ data TxBodyRaw era = TxBodyRaw
 -- The surprising (Compactible (Value era))) constraint comes from the fact that TxOut
 -- stores a (Value era) in a compactible form.
 
-deriving instance (NFData (Value era), Era era) => NFData (TxBodyRaw era)
+deriving instance ( NFData (Value era)
+                  , NFData (Update.Payload era)
+                  , Era era) => NFData (TxBodyRaw era)
 
 deriving instance
-  TransValue Eq era =>
+  (TransValue Eq era, Eq (Update.Payload era)) =>
   Eq (TxBodyRaw era)
 
 deriving instance
-  TransValue Show era =>
+  (TransValue Show era, Show (Update.Payload era)) =>
   Show (TxBodyRaw era)
 
 deriving instance Generic (TxBodyRaw era)
 
-deriving instance NoThunks (Value era) => NoThunks (TxBodyRaw era)
+deriving instance (NoThunks (Value era), NoThunks (Update.Payload era)) => NoThunks (TxBodyRaw era)
 
 instance (FamsFrom era) => FromCBOR (TxBodyRaw era) where
   fromCBOR =
@@ -248,18 +252,24 @@ newtype TxBody e = TxBodyConstr (MemoBytes (TxBodyRaw e))
   deriving (Typeable)
 
 deriving instance
-  TransValue Eq era =>
+  (TransValue Eq era, Eq (TxBodyRaw era)) =>
   Eq (TxBody era)
 
 deriving instance
-  TransValue Show era =>
+  (TransValue Show era, Show (TxBodyRaw era)) =>
   Show (TxBody era)
 
 deriving instance Generic (TxBody era)
 
-deriving newtype instance (Typeable era, NoThunks (Value era)) => NoThunks (TxBody era)
+deriving newtype instance
+  ( Typeable era
+  , NoThunks (Value era)
+  ) => NoThunks (TxBody era)
 
-deriving newtype instance (NFData (Value era), Era era) => NFData (TxBody era)
+deriving newtype instance
+  ( Era era
+  , NFData (Value era)
+  ) => NFData (TxBody era)
 
 deriving newtype instance (Typeable era) => ToCBOR (TxBody era)
 

@@ -1,15 +1,21 @@
 {-# LANGUAGE DataKinds #-}
-{-# LANGUAGE DeriveGeneric #-}
-{-# LANGUAGE OverloadedStrings #-}
-{-# LANGUAGE LambdaCase #-}
 {-# LANGUAGE DeriveAnyClass #-}
+{-# LANGUAGE DeriveGeneric #-}
+{-# LANGUAGE FlexibleContexts #-}
+{-# LANGUAGE LambdaCase #-}
+{-# LANGUAGE NamedFieldPuns #-}
+{-# LANGUAGE OverloadedStrings #-}
+{-# LANGUAGE StandaloneDeriving #-}
+{-# LANGUAGE UndecidableInstances #-}
 
 module Cardano.Ledger.Pivo.Update
-  ( Payload (Payload)
+  ( Payload ( Payload
+            , sipSubmissions
+            )
   , witnesses
   , Environment (Environment)
   , State
-  , PredicateFailure (NoFailure) -- It's important to expose this to that other
+  , PredicateFailure (NoFailure) -- It's important to expose this so that other
                                  -- modules can define a "ToObject" instance.
   )
 where
@@ -21,31 +27,36 @@ import Data.Typeable (Typeable)
 import qualified Data.Text as Text
 import Data.Set (Set)
 import Data.Default.Class (Default, def)
+import Data.Sequence.Strict (StrictSeq)
 
 import Data.Aeson (ToJSON, FromJSON)
 
 import Cardano.Prelude (cborError)
 import Cardano.Binary (ToCBOR (toCBOR), encodeWord, FromCBOR (fromCBOR), decodeWord)
+import Data.Coders (encodeFoldable, decodeStrictSeq)
 
-import Cardano.Ledger.Era (Crypto)
+import Cardano.Ledger.Era (Crypto, Era)
 
 import Shelley.Spec.Ledger.Keys (KeyHash, KeyRole (Witness))
 
-data Payload era = Payload
-  deriving (Show, NFData, Generic, Eq, NoThunks, ToJSON, FromJSON)
+import qualified Cardano.Ledger.Pivo.Update.Payload.SIP as SIP
 
-instance Typeable era => ToCBOR (Payload era) where
-  toCBOR Payload = encodeWord 0
+import Shelley.Spec.Ledger.TxBody ()
 
-instance Typeable era => FromCBOR (Payload era) where
-  fromCBOR = decodeWord >>= \case
-      0 -> pure Payload
-      k -> cborError $  "Invalid key " <> (Text.pack (show k))
-                     <> " when decoding a value of type Payload"
+data Payload era =
+  Payload { sipSubmissions :: !(StrictSeq (SIP.Submission era)) }
+  deriving (Show, Eq, NFData, NoThunks, Generic, ToJSON, FromJSON)
+
+instance (Typeable era, Era era) => ToCBOR (Payload era) where
+  toCBOR Payload { sipSubmissions } =
+    encodeFoldable sipSubmissions
+
+instance (Typeable era, Era era) => FromCBOR (Payload era) where
+  fromCBOR = Payload <$> decodeStrictSeq fromCBOR
 
 -- | Key hashes that have to witness the update payload.
 witnesses :: Payload era -> Set (KeyHash 'Witness (Crypto era))
-witnesses = mempty
+witnesses = foldMap SIP.witnesses. sipSubmissions
 
 --------------------------------------------------------------------------------
 -- Update environment
@@ -73,8 +84,6 @@ instance Typeable era => FromCBOR (State era) where
       0 -> pure State
       k -> cborError $  "Invalid key " <> (Text.pack (show k))
                      <> " when decoding a value of type State"
-
---instance ToJSON (State era) where
 
 --------------------------------------------------------------------------------
 -- Predicate failure
