@@ -16,8 +16,8 @@ import Data.Aeson (ToJSON, FromJSON)
 import Data.Set (Set, singleton)
 import Data.Text (Text)
 
-import Cardano.Crypto.DSIGN (VerKeyDSIGN)
-import qualified Cardano.Crypto.Hash as Cardano (Hash)
+import Cardano.Crypto.DSIGN (VerKeyDSIGN, hashVerKeyDSIGN)
+import qualified Cardano.Crypto.Hash as Cardano (Hash, hashWithSerialiser)
 import Cardano.Binary (ToCBOR (toCBOR), FromCBOR (fromCBOR), encodeListLen, decodeListLenOf)
 
 import qualified Shelley.Spec.Ledger.Keys as Shelley
@@ -68,6 +68,25 @@ deriving instance Era era => FromJSON (Submission era)
 -- TODO: we might want to put this function inside a typeclass.
 witnesses :: Submission era -> Set (Shelley.KeyHash 'Shelley.Witness (Era.Crypto era))
 witnesses = singleton . Shelley.KeyHash . author
+
+mkSubmission
+  :: Era era
+  => VKey era
+  -> Int
+  -- ^ Salt used to calculate the submission commit.
+  -> Text
+  -- ^ Proposal's text.
+  -> Submission era
+mkSubmission vk someSalt someText =
+  Submission
+    { author     = vkHash
+    , commitHash =
+        Cardano.hashWithSerialiser toCBOR (someSalt, vkHash, proposal)
+    }
+    where
+      vkHash   = hashVerKeyDSIGN vk
+      proposal = Proposal (Cardano.hashWithSerialiser toCBOR someText)
+
 
 --------------------------------------------------------------------------------
 -- Revelation
