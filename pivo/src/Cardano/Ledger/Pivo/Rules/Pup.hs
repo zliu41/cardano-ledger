@@ -4,7 +4,7 @@ module Cardano.Ledger.Pivo.Rules.Pup where
 
 import Data.Typeable (Typeable)
 
-import  Control.State.Transition ()
+import  Control.State.Transition (TRC (TRC), judgmentContext)
 import qualified Control.State.Transition as T
 
 import Shelley.Spec.Ledger.BaseTypes (ShelleyBase, StrictMaybe)
@@ -22,6 +22,10 @@ instance Typeable era => T.STS (PUP era) where
 
   type BaseM (PUP era) = ShelleyBase
 
-  transitionRules = [error "Implement me!"]
+  transitionRules =
+    [ do
+        TRC (_env, st, _mUpdatePayload) <- judgmentContext
+        return $! st
+    ]
 
   initialRules = []
