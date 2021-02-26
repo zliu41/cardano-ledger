@@ -7,13 +7,8 @@ import qualified Test.Tasty as T
 import Test.Tasty.QuickCheck as QC
 
 import Data.Sequence.Strict (StrictSeq(Empty), fromList)
-import Data.Text (Text)
 
-import Cardano.Binary (toCBOR)
-import Cardano.Crypto.DSIGN (VerKeyDSIGN (VerKeyMockDSIGN), hashVerKeyDSIGN)
-import qualified Cardano.Crypto.Hash as Hash
-
-import Shelley.Spec.Ledger.Hashing (HashAnnotated (hashAnnotated))
+import Cardano.Crypto.DSIGN (VerKeyDSIGN (VerKeyMockDSIGN))
 
 import Test.Shelley.Spec.Ledger.ConcreteCryptoTypes ()
 import qualified Test.Shelley.Spec.Ledger.ConcreteCryptoTypes as Mock
@@ -31,20 +26,38 @@ unitTests =
       "Update payload roundtrip - test 0"
       (Roundtrip.property (Payload @(PivoEra Mock.C_Crypto)
                              Empty -- SIP submissions
+                             Empty -- SIP revelations
                           )
       )
   , QC.testProperty
       "Update payload roundtrip - test 1"
       (Roundtrip.property (Payload @(PivoEra Mock.C_Crypto)
                             (fromList [submission0])
+                            (fromList [revelation0])
+                          )
+      )
+  , QC.testProperty
+      "Update payload roundtrip - test 2"
+      (Roundtrip.property (Payload @(PivoEra Mock.C_Crypto)
+                            (fromList [ submission0
+                                      , submission1
+                                      ]
+                            )
+                            (fromList [ revelation0
+                                      , revelation1
+                                      ]
+                            )
                           )
       )
   ]
  where
    submission0 :: SIP.Submission (PivoEra Mock.C_Crypto)
-   submission0 = SIP.Submission vkey0Hash commitHash
-   commitHash = Hash.hashWithSerialiser toCBOR (98723, vkey0Hash, proposal0)
+   submission0 = SIP.mkSubmission vkey0 salt0 "Foo"
    vkey0 = VerKeyMockDSIGN 0912
-   vkey0Hash = hashVerKeyDSIGN vkey0
-   proposal0 :: SIP.Proposal (PivoEra Mock.C_Crypto)
-   proposal0 = SIP.Proposal $ Hash.hashWithSerialiser toCBOR ("Foo" :: Text)
+   salt0 = 9823
+   revelation0 = SIP.mkRevelation vkey0 salt0 "Foo"
+   submission1 :: SIP.Submission (PivoEra Mock.C_Crypto)
+   submission1 = SIP.mkSubmission vkey1 salt1 "Bar"
+   vkey1 = VerKeyMockDSIGN 74551
+   salt1 = 2389
+   revelation1 = SIP.mkRevelation vkey1 salt1 "Bar"

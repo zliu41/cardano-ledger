@@ -24,6 +24,10 @@ library
     Cardano.Ledger.Pivo.TxBody
     Cardano.Ledger.Pivo.Update
     Cardano.Ledger.Pivo.Update.Payload.SIP
+    Cardano.Ledger.Pivo.Update.Payload.SIP.Proposal
+    Cardano.Ledger.Pivo.Update.Payload.SIP.Revelation
+    Cardano.Ledger.Pivo.Update.Payload.SIP.Submission
+    Cardano.Ledger.Pivo.Update.Payload.Types
     Cardano.Ledger.Pivo.Rules
     Cardano.Ledger.Pivo.Rules.Utxo
     Cardano.Ledger.Pivo.Rules.Utxow

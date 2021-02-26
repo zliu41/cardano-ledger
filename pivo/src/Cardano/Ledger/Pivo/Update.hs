@@ -32,7 +32,8 @@ import Data.Sequence.Strict (StrictSeq)
 import Data.Aeson (ToJSON, FromJSON)
 
 import Cardano.Prelude (cborError)
-import Cardano.Binary (ToCBOR (toCBOR), encodeWord, FromCBOR (fromCBOR), decodeWord)
+import Cardano.Binary (ToCBOR (toCBOR), encodeWord, FromCBOR (fromCBOR), decodeWord
+                      , encodeListLen, decodeListLenOf)
 import Data.Coders (encodeFoldable, decodeStrictSeq)
 
 import Cardano.Ledger.Era (Crypto, Era)
@@ -44,15 +45,23 @@ import qualified Cardano.Ledger.Pivo.Update.Payload.SIP as SIP
 import Shelley.Spec.Ledger.TxBody ()
 
 data Payload era =
-  Payload { sipSubmissions :: !(StrictSeq (SIP.Submission era)) }
+  Payload { sipSubmissions :: !(StrictSeq (SIP.Submission era))
+          , sipRevelations :: !(StrictSeq (SIP.Revelation era))
+          }
   deriving (Show, Eq, NFData, NoThunks, Generic, ToJSON, FromJSON)
 
 instance (Typeable era, Era era) => ToCBOR (Payload era) where
-  toCBOR Payload { sipSubmissions } =
-    encodeFoldable sipSubmissions
+  toCBOR Payload { sipSubmissions, sipRevelations }
+    =  encodeListLen 2
+    <> encodeFoldable sipSubmissions
+    <> encodeFoldable sipRevelations
 
 instance (Typeable era, Era era) => FromCBOR (Payload era) where
-  fromCBOR = Payload <$> decodeStrictSeq fromCBOR
+  fromCBOR = do
+    decodeListLenOf 2
+    sipSubs <- decodeStrictSeq fromCBOR
+    sipRevs <- decodeStrictSeq fromCBOR
+    return $! Payload sipSubs sipRevs
 
 -- | Key hashes that have to witness the update payload.
 witnesses :: Payload era -> Set (KeyHash 'Witness (Crypto era))
