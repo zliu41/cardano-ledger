@@ -1,5 +1,7 @@
 module Cardano.Ledger.Pivo.Update.Payload.Types where
 
+import Data.Text (Text)
+
 import Cardano.Crypto.DSIGN (VerKeyDSIGN)
 import qualified Cardano.Crypto.Hash as Cardano
 
@@ -11,3 +13,5 @@ type VKey era = VerKeyDSIGN (DSIGN (Era.Crypto era))
 type Hash era a = Cardano.Hash (HASH (Era.Crypto era)) a
 
 type VKeyHash era = Cardano.Hash (ADDRHASH (Era.Crypto era)) (VKey era)
+
+type ProposalId era = Hash era Text

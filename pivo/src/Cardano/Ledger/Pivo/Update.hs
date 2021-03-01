@@ -48,25 +48,32 @@ import Shelley.Spec.Ledger.TxBody ()
 data Payload era =
   Payload { sipSubmissions :: !(StrictSeq (SIP.Submission era))
           , sipRevelations :: !(StrictSeq (SIP.Revelation era))
+          , sipVotes       :: !(StrictSeq (SIP.Vote era))
           }
   deriving (Show, Eq, NFData, NoThunks, Generic, ToJSON, FromJSON)
 
 instance (Typeable era, Era era) => ToCBOR (Payload era) where
-  toCBOR Payload { sipSubmissions, sipRevelations }
-    =  encodeListLen 2
+  toCBOR Payload { sipSubmissions
+                 , sipRevelations
+                 , sipVotes
+                 }
+    =  encodeListLen 3
     <> encodeFoldable sipSubmissions
     <> encodeFoldable sipRevelations
+    <> encodeFoldable sipVotes
 
 instance (Typeable era, Era era) => FromCBOR (Payload era) where
   fromCBOR = do
-    decodeListLenOf 2
-    sipSubs <- decodeStrictSeq fromCBOR
-    sipRevs <- decodeStrictSeq fromCBOR
-    return $! Payload sipSubs sipRevs
+    decodeListLenOf 3
+    sipSubs  <- decodeStrictSeq fromCBOR
+    sipRevs  <- decodeStrictSeq fromCBOR
+    sipVotes <- decodeStrictSeq fromCBOR
+    return $! Payload sipSubs sipRevs sipVotes
 
 -- | Key hashes that have to witness the update payload.
 witnesses :: Payload era -> Set (KeyHash 'Witness (Crypto era))
-witnesses = foldMap SIP.witnesses. sipSubmissions
+witnesses =  foldMap SIP.witnesses     . sipSubmissions
+          <> foldMap SIP.voteWitnesses . sipVotes
 
 --------------------------------------------------------------------------------
 -- Update environment

@@ -165,7 +165,7 @@ instance
   type
     PredicateFailure (UTXOW era) =
       UtxowPredicateFailure era
-  transitionRules = -- [utxoWitnessed scriptsNeeded]
+  transitionRules =
     [ do
         judgmentContext
           >>= \(TRC (UtxoEnv slot pp stakepools genDelegs, u, tx@(Tx txbody wits md))) -> do

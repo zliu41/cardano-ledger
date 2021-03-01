@@ -27,6 +27,7 @@ unitTests =
       (Roundtrip.property (Payload @(PivoEra Mock.C_Crypto)
                              Empty -- SIP submissions
                              Empty -- SIP revelations
+                             Empty
                           )
       )
   , QC.testProperty
@@ -34,6 +35,7 @@ unitTests =
       (Roundtrip.property (Payload @(PivoEra Mock.C_Crypto)
                             (fromList [submission0])
                             (fromList [revelation0])
+                            (fromList [vote0])
                           )
       )
   , QC.testProperty
@@ -47,6 +49,10 @@ unitTests =
                                       , revelation1
                                       ]
                             )
+                            (fromList [ vote0
+                                      , vote1
+                                      , vote2
+                                      ])
                           )
       )
   ]
@@ -56,8 +62,11 @@ unitTests =
    vkey0 = VerKeyMockDSIGN 0912
    salt0 = 9823
    revelation0 = SIP.mkRevelation vkey0 salt0 "Foo"
+   vote0 = SIP.mkVote vkey0 "Foo" SIP.For
    submission1 :: SIP.Submission (PivoEra Mock.C_Crypto)
    submission1 = SIP.mkSubmission vkey1 salt1 "Bar"
    vkey1 = VerKeyMockDSIGN 74551
    salt1 = 2389
    revelation1 = SIP.mkRevelation vkey1 salt1 "Bar"
+   vote1 = SIP.mkVote vkey0 "Bar" SIP.Against
+   vote2 = SIP.mkVote vkey1 "Bar" SIP.Abstain

@@ -18,10 +18,10 @@ import qualified Cardano.Crypto.Hash as Cardano
 
 import           Cardano.Ledger.Era (Era)
 
-import Cardano.Ledger.Pivo.Update.Payload.Types (Hash)
+import Cardano.Ledger.Pivo.Update.Payload.Types (ProposalId)
 
 data Proposal era =
-  Proposal { dataHash :: Hash era Text
+  Proposal { dataHash :: ProposalId era
              -- ^ Hash of the proposal's data. For now we assume the proposal is
              -- simply a string.
            }

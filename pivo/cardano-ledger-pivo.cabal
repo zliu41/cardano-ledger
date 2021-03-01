@@ -25,8 +25,9 @@ library
     Cardano.Ledger.Pivo.Update
     Cardano.Ledger.Pivo.Update.Payload.SIP
     Cardano.Ledger.Pivo.Update.Payload.SIP.Proposal
-    Cardano.Ledger.Pivo.Update.Payload.SIP.Revelation
     Cardano.Ledger.Pivo.Update.Payload.SIP.Submission
+    Cardano.Ledger.Pivo.Update.Payload.SIP.Revelation
+    Cardano.Ledger.Pivo.Update.Payload.SIP.Vote
     Cardano.Ledger.Pivo.Update.Payload.Types
     Cardano.Ledger.Pivo.Rules
     Cardano.Ledger.Pivo.Rules.Utxo
