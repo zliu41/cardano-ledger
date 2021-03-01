@@ -12,6 +12,7 @@ module Cardano.Ledger.Pivo.Update
   ( Payload ( Payload
             , sipSubmissions
             , sipRevelations
+            , sipVotes
             )
   , witnesses
   , Environment (Environment)
