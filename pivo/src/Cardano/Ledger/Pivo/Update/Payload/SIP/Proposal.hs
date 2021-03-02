@@ -26,11 +26,12 @@ import           Cardano.Ledger.Era (Era)
 import Cardano.Ledger.Pivo.Update.Payload.Types (Hash)
 
 data Proposal era =
-  Proposal { proposalTextHash :: Hash era Text
-             -- ^ Hash of the proposal's text. For now we assume the proposal is
-             -- simply a string.
-           , votingPeriodDuration :: SlotNo
-           }
+  Proposal
+    { proposalTextHash :: Hash era Text
+      -- ^ Hash of the proposal's text. For now we assume the proposal is simply
+      -- a string.
+    , votingPeriodDuration :: SlotNo
+    }
   deriving (Eq, Show, Generic, NFData, NoThunks, ToJSON)
 
 mkProposal :: Era era => Text -> SlotNo -> Proposal era

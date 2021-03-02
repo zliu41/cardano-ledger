@@ -26,7 +26,7 @@ import Cardano.Binary (ToCBOR (toCBOR), FromCBOR (fromCBOR), encodeListLen, deco
                       )
 import Cardano.Crypto.DSIGN (hashVerKeyDSIGN)
 
-import Cardano.Ledger.Update.Proposal (Confidence(Abstain, Against, For), Id)
+import Cardano.Ledger.Update.Proposal (Confidence (Abstain, Against, For), Id)
 
 import           Cardano.Ledger.Era (Era)
 import qualified Cardano.Ledger.Era as Era
