@@ -31,7 +31,9 @@ module Cardano.Ledger.Pivo.Update.Payload.SIP
               )
   , SIPV.mkVote
   , SIPV.voteWitnesses
-    -- * Proposal newtype functions
+    -- * Proposals
+  , SIP.mkProposal
+    -- ** Proposal newtype functions
   , unSIPSubmission
   , unSIPRevelation
   , unSIPVote
@@ -41,6 +43,7 @@ module Cardano.Ledger.Pivo.Update.Payload.SIP
                         , Proposal.Against
                         , Proposal.Abstain
                         )
+  , Proposal._id
   )
 where
 

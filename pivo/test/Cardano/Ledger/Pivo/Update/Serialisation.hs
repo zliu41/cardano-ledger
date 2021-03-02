@@ -58,15 +58,17 @@ unitTests =
   ]
  where
    submission0 :: SIP.Submission (PivoEra Mock.C_Crypto)
-   submission0 = SIP.mkSubmission vkey0 salt0 "Foo"
+   submission0 = SIP.mkSubmission vkey0 salt0 proposal0
+   proposal0 = SIP.mkProposal "Foo" 100
    vkey0 = VerKeyMockDSIGN 0912
    salt0 = 9823
-   revelation0 = SIP.mkRevelation vkey0 salt0 "Foo"
-   vote0 = SIP.mkVote vkey0 "Foo" SIP.For
+   revelation0 = SIP.mkRevelation vkey0 salt0 proposal0
+   vote0 = SIP.mkVote vkey0 (SIP._id proposal0) SIP.For
    submission1 :: SIP.Submission (PivoEra Mock.C_Crypto)
-   submission1 = SIP.mkSubmission vkey1 salt1 "Bar"
+   submission1 = SIP.mkSubmission vkey1 salt1 proposal1
+   proposal1 = SIP.mkProposal "Bar" 300
    vkey1 = VerKeyMockDSIGN 74551
    salt1 = 2389
-   revelation1 = SIP.mkRevelation vkey1 salt1 "Bar"
-   vote1 = SIP.mkVote vkey0 "Bar" SIP.Against
-   vote2 = SIP.mkVote vkey1 "Bar" SIP.Abstain
+   revelation1 = SIP.mkRevelation vkey1 salt1 proposal1
+   vote1 = SIP.mkVote vkey0 (SIP._id proposal1) SIP.Against
+   vote2 = SIP.mkVote vkey1 (SIP._id proposal1) SIP.Abstain
