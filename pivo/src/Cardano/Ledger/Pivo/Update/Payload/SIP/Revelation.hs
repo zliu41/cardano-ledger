@@ -13,14 +13,13 @@ import Data.Typeable (Typeable)
 import Control.DeepSeq (NFData ())
 import NoThunks.Class (NoThunks ())
 import Data.Aeson (ToJSON, FromJSON)
-import Data.Text (Text)
 
 import Cardano.Binary (ToCBOR (toCBOR), FromCBOR (fromCBOR), encodeListLen, decodeListLenOf)
 import Cardano.Crypto.DSIGN (hashVerKeyDSIGN)
 
 import Cardano.Ledger.Era (Era)
 
-import Cardano.Ledger.Pivo.Update.Payload.SIP.Proposal (Proposal, mkProposal)
+import Cardano.Ledger.Pivo.Update.Payload.SIP.Proposal (Proposal)
 import Cardano.Ledger.Pivo.Update.Payload.Types (VKeyHash, VKey)
 
 data Revelation era
@@ -52,11 +51,11 @@ mkRevelation
   :: Era era
   => VKey era
   -> Int
-  -> Text
+  -> Proposal era
   -> Revelation era
-mkRevelation vk someSalt someText =
+mkRevelation vk someSalt someProposal =
   Revelation
-    { proposal  = mkProposal someText
+    { proposal  = someProposal
     , revelator = hashVerKeyDSIGN vk
     , salt      = someSalt
     }

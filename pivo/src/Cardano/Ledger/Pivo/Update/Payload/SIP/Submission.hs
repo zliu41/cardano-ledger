@@ -14,18 +14,19 @@ import Control.DeepSeq (NFData ())
 import NoThunks.Class (NoThunks ())
 import Data.Aeson (ToJSON, FromJSON)
 import Data.Set (Set, singleton)
-import Data.Text (Text)
 
 import Cardano.Crypto.DSIGN (hashVerKeyDSIGN)
 import qualified Cardano.Crypto.Hash as Cardano
 import Cardano.Binary (ToCBOR (toCBOR), FromCBOR (fromCBOR), encodeListLen, decodeListLenOf)
+
+import Cardano.Ledger.Update.Proposal (_id)
 
 import qualified Shelley.Spec.Ledger.Keys as Shelley
 
 import           Cardano.Ledger.Era (Era)
 import qualified Cardano.Ledger.Era as Era
 
-import Cardano.Ledger.Pivo.Update.Payload.SIP.Proposal (Proposal, mkProposal)
+import Cardano.Ledger.Pivo.Update.Payload.SIP.Proposal (Proposal, unProposalId)
 import Cardano.Ledger.Pivo.Update.Payload.Types (Hash, VKeyHash, VKey)
 
 data Submission era =
@@ -36,7 +37,7 @@ data Submission era =
   , commit :: Commit era
   } deriving (Eq, Show, Generic, NFData, NoThunks, ToJSON)
 
-type Commit era = Hash era (Int, VKeyHash era, Proposal era)
+type Commit era = Hash era (Int, VKeyHash era, Hash era (Proposal era))
 
 instance (Typeable era, Era era) => ToCBOR (Submission era) where
   toCBOR Submission { author, commit }
@@ -63,19 +64,18 @@ witnesses = singleton . Shelley.KeyHash . author
 mkSubmission
   :: Era era
   => VKey era
+  -- ^ Proposal's author.
   -> Int
   -- ^ Salt used to calculate the submission commit.
-  -> Text
-  -- ^ Proposal's text.
+  -> Proposal era
   -> Submission era
-mkSubmission vk someSalt someText =
+mkSubmission vk someSalt someProposal =
   Submission
     { author = vkHash
-    , commit = mkCommit someSalt vkHash proposal
+    , commit = mkCommit someSalt vkHash someProposal
     }
     where
       vkHash   = hashVerKeyDSIGN vk
-      proposal = mkProposal someText
 
 mkCommit
   :: Era era
@@ -84,4 +84,9 @@ mkCommit
   -> Proposal era
   -> Commit era
 mkCommit someSalt vkHash proposal =
-  Cardano.hashWithSerialiser toCBOR (someSalt, vkHash, proposal)
+  Cardano.hashWithSerialiser
+    toCBOR
+    ( someSalt
+    , vkHash
+    , unProposalId $ _id proposal
+    )

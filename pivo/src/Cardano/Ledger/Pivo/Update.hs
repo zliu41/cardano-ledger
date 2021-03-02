@@ -38,6 +38,8 @@ import Cardano.Binary (ToCBOR (toCBOR), encodeWord, FromCBOR (fromCBOR), decodeW
                       , encodeListLen, decodeListLenOf)
 import Data.Coders (encodeFoldable, decodeStrictSeq)
 
+import qualified Cardano.Ledger.Update as USS -- Update sub-system
+
 import Cardano.Ledger.Era (Crypto, Era)
 
 import Shelley.Spec.Ledger.Keys (KeyHash, KeyRole (Witness))
@@ -89,6 +91,7 @@ data Environment era = Environment
 
 -- | Update state. This is shared among all the update rules (e.g. PUP and UPEC)
 data State era = State
+  --{ ussState :: USS.State ??? ??? }
   deriving (Show, NFData, Generic, Eq, NoThunks, ToJSON, FromJSON)
 
 instance Default (State era) where

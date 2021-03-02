@@ -16,7 +16,6 @@ import Data.Typeable (Typeable)
 import Control.DeepSeq (NFData ())
 import NoThunks.Class (NoThunks ())
 import Data.Aeson (ToJSON, FromJSON)
-import Data.Text (Text)
 import Data.Set (Set, singleton)
 
 import qualified Data.Text as T
@@ -27,7 +26,7 @@ import Cardano.Binary (ToCBOR (toCBOR), FromCBOR (fromCBOR), encodeListLen, deco
                       )
 import Cardano.Crypto.DSIGN (hashVerKeyDSIGN)
 
-import Cardano.Ledger.Update.Proposal (Confidence (For, Against, Abstain))
+import Cardano.Ledger.Update.Proposal (Confidence(Abstain, Against, For), Id)
 
 import           Cardano.Ledger.Era (Era)
 import qualified Cardano.Ledger.Era as Era
@@ -35,15 +34,17 @@ import Shelley.Spec.Ledger.Credential (Credential (KeyHashObj))
 
 import qualified Shelley.Spec.Ledger.Keys as Shelley
 
-import Cardano.Ledger.Pivo.Update.Payload.SIP.Proposal (dataHash, mkProposal)
-import Cardano.Ledger.Pivo.Update.Payload.Types (ProposalId, VKey)
+import Cardano.Ledger.Pivo.Update.Payload.SIP.Proposal (Proposal)
+import Cardano.Ledger.Pivo.Update.Payload.Types (VKey)
 
 data Vote era
   = Vote
     { voter      :: Credential 'Shelley.Staking (Era.Crypto era)
-    , candidate  :: ProposalId era
+    , candidate  :: Id (Proposal era)
     , confidence :: Confidence
     } deriving (Eq, Show, Generic, NFData, NoThunks, ToJSON)
+
+type VoterId era = Credential 'Shelley.Staking (Era.Crypto era)
 
 deriving instance Era era => FromJSON (Vote era)
 
@@ -62,18 +63,17 @@ instance (Typeable era, Era era) => FromCBOR (Vote era) where
     d <- fromCBOR
     return $! Vote v c d
 
--- todo: define a mkVote function
 mkVote
   :: forall era
    . Era era
   => VKey era
-  -> Text
+  -> Id (Proposal era)
   -> Confidence
   -> Vote era
-mkVote vk someText someConfidence =
+mkVote vk proposalId someConfidence =
   Vote
     { voter      = KeyHashObj $ Shelley.KeyHash $ hashVerKeyDSIGN vk
-    , candidate  = dataHash $ mkProposal @era someText
+    , candidate  = proposalId
     , confidence = someConfidence
     }
 
