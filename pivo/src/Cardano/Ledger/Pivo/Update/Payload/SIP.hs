@@ -34,6 +34,7 @@ module Cardano.Ledger.Pivo.Update.Payload.SIP
     -- * Proposals
   , SIP.Proposal
   , SIP.mkProposal
+  , Id (SIP.ProposalId)
     -- ** Proposal newtype functions
   , unSIPSubmission
   , unSIPRevelation
@@ -64,6 +65,7 @@ import Cardano.Ledger.Update.Proposal
              )
   , Identifiable (_id)
   , Signed (signatureVerifies)
+  , Id
   )
 import qualified Cardano.Ledger.Update.Proposal as Proposal
 
