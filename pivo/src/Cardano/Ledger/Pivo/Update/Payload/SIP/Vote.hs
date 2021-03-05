@@ -8,7 +8,6 @@
 {-# LANGUAGE StandaloneDeriving #-}
 {-# LANGUAGE TypeApplications #-}
 
-{-# OPTIONS_GHC -Wno-orphans #-}
 module Cardano.Ledger.Pivo.Update.Payload.SIP.Vote where
 
 import GHC.Generics (Generic)
@@ -26,7 +25,7 @@ import Cardano.Binary (ToCBOR (toCBOR), FromCBOR (fromCBOR), encodeListLen, deco
                       )
 import Cardano.Crypto.DSIGN (hashVerKeyDSIGN)
 
-import Cardano.Ledger.Update.Proposal (Confidence (Abstain, Against, For), Id)
+import Cardano.Ledger.Update.Proposal (Confidence, Id)
 
 import           Cardano.Ledger.Era (Era)
 import qualified Cardano.Ledger.Era as Era
@@ -83,26 +82,3 @@ voteWitnesses Vote { voter } =
   case voter of
     KeyHashObj vkeyHash -> singleton $ Shelley.coerceKeyRole vkeyHash
     _                   -> mempty
-
---------------------------------------------------------------------------------
--- Confidence orphan instances
---------------------------------------------------------------------------------
-
-deriving instance NFData Confidence
-deriving instance ToJSON Confidence
-deriving instance FromJSON Confidence
-
--- TODO: This instance can be put in module Cardano.Ledger.Update.Proposal
-deriving instance Bounded Confidence
-
-instance ToCBOR Confidence where
-  toCBOR = toCBOR . fromEnum
-
-instance FromCBOR Confidence where
-  fromCBOR = do
-    n <- fromCBOR
-    if fromEnum (minBound :: Confidence) <= n
-       && n <= fromEnum (maxBound :: Confidence)
-    then return $! toEnum n
-    else cborError $ DecoderErrorCustom "Confidence"
-                   $ "Unknown confidence id" <> T.pack (show n)

@@ -1,4 +1,6 @@
 {-# LANGUAGE DataKinds #-}
+{-# LANGUAGE DerivingStrategies #-}
+{-# LANGUAGE GeneralizedNewtypeDeriving #-}
 {-# LANGUAGE DeriveAnyClass #-}
 {-# LANGUAGE DeriveGeneric #-}
 {-# LANGUAGE FlexibleContexts #-}
@@ -45,6 +47,7 @@ import Cardano.Ledger.Era (Crypto, Era)
 import Shelley.Spec.Ledger.Keys (KeyHash, KeyRole (Witness))
 
 import qualified Cardano.Ledger.Pivo.Update.Payload.SIP as SIP
+import Cardano.Ledger.Pivo.Update.Payload.Implementation (Implementation, protocolZero)
 
 import Shelley.Spec.Ledger.TxBody ()
 
@@ -90,21 +93,14 @@ data Environment era = Environment
 --------------------------------------------------------------------------------
 
 -- | Update state. This is shared among all the update rules (e.g. PUP and UPEC)
-data State era = State
-  --{ ussState :: USS.State ??? ??? }
-  deriving (Show, NFData, Generic, Eq, NoThunks, ToJSON, FromJSON)
+newtype State era =
+  State { ussState :: USS.State (SIP.Proposal era) (Implementation era) }
+  deriving stock (Show, Eq)
+  deriving anyclass (Generic)
+  deriving newtype (ToCBOR, FromCBOR, NFData, NoThunks, ToJSON, FromJSON)
 
-instance Default (State era) where
-  def = State
-
-instance Typeable era => ToCBOR (State era) where
-  toCBOR State = encodeWord 0
-
-instance Typeable era => FromCBOR (State era) where
-  fromCBOR = decodeWord >>= \case
-      0 -> pure State
-      k -> cborError $  "Invalid key " <> (Text.pack (show k))
-                     <> " when decoding a value of type State"
+instance Era era => Default (State era) where
+  def = State $ USS.initialState protocolZero
 
 --------------------------------------------------------------------------------
 -- Predicate failure

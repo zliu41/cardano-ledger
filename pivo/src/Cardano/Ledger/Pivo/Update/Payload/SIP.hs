@@ -1,6 +1,8 @@
 {-# LANGUAGE DataKinds #-}
 {-# LANGUAGE DeriveAnyClass #-}
+{-# LANGUAGE GeneralizedNewtypeDeriving #-}
 {-# LANGUAGE DeriveGeneric #-}
+{-# LANGUAGE DerivingStrategies #-}
 {-# LANGUAGE FlexibleContexts #-}
 {-# LANGUAGE FlexibleInstances #-}
 {-# LANGUAGE NamedFieldPuns #-}
@@ -49,6 +51,14 @@ module Cardano.Ledger.Pivo.Update.Payload.SIP
   )
 where
 
+import Data.Typeable (Typeable)
+import Control.DeepSeq (NFData)
+import GHC.Generics (Generic)
+import NoThunks.Class (NoThunks)
+import Data.Aeson (ToJSON, FromJSON, ToJSONKey, FromJSONKey)
+
+import Cardano.Binary (ToCBOR (toCBOR), FromCBOR (fromCBOR), encodeListLen, decodeListLenOf, encodeWord, decodeWord)
+
 import Cardano.Ledger.Update.Proposal
   ( Commitable
   , Commit
@@ -79,15 +89,16 @@ import qualified Cardano.Ledger.Pivo.Update.Payload.SIP.Proposal as SIP
 instance Era era => Proposal (SIP.Proposal era) where
   newtype Submission (SIP.Proposal era) =
     SIPSubmission { unSIPSubmission :: SIPS.Submission era }
-    deriving (Show)
+    deriving (Eq, Show, Generic, NFData, NoThunks, ToJSON)
   newtype Revelation (SIP.Proposal era) =
     SIPRevelation { unSIPRevelation :: SIPR.Revelation era }
-    deriving (Show)
+    deriving (Eq, Show, Generic, NFData, NoThunks, ToJSON)
   newtype Vote       (SIP.Proposal era) =
     SIPVote       { unSIPVote :: SIPV.Vote era }
-    deriving (Show)
+    deriving (Eq, Show, Generic, NFData, NoThunks, ToJSON)
   newtype Voter      (SIP.Proposal era) =
     SIPVoter      { unSIPVoter :: SIPV.VoterId era}
+    deriving (Eq, Show, Generic, NFData, NoThunks, ToJSON)
 
   revelationCommit = SIPS.commit . unSIPSubmission
 
@@ -117,5 +128,10 @@ instance Signed (Vote (SIP.Proposal era)) where
 
 instance Identifiable (Voter (SIP.Proposal era)) where
   newtype Id (Voter (SIP.Proposal era)) = VoterId (SIPV.VoterId era)
-    deriving (Eq, Ord, Show)
+    deriving (Eq, Ord, Show, NFData, Generic, NoThunks, ToJSON, ToJSONKey, FromJSONKey)
   _id = VoterId . unSIPVoter
+
+deriving instance Era era => FromJSON (Id (Voter (SIP.Proposal era)))
+
+deriving newtype instance
+  (Typeable era, Era era) => ToCBOR (Id (Voter (SIP.Proposal era)))

@@ -12,7 +12,7 @@ import GHC.Generics (Generic)
 import Data.Typeable (Typeable)
 import Control.DeepSeq (NFData ())
 import NoThunks.Class (NoThunks ())
-import Data.Aeson (ToJSON, FromJSON)
+import Data.Aeson (ToJSON, FromJSON, ToJSONKey, FromJSONKey)
 import Data.Text (Text)
 
 import Cardano.Binary (ToCBOR (toCBOR), FromCBOR (fromCBOR), encodeListLen, decodeListLenOf)
@@ -61,7 +61,7 @@ deriving instance Era era => FromJSON (Proposal era)
 instance Era era => Identifiable (Proposal era) where
   newtype Id (Proposal era) =
     ProposalId { unProposalId :: Hash era (Proposal era) }
-    deriving (Eq, Ord, Show, Generic, NFData, NoThunks, ToJSON)
+    deriving (Eq, Ord, Show, Generic, NFData, NoThunks, ToJSON, ToJSONKey, FromJSONKey)
 
   _id = ProposalId . Cardano.hashWithSerialiser toCBOR
 
