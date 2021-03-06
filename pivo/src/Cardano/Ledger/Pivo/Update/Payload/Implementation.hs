@@ -24,7 +24,7 @@ import Data.Aeson (ToJSON, FromJSON, ToJSONKey, FromJSONKey)
 import Data.Text (Text)
 
 import qualified Cardano.Crypto.Hash as Cardano
-import Cardano.Binary (ToCBOR (toCBOR), FromCBOR (fromCBOR), encodeListLen, decodeListLenOf, encodeWord, decodeWord)
+import Cardano.Binary (ToCBOR (toCBOR), FromCBOR (fromCBOR), encodeListLen, decodeListLenOf)
 
 import           Cardano.Slotting.Slot (SlotNo)
 
@@ -80,18 +80,21 @@ data Implementation era =
     , implVotingPeriodDuration :: SlotNo
     , implProtocol             :: Protocol (Implementation era)
     }
-  deriving (Eq, Show, Generic, NFData, NoThunks, ToJSON)
+  deriving stock (Eq, Show, Generic)
+  deriving anyclass (NFData, NoThunks, ToJSON)
 
-instance Era era => FromJSON (Implementation era)
+deriving anyclass instance Era era => FromJSON (Implementation era)
 
 instance Era era => Identifiable (Implementation era) where
   newtype Id (Implementation era) =
     ImplementationId { unImplementationId :: Hash era (Implementation era)}
-    deriving (Eq, Ord, Show, Generic, NFData, NoThunks, ToJSON, ToJSONKey, FromJSONKey)
+    deriving stock (Eq, Ord, Show, Generic)
+    deriving newtype (NFData, NoThunks, ToJSON, ToJSONKey)
 
   _id = ImplementationId . Cardano.hashWithSerialiser toCBOR
 
-deriving instance Era era => FromJSON (Id (Implementation era))
+deriving newtype instance Era era => FromJSON (Id (Implementation era))
+deriving newtype instance Era era => FromJSONKey (Id (Implementation era))
 
 instance Era era => Proposal (Implementation era) where
   data Submission (Implementation era) =
@@ -99,7 +102,8 @@ instance Era era => Proposal (Implementation era) where
       { submissionAuthor :: VKeyHash era
       , submissionCommit :: Commit (Revelation (Implementation era))
       }
-    deriving (Eq, Show, Generic, NFData, NoThunks, ToJSON)
+    deriving stock (Eq, Show, Generic)
+    deriving anyclass (NFData, NoThunks, ToJSON)
 
   data Revelation (Implementation era) =
     ImplRevelation
@@ -107,7 +111,8 @@ instance Era era => Proposal (Implementation era) where
       , revelator              :: VKeyHash era
       , revelationSalt         :: Int
       }
-    deriving (Eq, Show, Generic, NFData, NoThunks, ToJSON)
+    deriving stock (Eq, Show, Generic)
+    deriving anyclass (NFData, NoThunks, ToJSON)
 
   data Vote (Implementation era) =
     ImplVote
@@ -115,11 +120,13 @@ instance Era era => Proposal (Implementation era) where
       , implCandidate  :: Id (Implementation era)
       , implConfidence :: Confidence
       }
-    deriving (Eq, Show, Generic, NFData, NoThunks, ToJSON)
+    deriving stock (Eq, Show, Generic)
+    deriving anyclass (NFData, NoThunks, ToJSON, ToJSONKey)
 
   newtype Voter (Implementation era) =
     ImplVoter { unImplVoter :: Credential 'Shelley.Staking (Era.Crypto era) }
-    deriving (Eq, Ord, Show, Generic, NFData, NoThunks, ToJSON)
+    deriving stock (Eq, Ord, Show, Generic)
+    deriving newtype (NFData, NoThunks, ToJSON, ToJSONKey)
 
   revelationCommit = submissionCommit -- TODO: There's something wrong with the names here :/
 
@@ -133,7 +140,8 @@ instance Era era => Proposal (Implementation era) where
 
   confidence = implConfidence
 
-deriving instance Era era => FromJSON (Voter (Implementation era))
+deriving newtype instance Era era => FromJSON (Voter (Implementation era))
+deriving newtype instance Era era => FromJSONKey (Voter (Implementation era))
 
 instance Era era => Commitable (Revelation (Implementation era)) where
   type Commit (Revelation (Implementation era)) =
@@ -154,7 +162,8 @@ instance Signed (Vote (Implementation era)) where
 instance Identifiable (Voter (Implementation era)) where
   newtype Id (Voter (Implementation era)) =
     VoterId { unVoterId :: Voter (Implementation era) }
-    deriving (Eq, Ord, Show, Generic, NFData, NoThunks, ToJSON, ToJSONKey, FromJSONKey, FromJSON)
+    deriving stock (Eq, Ord, Show, Generic)
+    deriving newtype (NFData, NoThunks, ToJSON, ToJSONKey, FromJSONKey, FromJSON)
 
   _id = VoterId
 
@@ -170,7 +179,8 @@ instance Era era =>
       , implSupersedesId      :: Id (Protocol (Implementation era))
       , implSupersedesVersion :: Version (Protocol (Implementation era))
       }
-    deriving (Eq, Ord, Show, Generic, NFData, NoThunks, ToJSON, ToJSONKey, FromJSONKey)
+    deriving stock (Eq, Ord, Show, Generic)
+    deriving anyclass (NFData, NoThunks, ToJSON, ToJSONKey, FromJSONKey)
 
   newtype Application (Implementation era) =
     ImplApplication { unImplApplication :: Word }
@@ -178,8 +188,7 @@ instance Era era =>
     -- demonstrate the prototype can handle protocol updates. It remains to be
     -- seen if application updates is something we want to support in this
     -- prototype.
-    deriving stock (Show, Eq)
-    deriving anyclass (Generic)
+    deriving stock (Show, Eq, Generic)
     deriving newtype (NFData, NoThunks, ToJSON, FromJSON, ToCBOR, FromCBOR)
 
   preProposalId = SIP.ProposalId . sipId
@@ -197,7 +206,7 @@ protocolZero =
     , implSupersedesVersion = ImplVersion 0
     }
 
-instance Era era => FromJSON (Protocol (Implementation era))
+deriving anyclass instance Era era => FromJSON (Protocol (Implementation era))
 
 deriving newtype instance Era era => FromJSON (Version (Protocol (Implementation era)))
 
@@ -208,11 +217,13 @@ instance Era era => Activable (Protocol (Implementation era)) where
     ImplEndorser { unImplEndorser :: Credential 'Shelley.Staking (Era.Crypto era) }
     -- todo: in practice one would allow only block issuers to endorse. We allow
     -- staking keys to endorse in this prototype to keep things simple.
-    deriving (Show, NFData, Generic, Eq, NoThunks, ToJSON)
+    deriving stock (Show, Eq, Generic)
+    deriving newtype (NFData, NoThunks, ToJSON)
 
   newtype Version (Protocol (Implementation era)) =
     ImplVersion { unImplVersion :: Word }
-    deriving (Eq, Ord, Show, Generic, NFData, NoThunks, ToJSON, ToJSONKey, FromJSONKey)
+    deriving stock (Show, Eq, Ord, Generic)
+    deriving newtype (NFData, NoThunks, ToJSON, ToJSONKey, FromJSONKey)
 
   version = implProtocolVersion
 
@@ -223,8 +234,7 @@ instance Era era => Activable (Protocol (Implementation era)) where
 instance Era era => Identifiable (Protocol (Implementation era)) where
   newtype Id (Protocol (Implementation era)) =
     ProtocolId { unProtocolId :: Hash era (Protocol (Implementation era)) }
-    deriving stock (Eq, Ord, Show)
-    deriving anyclass (Generic)
+    deriving stock (Eq, Ord, Show, Generic)
     deriving newtype (NFData, NoThunks, ToJSON)
 
   _id = ProtocolId . Cardano.hashWithSerialiser toCBOR
@@ -232,8 +242,7 @@ instance Era era => Identifiable (Protocol (Implementation era)) where
 instance Identifiable (Application (Implementation era)) where
   newtype Id (Application (Implementation era)) =
     ApplicationId { unApplicationId :: Word }
-    deriving stock (Eq, Ord, Show)
-    deriving anyclass (Generic)
+    deriving stock (Eq, Ord, Show, Generic)
     deriving newtype (NFData, NoThunks, ToJSON, ToCBOR, FromCBOR)
 
   _id = ApplicationId . unImplApplication
@@ -241,12 +250,14 @@ instance Identifiable (Application (Implementation era)) where
 instance Identifiable (Endorser (Protocol (Implementation era))) where
   newtype Id (Endorser (Protocol (Implementation era))) =
     EndorserId { unEndorserId :: Credential 'Shelley.Staking (Era.Crypto era) }
-    deriving (Eq, Ord, Show, Generic, NFData, NoThunks, ToJSON)
+    deriving stock (Eq, Ord, Show, Generic)
+    deriving newtype (NFData, NoThunks, ToJSON)
 
   _id = EndorserId . unImplEndorser
 
-deriving instance
+deriving newtype instance
   Era era => FromJSON (Id (Endorser (Protocol (Implementation era))))
+
 --------------------------------------------------------------------------------
 -- Serialisation instances
 --------------------------------------------------------------------------------
@@ -257,9 +268,13 @@ instance (Typeable era, Era era) => ToCBOR (Implementation era) where
            <> toCBOR (implVotingPeriodDuration i)
            <> toCBOR (implProtocol i)
 
-instance FromCBOR (Implementation era) where
-  fromCBOR = ...
-
+instance (Typeable era, Era era) => FromCBOR (Implementation era) where
+  fromCBOR = do
+    decodeListLenOf 3
+    si <- fromCBOR
+    iv <- fromCBOR
+    ip <- fromCBOR
+    return $! Implementation si iv ip
 
 instance (Typeable era, Era era) => ToCBOR (Protocol (Implementation era)) where
   toCBOR p =  encodeListLen 3
@@ -292,10 +307,22 @@ deriving newtype instance
   Era era => ToCBOR (Id (Implementation era))
 
 deriving newtype instance
+  Era era => FromCBOR (Id (Implementation era))
+
+deriving newtype instance
   Era era => ToCBOR (Id (Voter (Implementation era)))
+
+deriving newtype instance
+  Era era => FromCBOR (Id (Voter (Implementation era)))
 
 deriving newtype instance
   Era era => ToCBOR (Voter (Implementation era))
 
 deriving newtype instance
+  Era era => FromCBOR (Voter (Implementation era))
+
+deriving newtype instance
   (Typeable era, Era era) => ToCBOR (Id (Endorser (Protocol (Implementation era))))
+
+deriving newtype instance
+  (Typeable era, Era era) => FromCBOR (Id (Endorser (Protocol (Implementation era))))

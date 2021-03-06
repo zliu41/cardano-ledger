@@ -56,7 +56,8 @@ data Payload era =
           , sipRevelations :: !(StrictSeq (SIP.Revelation era))
           , sipVotes       :: !(StrictSeq (SIP.Vote era))
           }
-  deriving (Show, Eq, NFData, NoThunks, Generic, ToJSON, FromJSON)
+  deriving stock (Show, Eq, Generic)
+  deriving anyclass (NFData, NoThunks, ToJSON, FromJSON)
 
 instance (Typeable era, Era era) => ToCBOR (Payload era) where
   toCBOR Payload { sipSubmissions
@@ -86,7 +87,8 @@ witnesses =  foldMap SIP.witnesses     . sipSubmissions
 --------------------------------------------------------------------------------
 
 data Environment era = Environment
-  deriving (Show, NFData, Generic, Eq, NoThunks, ToJSON, FromJSON)
+  deriving stock (Show, Eq, Generic)
+  deriving anyclass (NFData, NoThunks, ToJSON, FromJSON)
 
 --------------------------------------------------------------------------------
 -- Update state
@@ -95,8 +97,7 @@ data Environment era = Environment
 -- | Update state. This is shared among all the update rules (e.g. PUP and UPEC)
 newtype State era =
   State { ussState :: USS.State (SIP.Proposal era) (Implementation era) }
-  deriving stock (Show, Eq)
-  deriving anyclass (Generic)
+  deriving stock (Show, Eq, Generic)
   deriving newtype (ToCBOR, FromCBOR, NFData, NoThunks, ToJSON, FromJSON)
 
 instance Era era => Default (State era) where
@@ -107,7 +108,8 @@ instance Era era => Default (State era) where
 --------------------------------------------------------------------------------
 
 data PredicateFailure era = NoFailure
-  deriving (Show, NFData, Generic, Eq, NoThunks)
+  deriving stock (Show, Eq, Generic)
+  deriving anyclass (NFData, NoThunks)
 
 instance Typeable era => ToCBOR (PredicateFailure era) where
   toCBOR NoFailure = encodeWord 0

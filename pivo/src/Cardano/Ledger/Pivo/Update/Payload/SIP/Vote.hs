@@ -1,4 +1,5 @@
 {-# LANGUAGE DataKinds #-}
+{-# LANGUAGE DerivingStrategies #-}
 {-# LANGUAGE DeriveAnyClass #-}
 {-# LANGUAGE DeriveGeneric #-}
 {-# LANGUAGE NamedFieldPuns #-}
@@ -17,11 +18,7 @@ import NoThunks.Class (NoThunks ())
 import Data.Aeson (ToJSON, FromJSON)
 import Data.Set (Set, singleton)
 
-import qualified Data.Text as T
-
-import Cardano.Prelude (cborError)
 import Cardano.Binary (ToCBOR (toCBOR), FromCBOR (fromCBOR), encodeListLen, decodeListLenOf
-                      , DecoderError (DecoderErrorCustom)
                       )
 import Cardano.Crypto.DSIGN (hashVerKeyDSIGN)
 
@@ -41,11 +38,12 @@ data Vote era
     { voter      :: Credential 'Shelley.Staking (Era.Crypto era)
     , candidate  :: Id (Proposal era)
     , confidence :: Confidence
-    } deriving (Eq, Show, Generic, NFData, NoThunks, ToJSON)
+    } deriving stock (Eq, Show, Generic)
+      deriving anyclass (NFData, NoThunks, ToJSON)
 
 type VoterId era = Credential 'Shelley.Staking (Era.Crypto era)
 
-deriving instance Era era => FromJSON (Vote era)
+deriving anyclass instance Era era => FromJSON (Vote era)
 
 instance (Typeable era, Era era) => ToCBOR (Vote era) where
   toCBOR Vote { voter, candidate, confidence }
