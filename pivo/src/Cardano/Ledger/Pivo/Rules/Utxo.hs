@@ -15,6 +15,13 @@
 
 module Cardano.Ledger.Pivo.Rules.Utxo where
 
+import Shelley.Spec.Ledger.Slot
+  ( epochInfoEpoch
+  , epochInfoFirst
+  , epochInfoSize
+  , unEpochSize
+  )
+
 import Cardano.Binary (FromCBOR (..), ToCBOR (..), encodeListLen)
 import qualified Cardano.Ledger.Core as Core
 import Cardano.Ledger.Era (Crypto, Era)
@@ -30,7 +37,7 @@ import Cardano.Ledger.ShelleyMA.Timelocks
 import Cardano.Ledger.Pivo.TxBody (TxBody)
 import Cardano.Ledger.Torsor (Torsor (..))
 import qualified Cardano.Ledger.Val as Val
-import Cardano.Slotting.Slot (SlotNo)
+import Cardano.Slotting.Slot (SlotNo (SlotNo))
 import Control.Iterate.SetAlgebra (dom, eval, (∪), (⊆), (⋪), (◁))
 import Control.Monad.Trans.Reader (asks)
 import Control.State.Transition.Extended
@@ -60,6 +67,8 @@ import Shelley.Spec.Ledger.BaseTypes
     ShelleyBase,
     StrictMaybe (..),
     networkId,
+    epochInfo,
+    stabilityWindow
   )
 import Shelley.Spec.Ledger.Coin
 import qualified Shelley.Spec.Ledger.LedgerState as Shelley
@@ -243,10 +252,31 @@ instance
            produced_ = Shelley.produced pp stakepools txb
        consumed_ == produced_ ?! ValueNotConservedUTxO (toDelta consumed_) (toDelta produced_)
 
-       -- process Protocol Parameter Update Proposals
-       ppup' <-
-         trans @(Core.EraRule "PPUP" era) $
-           TRC (Update.Environment, ppup, getField @"update" txb)
+       -------------------------------------------------------------------------
+       -- Process protocol parameter update proposals
+       -------------------------------------------------------------------------
+       -- Set up the update state with the global parameters information
+       updateEnv <- liftSTS $
+         do epInfo         <- asks epochInfo
+            currentEpoch   <- epochInfoEpoch epInfo slot
+            slotsPerEpoch  <- epochInfoSize epInfo currentEpoch
+            epochFirstSlot <- epochInfoFirst epInfo currentEpoch
+            stWindow       <- asks stabilityWindow
+            return $!
+              Update.Environment
+                { Update.currentSlot = slot
+                , Update.maxVotingPeriods = 1
+                  -- todo: we hardcode this for now. It seems this could be made
+                  -- part of the node configuration.
+                , Update.slotsPerEpoch = SlotNo $ unEpochSize slotsPerEpoch
+                , Update.epochFirstSlot = epochFirstSlot
+                , Update.stabilityWindow = SlotNo stWindow
+                }
+       ppup' <- trans @(Core.EraRule "PPUP" era)
+                  $ TRC ( updateEnv, ppup, getField @"update" txb)
+       -------------------------------------------------------------------------
+       -- End: Process protocol parameter update proposals
+       -------------------------------------------------------------------------
 
        -- Check that the mint field does not try to mint ADA. This is equivalent to
        -- the check `adaPolicy ∉ supp mint tx` in the spec.

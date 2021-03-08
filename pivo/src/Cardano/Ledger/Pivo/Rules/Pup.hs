@@ -3,8 +3,9 @@
 module Cardano.Ledger.Pivo.Rules.Pup where
 
 import Data.Typeable (Typeable)
-
 import Control.Monad (foldM)
+
+import qualified Data.Text as Text
 
 import  Control.State.Transition (TRC (TRC), judgmentContext)
 import qualified Control.State.Transition as T
@@ -13,6 +14,7 @@ import Cardano.Ledger.Update.Proposal (Payload (Submit))
 
 import qualified Cardano.Ledger.Update as Ledger.Update
 
+import Cardano.Ledger.Era (Era)
 
 import Shelley.Spec.Ledger.BaseTypes (ShelleyBase, StrictMaybe (SNothing, SJust))
 
@@ -23,7 +25,7 @@ import qualified Cardano.Ledger.Pivo.Update as Update
 -- | Process update payload 🐶
 data PUP era
 
-instance Typeable era => T.STS (PUP era) where
+instance (Typeable era, Era era) => T.STS (PUP era) where
   type Environment (PUP era) = Update.Environment era
   type State (PUP era) = Update.State era
   type Signal (PUP era) = StrictMaybe (Update.Payload era)
@@ -47,7 +49,9 @@ instance Typeable era => T.STS (PUP era) where
                       )
             in
             case res of
-              Left err -> undefined
+              Left err -> do
+                T.failBecause $! Update.UpdateAPIFailure $ Text.pack $ show err
+                return st
               Right st'' -> return $! Update.State st''
               -- TODO: Apply the other update payloads as well.
 

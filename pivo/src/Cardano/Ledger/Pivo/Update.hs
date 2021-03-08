@@ -17,10 +17,16 @@ module Cardano.Ledger.Pivo.Update
             , sipVotes
             )
   , witnesses
-  , Environment (Environment)
+  , Environment ( Environment
+                , currentSlot
+                , maxVotingPeriods
+                , slotsPerEpoch
+                , epochFirstSlot
+                , stabilityWindow
+                )
   , State (State, unState)
-  , PredicateFailure (NoFailure) -- It's important to expose this so that other
-                                 -- modules can define a "ToObject" instance.
+  , PredicateFailure (UpdateAPIFailure) -- It's important to expose this so that other
+                                        -- modules can define a "ToObject" instance.
   )
 where
 
@@ -28,19 +34,33 @@ import GHC.Generics (Generic)
 import Control.DeepSeq (NFData ())
 import NoThunks.Class (NoThunks ())
 import Data.Typeable (Typeable)
-import qualified Data.Text as Text
+import Data.Text (Text)
 import Data.Set (Set)
 import Data.Default.Class (Default, def)
 import Data.Sequence.Strict (StrictSeq)
 
 import Data.Aeson (ToJSON, FromJSON)
 
-import Cardano.Prelude (cborError)
-import Cardano.Binary (ToCBOR (toCBOR), encodeWord, FromCBOR (fromCBOR), decodeWord
-                      , encodeListLen, decodeListLenOf)
+import Cardano.Binary
+  ( FromCBOR(fromCBOR)
+  , ToCBOR(toCBOR)
+  , decodeListLenOf
+  , encodeListLen
+  )
 import Data.Coders (encodeFoldable, decodeStrictSeq)
+import Cardano.Slotting.Slot (SlotNo)
 
 import qualified Cardano.Ledger.Update as USS -- Update sub-system
+import Cardano.Ledger.Update.Env.HasVotingPeriodsCap
+  ( HasVotingPeriodsCap
+  , VotingPeriod
+  )
+import Cardano.Ledger.Update.Env.TracksSlotTime
+  ( TracksSlotTime
+  )
+
+import qualified Cardano.Ledger.Update.Env.HasVotingPeriodsCap
+import qualified Cardano.Ledger.Update.Env.TracksSlotTime
 
 import Cardano.Ledger.Era (Crypto, Era)
 
@@ -86,9 +106,28 @@ witnesses =  foldMap SIP.witnesses     . sipSubmissions
 -- Update environment
 --------------------------------------------------------------------------------
 
-data Environment era = Environment
+data Environment era =
+    Environment
+      { currentSlot      :: SlotNo
+      , maxVotingPeriods :: VotingPeriod
+      , slotsPerEpoch    :: SlotNo
+      , epochFirstSlot   :: SlotNo
+      , stabilityWindow  :: SlotNo
+      }
   deriving stock (Show, Eq, Generic)
   deriving anyclass (NFData, NoThunks, ToJSON, FromJSON)
+
+instance HasVotingPeriodsCap (Environment era) where
+  maxVotingPeriods = maxVotingPeriods
+
+instance TracksSlotTime (Environment era) where
+  currentSlot = currentSlot
+
+  slotsPerEpoch = slotsPerEpoch
+
+  epochFirstSlot = epochFirstSlot
+
+  stableAfter = stabilityWindow
 
 --------------------------------------------------------------------------------
 -- Update state
@@ -107,15 +146,13 @@ instance Era era => Default (State era) where
 -- Predicate failure
 --------------------------------------------------------------------------------
 
-data PredicateFailure era = NoFailure
+data PredicateFailure era =
+  UpdateAPIFailure Text -- todo: for simplicity we erase the structure of the Update API error.
   deriving stock (Show, Eq, Generic)
   deriving anyclass (NFData, NoThunks)
 
 instance Typeable era => ToCBOR (PredicateFailure era) where
-  toCBOR NoFailure = encodeWord 0
+  toCBOR (UpdateAPIFailure err) = toCBOR err
 
 instance Typeable era => FromCBOR (PredicateFailure era) where
-  fromCBOR = decodeWord >>= \case
-      0 -> pure NoFailure
-      k -> cborError $  "Invalid key " <> (Text.pack (show k))
-                     <> " when decoding a value of type State"
+  fromCBOR = UpdateAPIFailure <$> fromCBOR
