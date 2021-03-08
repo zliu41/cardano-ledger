@@ -18,7 +18,7 @@ module Cardano.Ledger.Pivo.Update
             )
   , witnesses
   , Environment (Environment)
-  , State
+  , State (State, unState)
   , PredicateFailure (NoFailure) -- It's important to expose this so that other
                                  -- modules can define a "ToObject" instance.
   )
@@ -96,7 +96,7 @@ data Environment era = Environment
 
 -- | Update state. This is shared among all the update rules (e.g. PUP and UPEC)
 newtype State era =
-  State { ussState :: USS.State (SIP.Proposal era) (Implementation era) }
+  State { unState :: USS.State (SIP.Proposal era) (Implementation era) }
   deriving stock (Show, Eq, Generic)
   deriving newtype (ToCBOR, FromCBOR, NFData, NoThunks, ToJSON, FromJSON)
 

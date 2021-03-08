@@ -20,6 +20,7 @@ module Cardano.Ledger.Pivo.Update.Payload.SIP
   , SIPS.witnesses
   , SIPS.mkSubmission
   , SIPS.mkCommit
+  , wrapSubmission
     -- * SIP revelations
   , SIPR.Revelation ( SIPR.Revelation
                    , SIPR.revelator
@@ -118,6 +119,9 @@ instance Era era => Proposal (SIP.Proposal era) where
   candidate = SIPV.candidate . unSIPVote
 
   confidence = SIPV.confidence . unSIPVote
+
+wrapSubmission :: SIPS.Submission era -> Submission (SIP.Proposal era)
+wrapSubmission = SIPSubmission
 
 instance Era era => Commitable (Revelation (SIP.Proposal era)) where
   type Commit (Revelation (SIP.Proposal era)) = SIPS.Commit era
