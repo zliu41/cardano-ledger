@@ -1,3 +1,4 @@
+{-# LANGUAGE FlexibleContexts #-}
 {-# LANGUAGE TypeFamilies #-}
 
 module Cardano.Ledger.Pivo.Rules.Pup where
@@ -10,15 +11,17 @@ import qualified Data.Text as Text
 import  Control.State.Transition (TRC (TRC), judgmentContext)
 import qualified Control.State.Transition as T
 
-import Cardano.Ledger.Update.Proposal (Payload (Submit))
-
 import qualified Cardano.Ledger.Update as Ledger.Update
 
 import Cardano.Ledger.Era (Era)
 
 import Shelley.Spec.Ledger.BaseTypes (ShelleyBase, StrictMaybe (SNothing, SJust))
 
-import Cardano.Ledger.Pivo.Update.Payload.SIP (wrapSubmission)
+import Cardano.Ledger.Pivo.Update.Payload.SIP
+  ( wrapSIPRevelation
+  , wrapSIPSubmission
+  , wrapSIPVote
+  )
 
 import qualified Cardano.Ledger.Pivo.Update as Update
 
@@ -38,25 +41,25 @@ instance (Typeable era, Era era) => T.STS (PUP era) where
         TRC (env, st, mUpdatePayload) <- judgmentContext
         case mUpdatePayload of
           SNothing -> return $! st
-          SJust p  ->
+          SJust p  -> do
             let
-              res = foldM
-                      (\st' sipSub -> Ledger.Update.apply env sipSub st')
-                      (Update.unState st)
-                      (fmap
-                         (Ledger.Update.Ideation . Submit . wrapSubmission)
-                         $ Update.sipSubmissions p
-                      )
-            in
-            case res of
-              Left err -> do
-                T.failBecause $! Update.UpdateAPIFailure $ Text.pack $ show err
-                return st
-              Right st'' -> return $! Update.State st''
-              -- TODO: Apply the other update payloads as well.
-
-              -- TODO: We might should accumulate errors instead of aborting at
-              -- the first error.
+              sipSubmissions = wrapSIPSubmission <$> Update.sipSubmissions p
+              sipRevelations = wrapSIPRevelation <$> Update.sipRevelations p
+              sipVotes       = wrapSIPVote       <$> Update.sipVotes       p
+            st' <- foldM (applyUpdate env)
+                         (Update.unState st)
+                         $  sipSubmissions
+                         <> sipRevelations
+                         <> sipVotes
+            return $! Update.State st'
     ]
+    where
+      applyUpdate env st payload =
+        case Ledger.Update.apply env payload st of
+          Left err -> do
+            T.failBecause $! Update.UpdateAPIFailure $ Text.pack $ show err
+            return st
+          Right st' -> return $! st'
+
 
   initialRules = []
