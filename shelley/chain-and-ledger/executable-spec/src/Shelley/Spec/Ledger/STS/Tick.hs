@@ -10,6 +10,7 @@
 {-# LANGUAGE TypeApplications #-}
 {-# LANGUAGE TypeFamilies #-}
 {-# LANGUAGE UndecidableInstances #-}
+{-# LANGUAGE ConstraintKinds #-}
 
 module Shelley.Spec.Ledger.STS.Tick
   ( TICK,
@@ -40,7 +41,12 @@ import Shelley.Spec.Ledger.LedgerState
     FutureGenDeleg (..),
     LedgerState (..),
     NewEpochState (..),
-    RewardUpdate,
+    RewardUpdate
+
+    , _ppups
+    , _utxoState
+    , esLState
+    , nesEs
   )
 import Shelley.Spec.Ledger.STS.NewEpoch (NEWEPOCH, NewEpochPredicateFailure)
 import Shelley.Spec.Ledger.STS.Rupd (RUPD, RupdEnv (..), RupdPredicateFailure)
@@ -84,7 +90,8 @@ instance
     Signal (Core.EraRule "RUPD" era) ~ SlotNo,
     Environment (Core.EraRule "NEWEPOCH" era) ~ (),
     State (Core.EraRule "NEWEPOCH" era) ~ NewEpochState era,
-    Signal (Core.EraRule "NEWEPOCH" era) ~ EpochNo
+    Signal (Core.EraRule "NEWEPOCH" era) ~ EpochNo,
+    EmbedsUTICK era TICK
   ) =>
   STS (TICK era)
   where
@@ -140,7 +147,8 @@ validatingTickTransition ::
     BaseM (tick era) ~ ShelleyBase,
     Environment (Core.EraRule "NEWEPOCH" era) ~ (),
     State (Core.EraRule "NEWEPOCH" era) ~ NewEpochState era,
-    Signal (Core.EraRule "NEWEPOCH" era) ~ EpochNo
+    Signal (Core.EraRule "NEWEPOCH" era) ~ EpochNo,
+    EmbedsUTICK era tick
   ) =>
   NewEpochState era ->
   SlotNo ->
@@ -149,6 +157,9 @@ validatingTickTransition nes slot = do
   epoch <- liftSTS $ do
     ei <- asks epochInfo
     epochInfoEpoch ei slot
+
+  let updateState = _ppups $ _utxoState $ esLState $ nesEs nes
+  updateState' <- trans @(Core.EraRule "UTICK" era) $ TRC (nes, updateState, slot)
 
   nes' <- trans @(Core.EraRule "NEWEPOCH" era) $ TRC ((), nes, epoch)
   let es'' = adoptGenesisDelegs (nesEs nes') slot
@@ -167,7 +178,8 @@ bheadTransition ::
     Signal (Core.EraRule "RUPD" era) ~ SlotNo,
     Environment (Core.EraRule "NEWEPOCH" era) ~ (),
     State (Core.EraRule "NEWEPOCH" era) ~ NewEpochState era,
-    Signal (Core.EraRule "NEWEPOCH" era) ~ EpochNo
+    Signal (Core.EraRule "NEWEPOCH" era) ~ EpochNo,
+    EmbedsUTICK era TICK
   ) =>
   TransitionRule (TICK era)
 bheadTransition = do
@@ -238,7 +250,8 @@ instance
     Embed (Core.EraRule "NEWEPOCH" era) (TICKF era),
     Environment (Core.EraRule "NEWEPOCH" era) ~ (),
     State (Core.EraRule "NEWEPOCH" era) ~ NewEpochState era,
-    Signal (Core.EraRule "NEWEPOCH" era) ~ EpochNo
+    Signal (Core.EraRule "NEWEPOCH" era) ~ EpochNo,
+    EmbedsUTICK era TICKF
   ) =>
   STS (TICKF era)
   where
@@ -269,3 +282,16 @@ instance
   Embed (NEWEPOCH era) (TICKF era)
   where
   wrapFailed = TickfNewEpochFailure
+
+
+
+--------------------------------------------------------------------------------
+-- UTICK related definitionr
+--------------------------------------------------------------------------------
+
+type EmbedsUTICK era tick =
+  ( Embed (Core.EraRule "UTICK" era) (tick era)
+  , Environment (Core.EraRule "UTICK" era) ~ NewEpochState era
+  , State (Core.EraRule "UTICK" era) ~  State (Core.EraRule "PPUP" era)
+  , Signal (Core.EraRule "UTICK" era) ~ SlotNo
+  )

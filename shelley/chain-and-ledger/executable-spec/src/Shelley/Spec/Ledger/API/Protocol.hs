@@ -113,7 +113,8 @@ class
     Environment (Core.EraRule "TICKF" era) ~ (),
     State (Core.EraRule "TICKF" era) ~ NewEpochState era,
     Signal (Core.EraRule "TICKF" era) ~ SlotNo,
-    PredicateFailure (Core.EraRule "TICKF" era) ~ TickfPredicateFailure era
+    PredicateFailure (Core.EraRule "TICKF" era) ~ TickfPredicateFailure era,
+    Signal (Core.EraRule "UTICK" era) ~ SlotNo
   ) =>
   GetLedgerView era
   where

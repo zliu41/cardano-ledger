@@ -83,6 +83,7 @@ library
     Shelley.Spec.Ledger.STS.Snap
     Shelley.Spec.Ledger.STS.Tick
     Shelley.Spec.Ledger.STS.Tickn
+    Shelley.Spec.Ledger.STS.Utick
     Shelley.Spec.Ledger.STS.Updn
     Shelley.Spec.Ledger.STS.Upec
     Shelley.Spec.Ledger.STS.Utxo
