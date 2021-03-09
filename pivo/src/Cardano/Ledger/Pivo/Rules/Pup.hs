@@ -11,7 +11,7 @@ import qualified Data.Text as Text
 import  Control.State.Transition (TRC (TRC), judgmentContext)
 import qualified Control.State.Transition as T
 
-import qualified Cardano.Ledger.Update as Ledger.Update
+import qualified Cardano.Ledger.Update as UpdateAPI
 
 import Cardano.Ledger.Era (Era)
 
@@ -46,6 +46,7 @@ instance (Typeable era, Era era) => T.STS (PUP era) where
               sipSubmissions = wrapSIPSubmission <$> Update.sipSubmissions p
               sipRevelations = wrapSIPRevelation <$> Update.sipRevelations p
               sipVotes       = wrapSIPVote       <$> Update.sipVotes       p
+              -- todo: process the approval and activation payload
             st' <- foldM (applyUpdate env)
                          (Update.unState st)
                          $  sipSubmissions
@@ -55,7 +56,7 @@ instance (Typeable era, Era era) => T.STS (PUP era) where
     ]
     where
       applyUpdate env st payload =
-        case Ledger.Update.apply env payload st of
+        case UpdateAPI.apply env payload st of
           Left err -> do
             T.failBecause $! Update.UpdateAPIFailure $ Text.pack $ show err
             return st

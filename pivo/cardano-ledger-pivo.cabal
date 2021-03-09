@@ -35,6 +35,7 @@ library
     Cardano.Ledger.Pivo.Update.Payload.Types
     -- Rules
     Cardano.Ledger.Pivo.Rules
+    Cardano.Ledger.Pivo.Rules.Common
     Cardano.Ledger.Pivo.Rules.Utxo
     Cardano.Ledger.Pivo.Rules.Utxow
     Cardano.Ledger.Pivo.Rules.Pup

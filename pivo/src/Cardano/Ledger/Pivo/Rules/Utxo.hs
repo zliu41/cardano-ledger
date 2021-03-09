@@ -1,3 +1,4 @@
+{-# LANGUAGE AllowAmbiguousTypes #-}
 {-# LANGUAGE DataKinds #-}
 {-# LANGUAGE DeriveGeneric #-}
 {-# LANGUAGE DerivingStrategies #-}
@@ -15,13 +16,6 @@
 
 module Cardano.Ledger.Pivo.Rules.Utxo where
 
-import Shelley.Spec.Ledger.Slot
-  ( epochInfoEpoch
-  , epochInfoFirst
-  , epochInfoSize
-  , unEpochSize
-  )
-
 import Cardano.Binary (FromCBOR (..), ToCBOR (..), encodeListLen)
 import qualified Cardano.Ledger.Core as Core
 import Cardano.Ledger.Era (Crypto, Era)
@@ -37,7 +31,7 @@ import Cardano.Ledger.ShelleyMA.Timelocks
 import Cardano.Ledger.Pivo.TxBody (TxBody)
 import Cardano.Ledger.Torsor (Torsor (..))
 import qualified Cardano.Ledger.Val as Val
-import Cardano.Slotting.Slot (SlotNo (SlotNo))
+import Cardano.Slotting.Slot (SlotNo)
 import Control.Iterate.SetAlgebra (dom, eval, (∪), (⊆), (⋪), (◁))
 import Control.Monad.Trans.Reader (asks)
 import Control.State.Transition.Extended
@@ -66,9 +60,7 @@ import Shelley.Spec.Ledger.BaseTypes
   ( Network,
     ShelleyBase,
     StrictMaybe (..),
-    networkId,
-    epochInfo,
-    stabilityWindow
+    networkId
   )
 import Shelley.Spec.Ledger.Coin
 import qualified Shelley.Spec.Ledger.LedgerState as Shelley
@@ -93,6 +85,7 @@ import Shelley.Spec.Ledger.UTxO
 
 import qualified  Cardano.Ledger.Pivo.Update as Update
 import Cardano.Ledger.Pivo.Rules.Pup (PUP)
+import Cardano.Ledger.Pivo.Rules.Common (getUpdateEnv)
 
 -- ==========================================================
 
@@ -255,23 +248,8 @@ instance
        -------------------------------------------------------------------------
        -- Process protocol parameter update proposals
        -------------------------------------------------------------------------
-       -- Set up the update state with the global parameters information
-       updateEnv <- liftSTS $
-         do epInfo         <- asks epochInfo
-            currentEpoch   <- epochInfoEpoch epInfo slot
-            slotsPerEpoch  <- epochInfoSize epInfo currentEpoch
-            epochFirstSlot <- epochInfoFirst epInfo currentEpoch
-            stWindow       <- asks stabilityWindow
-            return $!
-              Update.Environment
-                { Update.currentSlot = slot
-                , Update.maxVotingPeriods = 1
-                  -- todo: we hardcode this for now. It seems this could be made
-                  -- part of the node configuration.
-                , Update.slotsPerEpoch = SlotNo $ unEpochSize slotsPerEpoch
-                , Update.epochFirstSlot = epochFirstSlot
-                , Update.stabilityWindow = SlotNo stWindow
-                }
+       -- Set up the update environment using the global parameters information.
+       updateEnv <- getUpdateEnv slot
        ppup' <- trans @(Core.EraRule "PPUP" era)
                   $ TRC ( updateEnv, ppup, getField @"update" txb)
        -------------------------------------------------------------------------
