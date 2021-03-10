@@ -39,7 +39,8 @@ module Cardano.Ledger.Pivo.Update.Payload.SIP
     -- * Proposals
   , SIP.Proposal
   , SIP.mkProposal
-  , Id (SIP.ProposalId)
+    -- * Id's
+  , Id (VoterId, SIP.ProposalId)
     -- ** Proposal newtype functions
   , unSIPSubmission
   , unSIPRevelation
@@ -108,7 +109,7 @@ instance Era era => Proposal (SIP.Proposal era) where
     deriving newtype (NFData, NoThunks, ToJSON)
 
   newtype Voter      (SIP.Proposal era) =
-    SIPVoter      { unSIPVoter :: SIPV.VoterId era}
+    SIPVoter      { unSIPVoter :: SIPV.VoterId era }
     deriving stock (Eq, Show, Generic)
     deriving newtype (NFData, NoThunks, ToJSON)
 

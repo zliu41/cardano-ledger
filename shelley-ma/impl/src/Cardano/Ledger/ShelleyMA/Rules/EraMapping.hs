@@ -17,6 +17,7 @@ import qualified Shelley.Spec.Ledger.STS.Overlay as Shelley
 import qualified Shelley.Spec.Ledger.STS.Rupd as Shelley
 import qualified Shelley.Spec.Ledger.STS.Snap as Shelley
 import qualified Shelley.Spec.Ledger.STS.Tick as Shelley
+import qualified Shelley.Spec.Ledger.STS.Utick as Shelley
 import qualified Shelley.Spec.Ledger.STS.Upec as Shelley
 
 -- These rules are all inherited from Shelley
@@ -58,6 +59,8 @@ type instance Core.EraRule "SNAP" (ShelleyMAEra ma c) = Shelley.SNAP (ShelleyMAE
 type instance Core.EraRule "TICK" (ShelleyMAEra ma c) = Shelley.TICK (ShelleyMAEra ma c)
 
 type instance Core.EraRule "TICKF" (ShelleyMAEra ma c) = Shelley.TICKF (ShelleyMAEra ma c)
+
+type instance Core.EraRule "UTICK" (ShelleyMAEra ma c) = Shelley.UTICK (ShelleyMAEra ma c)
 
 type instance Core.EraRule "TICKN" (ShelleyMAEra _ma _c) = Shelley.TICKN
 

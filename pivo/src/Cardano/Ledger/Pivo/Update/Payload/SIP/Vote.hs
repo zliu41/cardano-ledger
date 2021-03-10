@@ -35,7 +35,7 @@ import Cardano.Ledger.Pivo.Update.Payload.Types (VKey)
 
 data Vote era
   = Vote
-    { voter      :: Credential 'Shelley.Staking (Era.Crypto era)
+    { voter      :: VoterId era
     , candidate  :: Id (Proposal era)
     , confidence :: Confidence
     } deriving stock (Eq, Show, Generic)

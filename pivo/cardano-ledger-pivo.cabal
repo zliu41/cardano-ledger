@@ -40,6 +40,7 @@ library
     Cardano.Ledger.Pivo.Rules.Utxow
     Cardano.Ledger.Pivo.Rules.Pup
     Cardano.Ledger.Pivo.Rules.Upec
+    Cardano.Ledger.Pivo.Rules.Utick
   build-depends:
     base >=4.9 && <4.15,
     aeson,

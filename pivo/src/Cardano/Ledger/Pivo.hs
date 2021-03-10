@@ -165,3 +165,4 @@ type instance Core.EraRule "UTXOW" (PivoEra c) = Pivo.Rules.UTXOW (PivoEra c)
 -- New update rules
 type instance Core.EraRule "PPUP" (PivoEra c) = Pivo.Rules.PUP (PivoEra c)
 type instance Core.EraRule "UPEC" (PivoEra c) = Pivo.Rules.UPEC (PivoEra c)
+type instance Core.EraRule "UTICK" (PivoEra c) = Pivo.Rules.UTICK (PivoEra c)
