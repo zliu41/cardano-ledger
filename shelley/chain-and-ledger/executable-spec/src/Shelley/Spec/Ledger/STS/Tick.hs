@@ -158,13 +158,31 @@ validatingTickTransition nes slot = do
     ei <- asks epochInfo
     epochInfoEpoch ei slot
 
-  let updateState = _ppups $ _utxoState $ esLState $ nesEs nes
-  updateState' <- trans @(Core.EraRule "UTICK" era) $ TRC (nes, updateState, slot)
+  let
+    nesSt = nesEs nes
+    ledSt = esLState nesSt
+    utxoSt = _utxoState ledSt
+    updateSt = _ppups utxoSt
+  updateSt' <- trans @(Core.EraRule "UTICK" era) $ TRC (nes, updateSt, slot)
+  let
+    nes' =
+      nes {
+        nesEs =
+          nesSt
+            { esLState =
+                ledSt
+                  { _utxoState =
+                      utxoSt
+                        { _ppups = updateSt'
+                        }
+                  }
+            }
+        }
 
-  nes' <- trans @(Core.EraRule "NEWEPOCH" era) $ TRC ((), nes, epoch)
-  let es'' = adoptGenesisDelegs (nesEs nes') slot
+  nes'' <- trans @(Core.EraRule "NEWEPOCH" era) $ TRC ((), nes', epoch)
+  let es'' = adoptGenesisDelegs (nesEs nes'') slot
 
-  pure $ nes' {nesEs = es''}
+  pure $ nes'' {nesEs = es''}
 
 bheadTransition ::
   forall era.
@@ -286,7 +304,7 @@ instance
 
 
 --------------------------------------------------------------------------------
--- UTICK related definitionr
+-- UTICK related definitions
 --------------------------------------------------------------------------------
 
 type EmbedsUTICK era tick =
