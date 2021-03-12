@@ -77,6 +77,7 @@ data Payload era =
           , sipRevelations :: !(StrictSeq (SIP.Revelation era))
           , sipVotes       :: !(StrictSeq (SIP.Vote era))
           , impSubmissions :: !(StrictSeq (IMP.Submission (Implementation era)))
+          , impRevelations :: !(StrictSeq (IMP.Revelation (Implementation era)))
           }
   deriving stock (Show, Eq, Generic)
   deriving anyclass (NFData, NoThunks, ToJSON, FromJSON)
@@ -86,21 +87,24 @@ instance (Typeable era, Era era) => ToCBOR (Payload era) where
                  , sipRevelations
                  , sipVotes
                  , impSubmissions
+                 , impRevelations
                  }
-    =  encodeListLen 4
+    =  encodeListLen 5
     <> encodeFoldable sipSubmissions
     <> encodeFoldable sipRevelations
     <> encodeFoldable sipVotes
     <> encodeFoldable impSubmissions
+    <> encodeFoldable impRevelations
 
 instance (Typeable era, Era era) => FromCBOR (Payload era) where
   fromCBOR = do
-    decodeListLenOf 4
+    decodeListLenOf 5
     sipSubs  <- decodeStrictSeq fromCBOR
     sipRevs  <- decodeStrictSeq fromCBOR
     sipVotes <- decodeStrictSeq fromCBOR
     impSubs  <- decodeStrictSeq fromCBOR
-    return $! Payload sipSubs sipRevs sipVotes impSubs
+    impRevs  <- decodeStrictSeq fromCBOR
+    return $! Payload sipSubs sipRevs sipVotes impSubs impRevs
 
 -- | Key hashes that have to witness the update payload.
 witnesses :: Payload era -> Set (KeyHash 'Witness (Crypto era))

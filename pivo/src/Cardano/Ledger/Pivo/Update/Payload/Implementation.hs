@@ -113,7 +113,7 @@ instance Era era => Proposal (Implementation era) where
       , revelationSalt         :: Int
       }
     deriving stock (Eq, Show, Generic)
-    deriving anyclass (NFData, NoThunks, ToJSON)
+    deriving anyclass (NFData, NoThunks, ToJSON, FromJSON)
 
   data Vote (Implementation era) =
     ImplVote
@@ -326,6 +326,26 @@ instance
     sa <- fromCBOR
     sc <- fromCBOR
     return $! ImplSubmission sa sc
+
+instance
+  ( Typeable era
+  , Era era
+  ) => ToCBOR (Revelation (Implementation era)) where
+  toCBOR r =  encodeListLen 3
+           <> toCBOR (revealedImplementation r)
+           <> toCBOR (revelator r)
+           <> toCBOR (revelationSalt r)
+
+instance
+  ( Typeable era
+  , Era era
+  ) => FromCBOR (Revelation (Implementation era)) where
+  fromCBOR = do
+    decodeListLenOf 3
+    ri <- fromCBOR
+    rv <- fromCBOR
+    rs <- fromCBOR
+    return $! ImplRevelation ri rv rs
 
 instance (Typeable era, Era era) => ToCBOR (Implementation era) where
   toCBOR i =  encodeListLen 3

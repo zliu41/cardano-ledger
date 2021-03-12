@@ -30,6 +30,7 @@ unitTests =
                              Empty -- SIP revelations
                              Empty -- SIP Votes
                              Empty -- Implementation submissions
+                             Empty -- Implementation revelations
                           )
       )
   , QC.testProperty
@@ -39,6 +40,7 @@ unitTests =
                             (fromList [revelation0])
                             (fromList [vote0])
                             (fromList [impSubmission0])
+                            (fromList [impRevelation0])
                           )
       )
   , QC.testProperty
@@ -58,6 +60,9 @@ unitTests =
                                       ])
                             (fromList [ impSubmission0
                                       , impSubmission1
+                                      ])
+                            (fromList [ impRevelation0
+                                      , impRevelation1
                                       ])
                           )
       )
@@ -85,3 +90,5 @@ unitTests =
    protocol2 = IMP.mkProtocol 2 IMP.protocolZero
    impSubmission1 = IMP.mkSubmission vkey1 salt1 implementation1
    implementation1 = IMP.mkImplementation (SIP.unProposalId $ SIP._id proposal1) 200 protocol2
+   impRevelation0 = IMP.mkRevelation vkey0 salt0 implementation0
+   impRevelation1 = IMP.mkRevelation vkey1 salt1 implementation1
