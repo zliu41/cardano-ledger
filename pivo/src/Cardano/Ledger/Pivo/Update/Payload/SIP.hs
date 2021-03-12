@@ -40,7 +40,7 @@ module Cardano.Ledger.Pivo.Update.Payload.SIP
   , SIP.Proposal
   , SIP.mkProposal
     -- * Id's
-  , Id (VoterId, SIP.ProposalId)
+  , Id (VoterId, SIP.ProposalId, SIP.unProposalId)
     -- ** Proposal newtype functions
   , unSIPSubmission
   , unSIPRevelation

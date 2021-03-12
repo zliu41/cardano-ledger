@@ -23,8 +23,9 @@ import NoThunks.Class (NoThunks ())
 import Data.Aeson (ToJSON, FromJSON, ToJSONKey, FromJSONKey)
 import Data.Text (Text)
 
-import qualified Cardano.Crypto.Hash as Cardano
+import Cardano.Crypto.DSIGN (hashVerKeyDSIGN)
 import Cardano.Binary (ToCBOR (toCBOR), FromCBOR (fromCBOR), encodeListLen, decodeListLenOf)
+import qualified Cardano.Crypto.Hash as Cardano
 
 import           Cardano.Slotting.Slot (SlotNo)
 
@@ -69,7 +70,7 @@ import Shelley.Spec.Ledger.Credential (Credential)
 
 import qualified Shelley.Spec.Ledger.Keys as Shelley
 
-import Cardano.Ledger.Pivo.Update.Payload.Types (Hash, VKeyHash)
+import Cardano.Ledger.Pivo.Update.Payload.Types (Hash, VKeyHash, VKey)
 
 import qualified Cardano.Ledger.Pivo.Update.Payload.SIP as SIP
 
@@ -140,8 +141,54 @@ instance Era era => Proposal (Implementation era) where
 
   confidence = implConfidence
 
+deriving instance Era era => FromJSON (Submission (Implementation era))
 deriving newtype instance Era era => FromJSON (Voter (Implementation era))
 deriving newtype instance Era era => FromJSONKey (Voter (Implementation era))
+
+mkSubmission
+  :: Era era
+  => VKey era
+  -> Int
+  -> Implementation era
+  -> Submission (Implementation era)
+mkSubmission vk salt impl =
+  ImplSubmission
+    { submissionAuthor = hashVerKeyDSIGN vk
+    , submissionCommit = Proposal.commit (mkRevelation vk salt impl)
+    }
+
+mkRevelation
+  :: Era era
+  => VKey era
+  -> Int
+  -> Implementation era
+  -> Revelation (Implementation era)
+mkRevelation vk salt impl =
+  ImplRevelation
+    { revealedImplementation = impl
+    , revelator = hashVerKeyDSIGN vk
+    , revelationSalt = salt
+    }
+
+mkImplementation
+  :: Hash era (SIP.Proposal era)
+  -> SlotNo
+  -> Protocol (Implementation era)
+  -> Implementation era
+mkImplementation = Implementation
+
+mkProtocol
+  :: Era era
+  => Word
+  -> Protocol (Implementation era)
+  -> Protocol (Implementation era)
+mkProtocol pVersion protocol =
+  ImplProtocol
+    { implProtocolVersion = ImplVersion pVersion
+    , implSupersedesId = _id protocol
+    , implSupersedesVersion = version protocol
+    }
+
 
 instance Era era => Commitable (Revelation (Implementation era)) where
   type Commit (Revelation (Implementation era)) =
@@ -261,6 +308,24 @@ deriving newtype instance
 --------------------------------------------------------------------------------
 -- Serialisation instances
 --------------------------------------------------------------------------------
+
+instance
+  ( Typeable era
+  , Era era
+  ) => ToCBOR (Submission (Implementation era)) where
+  toCBOR s =  encodeListLen 2
+           <> toCBOR (submissionAuthor s)
+           <> toCBOR (submissionCommit s)
+
+instance
+  ( Typeable era
+  , Era era
+  ) => FromCBOR (Submission (Implementation era)) where
+  fromCBOR = do
+    decodeListLenOf 2
+    sa <- fromCBOR
+    sc <- fromCBOR
+    return $! ImplSubmission sa sc
 
 instance (Typeable era, Era era) => ToCBOR (Implementation era) where
   toCBOR i =  encodeListLen 3

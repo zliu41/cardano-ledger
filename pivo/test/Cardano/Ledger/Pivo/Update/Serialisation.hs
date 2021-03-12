@@ -17,6 +17,7 @@ import qualified Test.Cardano.Ledger.ShelleyMA.Serialisation.Roundtrip as Roundt
 import Cardano.Ledger.Pivo (PivoEra)
 import Cardano.Ledger.Pivo.Update (Payload (Payload))
 import qualified Cardano.Ledger.Pivo.Update.Payload.SIP as SIP
+import qualified Cardano.Ledger.Pivo.Update.Payload.Implementation as IMP
 
 unitTests :: [T.TestTree]
 unitTests =
@@ -27,7 +28,8 @@ unitTests =
       (Roundtrip.property (Payload @(PivoEra Mock.C_Crypto)
                              Empty -- SIP submissions
                              Empty -- SIP revelations
-                             Empty
+                             Empty -- SIP Votes
+                             Empty -- Implementation submissions
                           )
       )
   , QC.testProperty
@@ -36,6 +38,7 @@ unitTests =
                             (fromList [submission0])
                             (fromList [revelation0])
                             (fromList [vote0])
+                            (fromList [impSubmission0])
                           )
       )
   , QC.testProperty
@@ -52,6 +55,9 @@ unitTests =
                             (fromList [ vote0
                                       , vote1
                                       , vote2
+                                      ])
+                            (fromList [ impSubmission0
+                                      , impSubmission1
                                       ])
                           )
       )
@@ -72,3 +78,10 @@ unitTests =
    revelation1 = SIP.mkRevelation vkey1 salt1 proposal1
    vote1 = SIP.mkVote vkey0 (SIP._id proposal1) SIP.Against
    vote2 = SIP.mkVote vkey1 (SIP._id proposal1) SIP.Abstain
+   -- Submission
+   impSubmission0 = IMP.mkSubmission vkey0 salt0 implementation0
+   implementation0 = IMP.mkImplementation (SIP.unProposalId $ SIP._id proposal0) 100 protocol1
+   protocol1 = IMP.mkProtocol 1 IMP.protocolZero
+   protocol2 = IMP.mkProtocol 2 IMP.protocolZero
+   impSubmission1 = IMP.mkSubmission vkey1 salt1 implementation1
+   implementation1 = IMP.mkImplementation (SIP.unProposalId $ SIP._id proposal1) 200 protocol2
