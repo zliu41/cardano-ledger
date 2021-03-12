@@ -15,6 +15,9 @@ module Cardano.Ledger.Pivo.Update
             , sipSubmissions
             , sipRevelations
             , sipVotes
+            , impSubmissions
+            , impRevelations
+            , impVotes
             )
   , witnesses
   , Environment ( Environment
