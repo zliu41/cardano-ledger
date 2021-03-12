@@ -66,7 +66,7 @@ import Cardano.Ledger.Era (Era)
 
 import qualified Cardano.Ledger.Era as Era
 
-import Shelley.Spec.Ledger.Credential (Credential)
+import Shelley.Spec.Ledger.Credential (Credential (KeyHashObj))
 
 import qualified Shelley.Spec.Ledger.Keys as Shelley
 
@@ -122,7 +122,7 @@ instance Era era => Proposal (Implementation era) where
       , implConfidence :: Confidence
       }
     deriving stock (Eq, Show, Generic)
-    deriving anyclass (NFData, NoThunks, ToJSON, ToJSONKey)
+    deriving anyclass (NFData, NoThunks, ToJSON, ToJSONKey, FromJSON)
 
   newtype Voter (Implementation era) =
     ImplVoter { unImplVoter :: Credential 'Shelley.Staking (Era.Crypto era) }
@@ -189,6 +189,18 @@ mkProtocol pVersion protocol =
     , implSupersedesVersion = version protocol
     }
 
+mkVote
+  :: Era era
+  => VKey era
+  -> Id (Implementation era)
+  -> Confidence
+  -> Vote (Implementation era)
+mkVote vk implId someConfidence =
+  ImplVote
+    { implVoter      = ImplVoter $ KeyHashObj $ Shelley.KeyHash $ hashVerKeyDSIGN vk
+    , implCandidate  = implId
+    , implConfidence = someConfidence
+    }
 
 instance Era era => Commitable (Revelation (Implementation era)) where
   type Commit (Revelation (Implementation era)) =
@@ -347,13 +359,19 @@ instance
     rs <- fromCBOR
     return $! ImplRevelation ri rv rs
 
-instance (Typeable era, Era era) => ToCBOR (Implementation era) where
+instance
+  ( Typeable era
+  , Era era
+  ) => ToCBOR (Implementation era) where
   toCBOR i =  encodeListLen 3
            <> toCBOR (sipId i)
            <> toCBOR (implVotingPeriodDuration i)
            <> toCBOR (implProtocol i)
 
-instance (Typeable era, Era era) => FromCBOR (Implementation era) where
+instance
+  ( Typeable era
+  , Era era
+  ) => FromCBOR (Implementation era) where
   fromCBOR = do
     decodeListLenOf 3
     si <- fromCBOR
@@ -361,20 +379,45 @@ instance (Typeable era, Era era) => FromCBOR (Implementation era) where
     ip <- fromCBOR
     return $! Implementation si iv ip
 
-instance (Typeable era, Era era) => ToCBOR (Protocol (Implementation era)) where
+instance
+  ( Typeable era
+  , Era era
+  ) => ToCBOR (Protocol (Implementation era)) where
   toCBOR p =  encodeListLen 3
            <> toCBOR (implProtocolVersion p)
            <> toCBOR (implSupersedesId p)
            <> toCBOR (implSupersedesVersion p)
 
-instance (Typeable era, Era era) =>
-  FromCBOR (Protocol (Implementation era)) where
+instance
+  ( Typeable era
+  , Era era
+  ) => FromCBOR (Protocol (Implementation era)) where
   fromCBOR = do
     decodeListLenOf 3
     v   <- fromCBOR
     sId <- fromCBOR
     sV  <- fromCBOR
     return $! ImplProtocol v sId sV
+
+instance
+  (Typeable era
+  , Era era
+  ) => ToCBOR (Vote (Implementation era)) where
+  toCBOR v =  encodeListLen 3
+           <> toCBOR (implVoter v)
+           <> toCBOR (implCandidate v)
+           <> toCBOR (implConfidence v)
+
+instance
+  (Typeable era
+  , Era era
+  ) => FromCBOR (Vote (Implementation era)) where
+  fromCBOR = do
+    decodeListLenOf 3
+    iv  <- fromCBOR
+    ica <- fromCBOR
+    ico <- fromCBOR
+    return $! ImplVote iv ica ico
 
 deriving newtype instance
   Typeable era => ToCBOR (Version (Protocol (Implementation era)))

@@ -78,6 +78,8 @@ test-suite pivo-tests
                        , tasty-hunit
                        , tasty-quickcheck
                        , text
+                       -- The update prototype
+                       , decentralized-updates
                        -- Cardano specific dependencies
                        , cardano-prelude
                        , cardano-binary
