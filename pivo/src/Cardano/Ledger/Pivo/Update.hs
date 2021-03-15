@@ -40,7 +40,7 @@ import Data.Typeable (Typeable)
 import Data.Text (Text)
 import Data.Set (Set)
 import Data.Default.Class (Default, def)
-import Data.Sequence.Strict (StrictSeq)
+import Data.Sequence.Strict (StrictSeq (Empty))
 
 import Data.Aeson (ToJSON, FromJSON)
 
@@ -82,6 +82,7 @@ data Payload era =
           , impSubmissions :: !(StrictSeq (IMP.Submission (Implementation era)))
           , impRevelations :: !(StrictSeq (IMP.Revelation (Implementation era)))
           , impVotes       :: !(StrictSeq (IMP.Vote (Implementation era)))
+          , endorsements   :: !(StrictSeq (Endorsement (SIP.Proposal era) (Implementation era)))
           }
   deriving stock (Show, Eq, Generic)
   deriving anyclass (NFData, NoThunks, ToJSON, FromJSON)
@@ -112,6 +113,30 @@ instance (Typeable era, Era era) => FromCBOR (Payload era) where
     impRevs  <- decodeStrictSeq fromCBOR
     impVotes <- decodeStrictSeq fromCBOR
     return $! Payload sipSubs sipRevs sipVotes impSubs impRevs impVotes
+
+instance Semigroup (Payload era) where
+  pld0 <> pld1 =
+    Payload
+      { sipSubmissions = sipSubmissions pld0 <> sipSubmissions pld1
+      , sipRevelations = sipRevelations pld0 <> sipRevelations pld1
+      , sipVotes       = sipVotes       pld0 <> sipVotes       pld1
+      , impSubmissions = impSubmissions pld0 <> impSubmissions pld1
+      , impRevelations = impRevelations pld0 <> impRevelations pld1
+      , impVotes       = impVotes       pld0 <> impVotes       pld1
+      }
+--      , = pld0 <> pld1
+
+instance Monoid (Payload era) where
+  mempty =
+    Payload
+      { sipSubmissions = Empty
+      , sipRevelations = Empty
+      , sipVotes       = Empty
+      , impSubmissions = Empty
+      , impRevelations = Empty
+      , impVotes       = Empty
+      }
+  mappend = (<>)
 
 -- | Key hashes that have to witness the update payload.
 witnesses :: Payload era -> Set (KeyHash 'Witness (Crypto era))

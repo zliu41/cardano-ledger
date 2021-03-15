@@ -130,3 +130,9 @@ instance HasStakeDistribution
 instance HasStakeDistribution
            (TickEnv era)
            (EndorserId (IMP.Protocol (IMP.Implementation era))) where
+  stakeDistribution env
+    = fromList
+    $ fmap (_id . IMP.ImplEndorser *** Stake . fromInteger . Shelley.unCoin) -- fixme: unsafe Integer to Word64 conversion
+    $ Map.toList
+    $ Shelley.unStake
+    $ sipVotersSD env

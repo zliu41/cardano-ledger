@@ -53,7 +53,7 @@ instance (Typeable era, Era era) => T.STS (PUP era) where
               sipVotes       = wrapSIPVote       <$> Update.sipVotes       p
               impSubmissions = wrapIMPSubmission <$> Update.impSubmissions p
               impRevelations = wrapIMPRevelation <$> Update.impRevelations p
-              impVotes       = wrapIMPVote       <$> Update.impVotes p
+              impVotes       = wrapIMPVote       <$> Update.impVotes       p
               -- todo: process the activation payload
             st' <- foldM (applyUpdate env)
                          (Update.unState st)
