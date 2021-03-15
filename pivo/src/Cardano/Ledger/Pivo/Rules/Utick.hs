@@ -15,7 +15,7 @@ import Control.Arrow ((***))
 
 import Control.State.Transition
 
-import Cardano.Ledger.Update.Proposal (VoterId, EndorserId)
+import Cardano.Ledger.Update.Proposal (VoterId, EndorserId, _id)
 import Cardano.Ledger.Update.Env.TracksSlotTime
   ( TracksSlotTime
   , currentSlot
@@ -120,6 +120,12 @@ instance HasStakeDistribution
 instance HasStakeDistribution
            (TickEnv era)
            (VoterId (IMP.Implementation era)) where
+  stakeDistribution env
+    = fromList
+    $ fmap (_id . IMP.ImplVoter *** Stake . fromInteger . Shelley.unCoin) -- fixme: unsafe Integer to Word64 conversion
+    $ Map.toList
+    $ Shelley.unStake
+    $ sipVotersSD env
 
 instance HasStakeDistribution
            (TickEnv era)

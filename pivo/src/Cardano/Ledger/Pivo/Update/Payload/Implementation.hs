@@ -61,6 +61,7 @@ import Cardano.Ledger.Update.Proposal
   )
 
 import qualified Cardano.Ledger.Update.Proposal as Proposal
+import qualified Cardano.Ledger.Update as Update
 
 import Cardano.Ledger.Era (Era)
 
@@ -201,6 +202,21 @@ mkVote vk implId someConfidence =
     , implCandidate  = implId
     , implConfidence = someConfidence
     }
+
+wrapIMPSubmission
+  :: Submission (Implementation era)
+  -> Update.Payload (SIP.Proposal era) (Implementation era)
+wrapIMPSubmission = Update.Approval . Proposal.Submit
+
+wrapIMPRevelation
+  :: Revelation (Implementation era)
+  -> Update.Payload (SIP.Proposal era) (Implementation era)
+wrapIMPRevelation = Update.Approval . Proposal.Reveal
+
+wrapIMPVote
+  :: Vote (Implementation era)
+  -> Update.Payload (SIP.Proposal era) (Implementation era)
+wrapIMPVote = Update.Approval . Proposal.Cast
 
 instance Era era => Commitable (Revelation (Implementation era)) where
   type Commit (Revelation (Implementation era)) =
