@@ -306,6 +306,36 @@ instance Era era => Activable (Protocol (Implementation era)) where
 
   supersedesVersion = implSupersedesVersion
 
+data Endorsement era =
+  -- todo: we duplicate the endorsement type defined in the update subsystem to
+  -- avoid adding the instances the ledger need there. The endorsement data type
+  -- should be made abstract in the update subsystem.
+  Endorsement
+    { endorserId :: !(Id (Endorser (Protocol (Implementation era))))
+    , endorsedVersion :: !(Version (Protocol (Implementation era)))
+    } deriving (Show, Eq, Generic, NoThunks, ToJSON, FromJSON)
+
+mkEndorsement
+  :: Era era
+  => VKey era
+  -> Word
+  -> Endorsement era
+mkEndorsement vk pVersion =
+  Endorsement
+    { endorserId = _id $ ImplEndorser $ KeyHashObj $ Shelley.KeyHash $ hashVerKeyDSIGN vk
+    , endorsedVersion = ImplVersion pVersion
+    }
+
+wrapEndorsement
+  :: Endorsement era
+  -> Update.Payload (SIP.Proposal era) (Implementation era)
+wrapEndorsement e
+  = Update.Activation
+  $ Update.Endorsement
+      { Update.endorserId      = endorserId e
+      , Update.endorsedVersion = endorsedVersion e
+      }
+
 instance Era era => Identifiable (Protocol (Implementation era)) where
   newtype Id (Protocol (Implementation era)) =
     ProtocolId { unProtocolId :: Hash era (Protocol (Implementation era)) }
@@ -470,3 +500,15 @@ deriving newtype instance
 
 deriving newtype instance
   (Typeable era, Era era) => FromCBOR (Id (Endorser (Protocol (Implementation era))))
+
+instance (Typeable era, Era era) => ToCBOR (Endorsement era) where
+  toCBOR e =  encodeListLen 2
+           <> toCBOR (endorserId e)
+           <> toCBOR (endorsedVersion e)
+
+instance (Typeable era, Era era) => FromCBOR (Endorsement era) where
+  fromCBOR = do
+    decodeListLenOf 2
+    eid <- fromCBOR
+    ev  <- fromCBOR
+    return $! Endorsement eid ev

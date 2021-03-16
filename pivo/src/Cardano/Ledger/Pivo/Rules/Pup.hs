@@ -26,6 +26,7 @@ import Cardano.Ledger.Pivo.Update.Payload.Implementation
   ( wrapIMPRevelation
   , wrapIMPSubmission
   , wrapIMPVote
+  , wrapEndorsement
   )
 
 import qualified Cardano.Ledger.Pivo.Update as Update
@@ -54,6 +55,7 @@ instance (Typeable era, Era era) => T.STS (PUP era) where
               impSubmissions = wrapIMPSubmission <$> Update.impSubmissions p
               impRevelations = wrapIMPRevelation <$> Update.impRevelations p
               impVotes       = wrapIMPVote       <$> Update.impVotes       p
+              endorsements   = wrapEndorsement   <$> Update.endorsements   p
               -- todo: process the activation payload
             st' <- foldM (applyUpdate env)
                          (Update.unState st)
@@ -63,6 +65,7 @@ instance (Typeable era, Era era) => T.STS (PUP era) where
                          <> impSubmissions
                          <> impRevelations
                          <> impVotes
+                         <> endorsements
             return $! Update.State st'
     ]
     where

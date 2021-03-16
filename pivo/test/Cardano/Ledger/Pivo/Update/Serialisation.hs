@@ -34,6 +34,7 @@ unitTests =
                              Empty -- Implementation submissions
                              Empty -- Implementation revelations
                              Empty -- Implementation votes
+                             Empty -- Endorsements
                           )
       )
   , QC.testProperty
@@ -45,6 +46,7 @@ unitTests =
                             (fromList [impSubmission0])
                             (fromList [impRevelation0])
                             (fromList [impVote0])
+                            (fromList [endorsement0])
                           )
       )
   , QC.testProperty
@@ -61,16 +63,24 @@ unitTests =
                             (fromList [ vote0
                                       , vote1
                                       , vote2
-                                      ])
+                                      ]
+                            )
                             (fromList [ impSubmission0
                                       , impSubmission1
-                                      ])
+                                      ]
+                            )
                             (fromList [ impRevelation0
                                       , impRevelation1
-                                      ])
+                                      ]
+                            )
                             (fromList [ impVote0
                                       , impVote1
-                                      ])
+                                      ]
+                            )
+                            (fromList [ endorsement0
+                                      , endorsement1
+                                      ]
+                            )
                           )
       )
   ]
@@ -91,7 +101,7 @@ unitTests =
    revelation1 = SIP.mkRevelation vkey1 salt1 proposal1
    vote1 = SIP.mkVote vkey0 (_id proposal1) SIP.Against
    vote2 = SIP.mkVote vkey1 (_id proposal1) SIP.Abstain
-   -- Implementation
+   -- Approval
    impSubmission0 = IMP.mkSubmission vkey0 salt0 implementation0
    implementation0 = IMP.mkImplementation (SIP.unProposalId $ _id proposal0) 100 protocol1
    protocol1 = IMP.mkProtocol 1 IMP.protocolZero
@@ -102,3 +112,6 @@ unitTests =
    impRevelation1 = IMP.mkRevelation vkey1 salt1 implementation1
    impVote0 = IMP.mkVote vkey0 (_id implementation0) For
    impVote1 = IMP.mkVote vkey1 (_id implementation1) For
+   -- Activation
+   endorsement0 = IMP.mkEndorsement vkey0 1
+   endorsement1 = IMP.mkEndorsement vkey1 2

@@ -18,6 +18,7 @@ module Cardano.Ledger.Pivo.Update
             , impSubmissions
             , impRevelations
             , impVotes
+            , endorsements
             )
   , witnesses
   , Environment ( Environment
@@ -54,6 +55,7 @@ import Data.Coders (encodeFoldable, decodeStrictSeq)
 import Cardano.Slotting.Slot (SlotNo)
 
 import qualified Cardano.Ledger.Update as USS -- Update sub-system
+
 import Cardano.Ledger.Update.Env.HasVotingPeriodsCap
   ( HasVotingPeriodsCap
   , VotingPeriod
@@ -82,37 +84,10 @@ data Payload era =
           , impSubmissions :: !(StrictSeq (IMP.Submission (Implementation era)))
           , impRevelations :: !(StrictSeq (IMP.Revelation (Implementation era)))
           , impVotes       :: !(StrictSeq (IMP.Vote (Implementation era)))
-          , endorsements   :: !(StrictSeq (Endorsement (SIP.Proposal era) (Implementation era)))
+          , endorsements   :: !(StrictSeq (IMP.Endorsement era))
           }
   deriving stock (Show, Eq, Generic)
   deriving anyclass (NFData, NoThunks, ToJSON, FromJSON)
-
-instance (Typeable era, Era era) => ToCBOR (Payload era) where
-  toCBOR Payload { sipSubmissions
-                 , sipRevelations
-                 , sipVotes
-                 , impSubmissions
-                 , impRevelations
-                 , impVotes
-                 }
-    =  encodeListLen 6
-    <> encodeFoldable sipSubmissions
-    <> encodeFoldable sipRevelations
-    <> encodeFoldable sipVotes
-    <> encodeFoldable impSubmissions
-    <> encodeFoldable impRevelations
-    <> encodeFoldable impVotes
-
-instance (Typeable era, Era era) => FromCBOR (Payload era) where
-  fromCBOR = do
-    decodeListLenOf 6
-    sipSubs  <- decodeStrictSeq fromCBOR
-    sipRevs  <- decodeStrictSeq fromCBOR
-    sipVotes <- decodeStrictSeq fromCBOR
-    impSubs  <- decodeStrictSeq fromCBOR
-    impRevs  <- decodeStrictSeq fromCBOR
-    impVotes <- decodeStrictSeq fromCBOR
-    return $! Payload sipSubs sipRevs sipVotes impSubs impRevs impVotes
 
 instance Semigroup (Payload era) where
   pld0 <> pld1 =
@@ -123,8 +98,8 @@ instance Semigroup (Payload era) where
       , impSubmissions = impSubmissions pld0 <> impSubmissions pld1
       , impRevelations = impRevelations pld0 <> impRevelations pld1
       , impVotes       = impVotes       pld0 <> impVotes       pld1
+      , endorsements   = endorsements   pld0 <> endorsements   pld1
       }
---      , = pld0 <> pld1
 
 instance Monoid (Payload era) where
   mempty =
@@ -135,6 +110,7 @@ instance Monoid (Payload era) where
       , impSubmissions = Empty
       , impRevelations = Empty
       , impVotes       = Empty
+      , endorsements   = Empty
       }
   mappend = (<>)
 
@@ -191,6 +167,40 @@ data PredicateFailure era =
   UpdateAPIFailure Text -- todo: for simplicity we erase the structure of the Update API error.
   deriving stock (Show, Eq, Generic)
   deriving anyclass (NFData, NoThunks)
+
+--------------------------------------------------------------------------------
+-- Serialisation instances
+--------------------------------------------------------------------------------
+
+instance (Typeable era, Era era) => ToCBOR (Payload era) where
+  toCBOR Payload { sipSubmissions
+                 , sipRevelations
+                 , sipVotes
+                 , impSubmissions
+                 , impRevelations
+                 , impVotes
+                 , endorsements
+                 }
+    =  encodeListLen 7
+    <> encodeFoldable sipSubmissions
+    <> encodeFoldable sipRevelations
+    <> encodeFoldable sipVotes
+    <> encodeFoldable impSubmissions
+    <> encodeFoldable impRevelations
+    <> encodeFoldable impVotes
+    <> encodeFoldable endorsements
+
+instance (Typeable era, Era era) => FromCBOR (Payload era) where
+  fromCBOR = do
+    decodeListLenOf 7
+    sipSubs  <- decodeStrictSeq fromCBOR
+    sipRevs  <- decodeStrictSeq fromCBOR
+    sipVotes <- decodeStrictSeq fromCBOR
+    impSubs  <- decodeStrictSeq fromCBOR
+    impRevs  <- decodeStrictSeq fromCBOR
+    impVotes <- decodeStrictSeq fromCBOR
+    ends     <- decodeStrictSeq fromCBOR
+    return $! Payload sipSubs sipRevs sipVotes impSubs impRevs impVotes ends
 
 instance Typeable era => ToCBOR (PredicateFailure era) where
   toCBOR (UpdateAPIFailure err) = toCBOR err
