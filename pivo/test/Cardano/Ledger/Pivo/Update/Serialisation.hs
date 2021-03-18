@@ -12,6 +12,9 @@ import Cardano.Crypto.DSIGN (VerKeyDSIGN (VerKeyMockDSIGN))
 
 import Cardano.Ledger.Update.Proposal (Confidence (For), _id)
 
+import Shelley.Spec.Ledger.BaseTypes (StrictMaybe (SJust))
+import Shelley.Spec.Ledger.PParams (_maxBBSize, _maxBHSize, emptyPParamsUpdate)
+
 import Test.Shelley.Spec.Ledger.ConcreteCryptoTypes ()
 import qualified Test.Shelley.Spec.Ledger.ConcreteCryptoTypes as Mock
 import qualified Test.Cardano.Ledger.ShelleyMA.Serialisation.Roundtrip as Roundtrip
@@ -104,8 +107,12 @@ unitTests =
    -- Approval
    impSubmission0 = IMP.mkSubmission vkey0 salt0 implementation0
    implementation0 = IMP.mkImplementation (SIP.unProposalId $ _id proposal0) 100 protocol1
-   protocol1 = IMP.mkProtocol 1 IMP.protocolZero
-   protocol2 = IMP.mkProtocol 2 IMP.protocolZero
+   protocol1 = IMP.mkProtocol 1
+                              IMP.protocolZero
+                              (emptyPParamsUpdate { _maxBBSize = SJust 131072 })
+   protocol2 = IMP.mkProtocol 2
+                              IMP.protocolZero
+                              (emptyPParamsUpdate { _maxBHSize = SJust 2200 })
    impSubmission1 = IMP.mkSubmission vkey1 salt1 implementation1
    implementation1 = IMP.mkImplementation (SIP.unProposalId $ _id proposal1) 200 protocol2
    impRevelation0 = IMP.mkRevelation vkey0 salt0 implementation0
