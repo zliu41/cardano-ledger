@@ -5,6 +5,7 @@
 {-# LANGUAGE DeriveGeneric #-}
 {-# LANGUAGE FlexibleContexts #-}
 {-# LANGUAGE LambdaCase #-}
+{-# LANGUAGE MultiParamTypeClasses #-}
 {-# LANGUAGE NamedFieldPuns #-}
 {-# LANGUAGE OverloadedStrings #-}
 {-# LANGUAGE StandaloneDeriving #-}
@@ -158,6 +159,13 @@ newtype State era =
 
 instance Era era => Default (State era) where
   def = State $ USS.initialState protocolZero
+
+instance
+  ( Era era
+  ) => USS.HasActivationState (State era)
+                              (SIP.Proposal era)
+                              (Implementation era) where
+  getActivationState = USS.getActivationState . unState
 
 --------------------------------------------------------------------------------
 -- Predicate failure

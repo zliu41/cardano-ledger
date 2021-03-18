@@ -11,14 +11,20 @@ import Data.Typeable (Typeable)
 import  Control.State.Transition (TRC (TRC), judgmentContext)
 import qualified Control.State.Transition as T
 
+import qualified Cardano.Ledger.Update as UpdateAPI
+
+import Cardano.Ledger.Era (Era)
 import qualified Cardano.Ledger.Core as Core
 
 import Shelley.Spec.Ledger.BaseTypes (ShelleyBase)
+import Shelley.Spec.Ledger.PParams (updatePParams)
+import Shelley.Spec.Ledger.LedgerState (currentPp, ppupState)
 
 import qualified Shelley.Spec.Ledger.STS.Epoch as Shelley (EPOCH, EpochPredicateFailure (UpecFailure))
 import qualified Shelley.Spec.Ledger.LedgerState as Shelley
 
-import qualified  Cardano.Ledger.Pivo.Update as Update
+import qualified Cardano.Ledger.Pivo.Update as Update
+import qualified Cardano.Ledger.Pivo.Update.Payload.Implementation as IMP
 
 -- | Update epoch change
 data UPEC era
@@ -28,6 +34,7 @@ data PredicateFailure = NoFailure
 
 instance
   ( Typeable era
+  , Era era
   , Update.State era ~ T.State (Core.EraRule "PPUP" era)
   ) => T.STS (UPEC era) where
   type Environment (UPEC era) = Shelley.EpochState era
@@ -40,9 +47,8 @@ instance
   transitionRules = [
     do
       TRC (_env, upecSt, ()) <- judgmentContext
-      -- todo: here we should only change the protocol parameters on an epoch
-      -- change.
-      return $! upecSt
+      let ppUpdate = IMP.impParametersUpdate $ UpdateAPI.getCurrentProtocol (ppupState upecSt)
+      return $! upecSt { currentPp = currentPp upecSt `updatePParams` ppUpdate }
     ]
 
   initialRules = []
@@ -50,6 +56,7 @@ instance
 -- We need to guarantee that the Pivo UPEC rule can be embedded in the EPOCH
 -- Shelley rule.
 instance ( Typeable era
+         , Era era
          , Update.State era ~ T.State (Core.EraRule "PPUP" era)
          , T.PredicateFailure (Core.EraRule "UPEC" era)
            ~ Update.PredicateFailure era
