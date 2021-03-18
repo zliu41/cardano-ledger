@@ -151,6 +151,10 @@ deriving instance Show (PParams' Identity era)
 
 deriving instance NFData (PParams' Identity era)
 
+deriving instance ToJSON (PParams' StrictMaybe era)
+
+deriving instance FromJSON (PParams' StrictMaybe era)
+
 data ProtVer = ProtVer {pvMajor :: !Natural, pvMinor :: !Natural}
   deriving (Show, Eq, Generic, Ord, NFData)
   deriving (ToCBOR) via (CBORGroup ProtVer)

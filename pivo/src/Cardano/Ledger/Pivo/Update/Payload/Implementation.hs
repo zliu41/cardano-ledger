@@ -68,6 +68,7 @@ import Cardano.Ledger.Era (Era)
 import qualified Cardano.Ledger.Era as Era
 
 import Shelley.Spec.Ledger.Credential (Credential (KeyHashObj))
+import Shelley.Spec.Ledger.PParams (PParamsUpdate, emptyPParamsUpdate)
 
 import qualified Shelley.Spec.Ledger.Keys as Shelley
 
@@ -182,12 +183,14 @@ mkProtocol
   :: Era era
   => Word
   -> Protocol (Implementation era)
+  -> PParamsUpdate era
   -> Protocol (Implementation era)
-mkProtocol pVersion protocol =
+mkProtocol pVersion protocol ppUpdate =
   ImplProtocol
-    { implProtocolVersion = ImplVersion pVersion
-    , implSupersedesId = _id protocol
+    { implProtocolVersion   = ImplVersion pVersion
+    , implSupersedesId      = _id protocol
     , implSupersedesVersion = version protocol
+    , impParametersUpdate   = ppUpdate
     }
 
 mkVote
@@ -253,6 +256,8 @@ instance Era era =>
       { implProtocolVersion   :: Version (Protocol (Implementation era))
       , implSupersedesId      :: Id (Protocol (Implementation era))
       , implSupersedesVersion :: Version (Protocol (Implementation era))
+      , impParametersUpdate   :: PParamsUpdate era
+        -- ^ Parameters updates proposed by the new protocol.
       }
     deriving stock (Eq, Ord, Show, Generic)
     deriving anyclass (NFData, NoThunks, ToJSON, ToJSONKey, FromJSONKey)
@@ -279,6 +284,7 @@ protocolZero =
     , implSupersedesId      = ProtocolId $
         Cardano.castHash $ Cardano.hashWithSerialiser toCBOR ("Priviledge Is not VOltaire" :: Text)
     , implSupersedesVersion = ImplVersion 0
+    , impParametersUpdate   = emptyPParamsUpdate
     }
 
 deriving anyclass instance Era era => FromJSON (Protocol (Implementation era))
@@ -429,21 +435,23 @@ instance
   ( Typeable era
   , Era era
   ) => ToCBOR (Protocol (Implementation era)) where
-  toCBOR p =  encodeListLen 3
+  toCBOR p =  encodeListLen 4
            <> toCBOR (implProtocolVersion p)
            <> toCBOR (implSupersedesId p)
            <> toCBOR (implSupersedesVersion p)
+           <> toCBOR (impParametersUpdate p)
 
 instance
   ( Typeable era
   , Era era
   ) => FromCBOR (Protocol (Implementation era)) where
   fromCBOR = do
-    decodeListLenOf 3
+    decodeListLenOf 4
     v   <- fromCBOR
     sId <- fromCBOR
     sV  <- fromCBOR
-    return $! ImplProtocol v sId sV
+    pu  <- fromCBOR
+    return $! ImplProtocol v sId sV pu
 
 instance
   (Typeable era
