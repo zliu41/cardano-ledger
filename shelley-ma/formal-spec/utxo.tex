@@ -42,9 +42,9 @@
     &~~+~\hldiff{\fun{coinToValue}}(\fun{wbalance}~(\fun{txwdrls}~{txb})~+~ \keyRefunds{pp}{txb})
     \nextdef
     & \fun{produced} \in \PParams \to \StakePools \to \TxBody \to \hldiff{\Value} \\
-    & \fun{produced}~\var{pp}~\var{stpools}~\var{txb} = \\
+    & \fun{produced}~\var{pp}~\var{poolParams}~\var{txb} = \\
     &~~\ubalance{(\fun{outs}~{txb})} \\
-    &~~+ \hldiff{\fun{coinToValue}}(\txfee{txb} + \totalDeposits{pp}{stpools}{(\txcerts{txb})})
+    &~~+ \hldiff{\fun{coinToValue}}(\txfee{txb} + \totalDeposits{pp}{poolParams}{(\txcerts{txb})})
   \end{align*}
   \caption{UTxO Calculations}
   \label{fig:functions:utxo}
@@ -135,12 +135,12 @@ $\Coin$.
   \begin{equation}\label{eq:utxo-inductive-shelley}
     \inference[UTxO-inductive]
     { \var{txb}\leteq\txbody{tx}
-      & \hldiff{\fun{ininterval}~\var{slot}~(\fun{txvld}{tx})}
-      \\ \txins{txb} \neq \emptyset
+      & \hldiff{\fun{ininterval}~\var{slot}~(\fun{txvldt}{tx})} \\
+      \txins{txb} \neq \emptyset
       & \minfee{pp}{tx} \leq \txfee{txb}
       & \txins{txb} \subseteq \dom \var{utxo}
       \\
-      \consumed{pp}{utxo}~{txb} = \produced{pp}{stpools}~{txb}
+      \consumed{pp}{utxo}~{txb} = \produced{pp}{poolParams}~{txb}
       \\
       ~
       \\
@@ -155,7 +155,7 @@ $\Coin$.
       \\
       ~
       \\
-      \hldiff{\mathsf{adaPolicy}~\notin \supp{\fun{mint}~txb}} \\
+      \hldiff{\mathsf{adaPolicy} \notin \supp{\fun{mint}~txb}} \\
       ~\\
       \hldiff{\forall txout \in \txouts{txb},} \\
       \hldiff{\fun{getValue}~txout \geq \fun{coinToValue}(\fun{outputSize}~{txout} * \fun{adaPerUTxOByte}~pp)} \\~
@@ -173,13 +173,13 @@ $\Coin$.
       \var{refunded} \leteq \keyRefunds{pp}{txb}
       \\
       \var{depositChange} \leteq
-        \totalDeposits{pp}{stpools}{(\txcerts{txb})} - \var{refunded}
+        \totalDeposits{pp}{poolParams}{(\txcerts{txb})} - \var{refunded}
     }
     {
       \begin{array}{r}
         \var{slot}\\
         \var{pp}\\
-        \var{stpools}\\
+        \var{poolParams}\\
         \var{genDelegs}\\
       \end{array}
       \vdash
