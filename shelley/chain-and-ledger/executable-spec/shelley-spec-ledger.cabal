@@ -101,6 +101,7 @@ library
     Shelley.Spec.Ledger.STS.Utxow
     Shelley.Spec.Ledger.Tx
     Shelley.Spec.Ledger.TxBody
+    Shelley.Spec.Ledger.UpdateState
     Shelley.Spec.Ledger.UTxO
   other-modules:     Shelley.Spec.Ledger.API.Mempool
                      Shelley.Spec.Ledger.API.Types
