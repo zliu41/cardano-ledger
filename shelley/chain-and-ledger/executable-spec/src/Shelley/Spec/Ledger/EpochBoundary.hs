@@ -27,6 +27,9 @@ module Shelley.Spec.Ledger.EpochBoundary
     emptySnapShot,
     emptySnapShots,
     aggregateUtxoCoinByCredential,
+    aggregateUtxoCoinByCredential2,
+    aggregateUtxoCoinByCredential3,
+    aggregateUtxoCoinByCredential4,
     poolStake,
     obligation,
     maxPool,
@@ -63,6 +66,12 @@ import Shelley.Spec.Ledger.Keys (KeyHash, KeyRole (..))
 import Shelley.Spec.Ledger.Serialization (decodeRecordNamed)
 import Shelley.Spec.Ledger.TxBody (PoolParams)
 import Shelley.Spec.Ledger.UTxO (UTxO (..))
+
+import Shelley.Spec.Ledger.CompactAddr(CompactAddr(..))
+import Shelley.Spec.Ledger.Address (deserialiseAddrStakeRef)
+import Data.ByteString.Short(fromShort)
+
+-- ======================================
 
 -- | Blocks made
 newtype BlocksMade crypto = BlocksMade
@@ -101,6 +110,79 @@ deriving newtype instance
 -- we only deserialize the parts that we need, for the 2 cases that count, we can speed
 -- things up considerably. That is the role of deserialiseAddrStakeRef. It returns (Just stake)
 -- for the two cases that matter, and Nothing for the other two cases.
+
+
+stakeRefFromTxOut :: forall era.
+  ( HasField "compactAddress" (Core.TxOut era) (CompactAddr (Crypto era)),
+    CC.Crypto (Crypto era)
+  ) =>
+  Core.TxOut era -> Maybe (StakeReference (Crypto era))
+stakeRefFromTxOut x = case getField @"compactAddress" x of
+          (UnsafeCompactAddr bs) -> deserialiseAddrStakeRef(fromShort bs)
+
+-- | Sum up all the Coin for each staking Credential
+aggregateUtxoCoinByCredential2 ::
+  forall era.
+  (Era era,HasField "compactAddress" (Core.TxOut era) (CompactAddr (Crypto era))) =>
+  Map Ptr (Credential 'Staking (Crypto era)) ->
+  UTxO era ->
+  Map (Credential 'Staking (Crypto era)) Coin ->
+  Map (Credential 'Staking (Crypto era)) Coin
+aggregateUtxoCoinByCredential2 ptrs (UTxO u) initial =
+  Map.foldl' accum initial u
+  where
+    accum ans out =
+      case (stakeRefFromTxOut @era out,getField @"value" out) of
+        (Just(StakeRefPtr p), c) ->
+          case Map.lookup p ptrs of
+            Just cred -> Map.insertWith (<>) cred (Val.coin c) ans
+            Nothing -> ans
+        (Just(StakeRefBase hk), c) ->
+          Map.insertWith (<>) hk (Val.coin c) ans
+        _other -> ans
+
+-- | Sum up all the Coin for each staking Credential
+aggregateUtxoCoinByCredential3 ::
+  forall era.
+  (Era era, HasField "address" (Core.TxOut era) (Addr (Crypto era))) =>
+  Map Ptr (Credential 'Staking (Crypto era)) ->
+  UTxO era ->
+  Map (Credential 'Staking (Crypto era)) Coin ->
+  Map (Credential 'Staking (Crypto era)) Coin
+aggregateUtxoCoinByCredential3 ptrs (UTxO u) initial =
+  Map.foldl' accum initial u
+  where
+    accum ans out =
+      case (getField @"address" out, getField @"value" out) of
+        (Addr _ _ (StakeRefPtr p), c) ->
+          case Map.lookup p ptrs of
+            Just cred -> Map.insertWith (<>) cred (Val.coin c) ans
+            Nothing -> ans
+        (Addr _ _ (StakeRefBase hk), c) ->
+          Map.insertWith (<>) hk (Val.coin c) ans
+        _other -> ans
+
+
+-- | Sum up all the Coin for each staking Credential
+aggregateUtxoCoinByCredential4 ::
+  forall era.
+  (Era era, HasField "address" (Core.TxOut era) (Addr (Crypto era))) =>
+  Map Ptr (Credential 'Staking (Crypto era)) ->
+  UTxO era ->
+  Map (Credential 'Staking (Crypto era)) Coin ->
+  Map (Credential 'Staking (Crypto era)) Coin
+aggregateUtxoCoinByCredential4 ptrs (UTxO u) initial =
+  Map.foldl' accum initial u
+  where
+    accum ans out =
+      case (getField @"address" out) of
+        (Addr _ _ (StakeRefPtr p)) ->
+          case Map.lookup p ptrs of
+            Just cred -> Map.insertWith (<>) cred (Val.coin (getField @"value" out)) ans
+            Nothing -> ans
+        (Addr _ _ (StakeRefBase hk)) ->
+          Map.insertWith (<>) hk (Val.coin (getField @"value" out)) ans
+        _other -> ans
 
 -- | Sum up all the Coin for each staking Credential
 aggregateUtxoCoinByCredential ::

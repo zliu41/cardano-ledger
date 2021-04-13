@@ -28,7 +28,7 @@ import Cardano.Ledger.Shelley (ShelleyEra)
 import Cardano.Slotting.Slot (EpochSize (..))
 import Control.DeepSeq (NFData)
 import Control.Iterate.SetAlgebra (compile, compute, run)
-import Control.SetAlgebra (dom, keysEqual, (▷), (◁))
+import Control.SetAlgebra (dom, keysEqual, (▷), (◁), forwards)
 import Criterion.Main
   ( Benchmark,
     bench,
@@ -49,6 +49,8 @@ import Shelley.Spec.Ledger.Bench.Gen
   ( genBlock,
     genTriple,
   )
+import Shelley.Spec.Ledger.Credential (Credential (..))
+import Shelley.Spec.Ledger.Keys(KeyRole(Staking))
 import Shelley.Spec.Ledger.Bench.Rewards (createRUpd, createRUpdWithProv, genChainInEpoch)
 import qualified Shelley.Spec.Ledger.EpochBoundary as EB
 import Shelley.Spec.Ledger.LedgerState
@@ -208,6 +210,9 @@ profileCreateRegPools size = do
 -- ==========================================
 -- Epoch Boundary
 
+main :: IO ()
+main = profileEpochBoundary
+
 profileEpochBoundary :: IO ()
 profileEpochBoundary =
   defaultMain $
@@ -216,15 +221,19 @@ profileEpochBoundary =
     ]
   where
     benchParameters :: [Int]
-    benchParameters = [10000, 100000, 1000000]
+    benchParameters = [1000000, 3000000, 6000000]
 
 epochAt :: Int -> Benchmark
 epochAt x =
-  env (QC.generate (genTestCase x (10000 :: Int))) $
+  env (QC.generate (genTestCase x (300000 :: Int))) $
     \arg ->
       bgroup
-        ("UTxO=" ++ show x ++ ",  address=" ++ show (10000 :: Int))
-        [ bench "Using maps" (whnf action2m arg)
+        ("UTxO=" ++ show x ++ ",  address=" ++ show (300000 :: Int))
+        [ bench "total stake distr" (whnf action2m arg),
+          bench "foldr aggregateUtxO" (whnf action3m arg)
+        , bench "foldl aggregateUtxO" (whnf action5m arg)
+        , bench "foldl aggregateUtxO lazy coin" (whnf action6m arg)
+        -- , bench "foldl explicit compactAddr aggregateUtxO" (whnf action4m arg)
         ]
 
 action2m ::
@@ -232,6 +241,37 @@ action2m ::
   (DState (Crypto era), PState (Crypto era), UTxO era) ->
   EB.SnapShot (Crypto era)
 action2m (dstate, pstate, utxo) = stakeDistr utxo dstate pstate
+
+
+action3m ::
+  ShelleyTest era =>
+  (DState (Crypto era), PState (Crypto era), UTxO era) ->
+  Map (Credential 'Staking (Crypto era)) Coin
+action3m (dstate, _pstate, utxo) = EB.aggregateUtxoCoinByCredential (forwards ptrs') utxo rewards'
+  where DState rewards' _delegs ptrs' _ _ _ = dstate
+
+action4m ::
+  ShelleyTest era =>
+  (DState (Crypto era), PState (Crypto era), UTxO era) ->
+  Map (Credential 'Staking (Crypto era)) Coin
+action4m (dstate, _pstate, utxo) = EB.aggregateUtxoCoinByCredential2 (forwards ptrs') utxo rewards'
+  where DState rewards' _delegs ptrs' _ _ _ = dstate
+
+action5m ::
+  ShelleyTest era =>
+  (DState (Crypto era), PState (Crypto era), UTxO era) ->
+  Map (Credential 'Staking (Crypto era)) Coin
+action5m (dstate, _pstate, utxo) = EB.aggregateUtxoCoinByCredential3 (forwards ptrs') utxo rewards'
+  where DState rewards' _delegs ptrs' _ _ _ = dstate
+
+action6m ::
+  ShelleyTest era =>
+  (DState (Crypto era), PState (Crypto era), UTxO era) ->
+  Map (Credential 'Staking (Crypto era)) Coin
+action6m (dstate, _pstate, utxo) = EB.aggregateUtxoCoinByCredential4 (forwards ptrs') utxo rewards'
+  where DState rewards' _delegs ptrs' _ _ _ = dstate
+
+
 
 -- =================================================================
 
@@ -363,9 +403,9 @@ varyDelegState tag fixed changes initstate action =
 
 -- =============================================================================
 
-main :: IO ()
+main2 :: IO ()
 -- main=profileValid
-main = do
+main2 = do
   (genenv, chainstate, genTxfun) <- genTriple (Proxy :: Proxy BenchEra) 1000
   defaultMain $
     [ bgroup "vary input size" $
