@@ -214,6 +214,7 @@ import Shelley.Spec.Ledger.RewardUpdate
   ( FreeVars (..),
     Pulser,
     PulsingRewUpdate (..),
+    RewardAns (..),
     RewardPulser (..),
     RewardSnapShot (..),
     RewardUpdate (..),
@@ -1264,7 +1265,7 @@ startStep slotsPerEpoch b@(BlocksMade b') es@(EpochState acnt ss ls pr _ nm) max
           pulseSize
           free
           (StrictSeq.fromList $ Map.elems poolParams)
-          (Map.empty, Map.empty)
+          (RewardAns Map.empty Map.empty)
    in (Pulsing rewsnap pulser)
 
 -- Phase 2
@@ -1315,7 +1316,7 @@ completeRupd
         )
       pulser
     ) = do
-    let combine (rs, likely) provPools (rewprov@RewardProvenance {pools = old}) =
+    let combine (RewardAns rs likely) provPools (rewprov@RewardProvenance {pools = old}) =
           rewprov
             { deltaR2 = oldr <-> (sumRewards rewsnap rs),
               pools = Map.union provPools old,
@@ -1336,7 +1337,7 @@ completeRupd
                     }
                 )
                 ans
-    (rs_, newLikelihoods) <- liftProv (completeM pulser) Map.empty combine
+    RewardAns rs_ newLikelihoods <- liftProv (completeM pulser) Map.empty combine
     let deltaR2 = oldr <-> (sumRewards rewsnap rs_)
     pure $
       RewardUpdate
