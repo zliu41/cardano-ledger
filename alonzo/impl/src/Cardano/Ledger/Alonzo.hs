@@ -215,6 +215,9 @@ instance CC.Crypto c => EraModule.SupportsSegWit (AlonzoEra c) where
   toTxSeq = Alonzo.TxSeq
   hashTxSeq = Alonzo.hashTxSeq
 
+instance API.ShelleyBlockSize (AlonzoEra c) where
+  shelleyBlockSize _prx = 5
+
 instance API.PraosCrypto c => API.ShelleyBasedEra (AlonzoEra c)
 
 -------------------------------------------------------------------------------

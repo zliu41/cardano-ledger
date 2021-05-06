@@ -158,6 +158,9 @@ instance CryptoClass.Crypto c => ValidateAuxiliaryData (ExampleEra c) c where
       index = Proxy @EraIndependentAuxiliaryData
   validateAuxiliaryData (Metadata m) = all validMetadatum m
 
+instance ShelleyBlockSize (ExampleEra c) where
+  shelleyBlockSize _prx = 4
+
 instance PraosCrypto c => ApplyTx (ExampleEra c)
 instance PraosCrypto c => ApplyBlock (ExampleEra c)
 instance PraosCrypto c => GetLedgerView (ExampleEra c)

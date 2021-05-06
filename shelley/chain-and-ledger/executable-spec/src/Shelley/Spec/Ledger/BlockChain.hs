@@ -55,6 +55,8 @@ module Shelley.Spec.Ledger.BlockChain
     mkSeed,
     checkLeaderValue,
     coreAuxDataBytes,
+    --
+    ShelleyBlockSize (..),
   )
 where
 
@@ -678,15 +680,19 @@ instance
   where
   fromCBOR = txSeqDecoder False
 
+class ShelleyBlockSize era where
+  shelleyBlockSize :: Proxy era -> Int
+
 instance
   ( BlockAnn era,
     ValidateScript era,
-    FromCBOR (Annotator (Era.TxSeq era))
+    FromCBOR (Annotator (Era.TxSeq era)),
+    ShelleyBlockSize era
   ) =>
   FromCBOR (Annotator (Block era))
   where
   fromCBOR = annotatorSlice $
-    decodeRecordNamed "Block" (const 4) $ do
+    decodeRecordNamed "Block" (const (shelleyBlockSize (Proxy :: Proxy era))) $ do
       header <- fromCBOR
       txns <- fromCBOR
       pure $ Block' <$> header <*> txns

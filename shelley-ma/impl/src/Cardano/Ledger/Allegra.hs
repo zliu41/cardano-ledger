@@ -77,6 +77,9 @@ instance
       genDelegs = sgGenDelegs sg
       pp = sgProtocolParams sg
 
+instance ShelleyBlockSize (AllegraEra c) where
+  shelleyBlockSize _prx = 4
+
 instance PraosCrypto c => ShelleyBasedEra (AllegraEra c)
 
 -- Self-Describing type synomyms

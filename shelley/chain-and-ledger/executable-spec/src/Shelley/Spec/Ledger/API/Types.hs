@@ -30,6 +30,7 @@ import Shelley.Spec.Ledger.BlockChain as X
     HashHeader (..),
     LaxBlock (..),
     PrevHash (..),
+    ShelleyBlockSize (..),
     bHeaderSize,
     bbHash,
     bbody,

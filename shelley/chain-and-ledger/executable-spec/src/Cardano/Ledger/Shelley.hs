@@ -48,7 +48,8 @@ import qualified Data.ByteString as BS
 import Data.Proxy
 import Shelley.Spec.Ledger.BlockChain (bbHash)
 import qualified Shelley.Spec.Ledger.BlockChain as Shelley
-  ( TxSeq (..),
+  ( ShelleyBlockSize (..),
+    TxSeq (..),
     txSeqTxns,
   )
 import Shelley.Spec.Ledger.Metadata (Metadata (Metadata), validMetadatum)
@@ -123,6 +124,9 @@ instance CryptoClass.Crypto c => ValidateAuxiliaryData (ShelleyEra c) c where
   hashAuxiliaryData metadata = AuxiliaryDataHash (makeHashWithExplicitProxys (Proxy @c) index metadata)
     where
       index = Proxy @EraIndependentAuxiliaryData
+
+instance Shelley.ShelleyBlockSize (ShelleyEra c) where
+  shelleyBlockSize _prx = 4
 
 -- Self describing synonyms
 
