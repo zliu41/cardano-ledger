@@ -177,7 +177,9 @@ genAlonzoPParamsDelta constants pp = do
   mxTx <- genM (ExUnits <$> (choose (100, 5000)) <*> (choose (100, 5000)))
   mxBl <- genM (ExUnits <$> (choose (100, 5000)) <*> (choose (100, 5000)))
   mxV <- genM (genNatural 1 10000)
-  pure (Alonzo.extendPP shelleypp ada cost price mxTx mxBl mxV)
+  c <- genM (pure 150)
+  mxC <- genM (pure 10)
+  pure (Alonzo.extendPP shelleypp ada cost price mxTx mxBl mxV c mxC)
 
 genAlonzoPParams ::
   forall c.
@@ -191,7 +193,9 @@ genAlonzoPParams constants = do
   mxTx <- (ExUnits <$> (choose (100, 5000)) <*> (choose (100, 5000)))
   mxBl <- (ExUnits <$> (choose (100, 5000)) <*> (choose (100, 5000)))
   mxV <- (genNatural 10000 50000) -- This can't be too small
-  pure (Alonzo.extendPP shelleypp ada cost price mxTx mxBl mxV)
+  c <- genNatural 100 200
+  mxC <- pure 10
+  pure (Alonzo.extendPP shelleypp ada cost price mxTx mxBl mxV c mxC)
 
 -- | Since Alonzo PParams don't have this field, we have to compute something here.
 instance HasField "_minUTxOValue" (Alonzo.PParams (AlonzoEra c)) Coin where
@@ -202,7 +206,7 @@ instance Mock c => EraGen (AlonzoEra c) where
   genGenesisValue = maryGenesisValue
   genEraTxBody = genAlonzoTxBody
   updateEraTxBody txb coinx txin txout =
-    txb {txinputs_fee = txin, txfee = coinx, outputs = txout}
+    txb {inputs = txin, txfee = coinx, outputs = txout}
   genEraPParamsDelta = genAlonzoPParamsDelta
   genEraPParams = genAlonzoPParams
   genEraWitnesses setWitVKey mapScriptWit = TxWitness setWitVKey Set.empty mapScriptWit Map.empty (Redeemers Map.empty)

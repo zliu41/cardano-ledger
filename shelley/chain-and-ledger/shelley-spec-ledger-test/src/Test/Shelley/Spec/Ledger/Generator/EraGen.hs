@@ -170,7 +170,8 @@ type MinGenPParams era =
 type MinGenWitnesses era =
   ( ToCBOR (Core.Witnesses era),
     Eq (Core.Witnesses era),
-    Monoid (Core.Witnesses era)
+    Monoid (Core.Witnesses era),
+    Show (Core.Witnesses era)
   )
 
 type MinGenAuxData era =
@@ -186,6 +187,7 @@ type MinGenTxBody era =
     ToCBOR (Core.TxBody era),
     NoThunks (Core.TxBody era),
     Show (Core.TxBody era),
+    HasField "potentialInputs" (Core.TxBody era) (Set (TxIn (Crypto era))),
     FromCBOR(Annotator (Core.TxBody era)) -- arises because some pattern Constructors deserialize
   )
 
@@ -203,9 +205,9 @@ class
     Split (Core.Value era),
     ScriptClass era,
     MinGenPParams era,
-    MinGenWitnesses era,
     MinGenAuxData era,
     MinGenTxBody era,
+    MinGenWitnesses era,
     MinGenTxout era
   ) =>
   EraGen era

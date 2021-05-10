@@ -16,6 +16,7 @@ module Test.Shelley.Spec.Ledger.Generator.Utxo
   ( genTx,
     Delta (..),
     showBalance,
+    trace,
   )
 where
 
@@ -111,7 +112,7 @@ import Test.Shelley.Spec.Ledger.Generator.Update (genUpdate)
 import Test.Shelley.Spec.Ledger.Utils (Split (..))
 import Cardano.Ledger.Era(Era)
 import NoThunks.Class()  -- Instances only
-
+import Debug.Trace
 -- =======================================================
 
 showBalance ::
@@ -666,9 +667,10 @@ genInputs (minNumGenInputs, maxNumGenInputs) keyHashMap payScriptMap (UTxO utxo)
   selectedUtxo <- ruffle numInputs (Map.toList utxo)
 
   let (inputs, witnesses) = unzip (witnessedInput <$> selectedUtxo)
+      trace2 xs = trace ("\nSelected "++show(map snd xs)) xs
   return
     ( inputs,
-      balance (UTxO (Map.fromList selectedUtxo) :: UTxO era),
+      balance (UTxO (Map.fromList (trace2 selectedUtxo)) :: UTxO era),
       Either.partitionEithers witnesses
     )
   where

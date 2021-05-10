@@ -108,6 +108,7 @@ import qualified Shelley.Spec.Ledger.SoftForks as SoftForks
 import Shelley.Spec.Ledger.Tx (Tx, ValidateScript, WitVKey, WitnessSet, hashScript, validateScript)
 import Shelley.Spec.Ledger.TxBody (DCert, EraIndependentTxBody, TxIn, Wdrl)
 import Shelley.Spec.Ledger.UTxO (scriptsNeeded)
+import Debug.Trace
 
 -- =========================================
 
@@ -234,7 +235,9 @@ instance
 
 type ShelleyStyleWitnessNeeds era =
   ( HasField "certs" (Core.TxBody era) (StrictSeq (DCert (Crypto era))),
-    HasField "inputs" (Core.TxBody era) (Set (TxIn (Crypto era))),
+    HasField "potentialInputs" (Core.TxBody era) (Set (TxIn (Crypto era))),  -- scriptsNeeded
+    HasField "inputs" (Core.TxBody era) (Set (TxIn (Crypto era))), -- witsVKeyNeeded’  TODO DO WE NEED BOTH, Shoud witsVKeyNeeded require potentialInputs too?
+
     HasField "wdrls" (Core.TxBody era) (Wdrl (Crypto era)),
     HasField "addrWits" (TxInBlock era) (Set (WitVKey 'Witness (Crypto era))),
     HasField "bootWits" (TxInBlock era) (Set (BootstrapWitness (Crypto era))),
@@ -243,7 +246,8 @@ type ShelleyStyleWitnessNeeds era =
     HasField "address" (Core.TxOut era) (Addr (Crypto era)),
     ValidateAuxiliaryData era (Crypto era),
     ValidateScript era,
-    DSignable (Crypto era) (Hash (Crypto era) EraIndependentTxBody)
+    DSignable (Crypto era) (Hash (Crypto era) EraIndependentTxBody),
+    Show (TxInBlock era)
   )
 
 initialLedgerStateUTXOW ::
@@ -297,9 +301,9 @@ shelleyStyleWitness embed = do
     fs -> failBecauseS $ embed $ ScriptWitnessNotValidatingUTXOW $ Set.fromList $ fmap fst fs
 
   let sNeeded = scriptsNeeded utxo tx
-      sReceived = Map.keysSet (getField @"scriptWits" tx)
+      sReceived = Map.keysSet (getField @"scriptWits" (trace ("\n\n"++show tx++"\n\n") tx))
   sNeeded == sReceived
-    ?! embed (MissingScriptWitnessesUTXOW (sNeeded `Set.difference` sReceived))
+    ?! embed (MissingScriptWitnessesUTXOW ((trace ("\nNEEDED "++show sNeeded) sNeeded) `Set.difference` (trace ("\nReceived "++show sReceived ) sReceived)))
 
   -- check VKey witnesses
   verifiedWits @era tx ?!#: (embed . InvalidWitnessesUTXOW)

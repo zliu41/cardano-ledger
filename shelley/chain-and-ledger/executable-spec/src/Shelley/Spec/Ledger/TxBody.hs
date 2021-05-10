@@ -883,6 +883,9 @@ instance (Era era) => ToCBOR (TxBody era) where
 instance Crypto era ~ crypto => HasField "inputs" (TxBody era) (Set (TxIn crypto)) where
   getField (TxBodyConstr (Memo m _)) = getField @"_inputsX" m
 
+instance (Crypto era ~ c) => HasField "potentialInputs" (TxBody era) (Set (TxIn c)) where
+  getField (TxBodyConstr (Memo m _)) = getField @"_inputsX" m
+
 instance Core.TxOut era ~ out => HasField "outputs" (TxBody era) (StrictSeq out) where
   getField (TxBodyConstr (Memo m _)) = getField @"_outputsX" m
 

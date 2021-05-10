@@ -96,6 +96,9 @@ import Test.Shelley.Spec.Ledger.Utils
     testGlobals,
   )
 import Test.Tasty
+import Test.Tasty.QuickCheck
+import Test.QuickCheck.Random(mkQCGen)
+
 
 kps = take 10 $ keyPairs @TestCrypto (geConstants ag)
 
@@ -227,3 +230,10 @@ type T = TestCrypto
 
 main :: IO ()
 main = defaultMain tests
+
+cgen = mkQCGen 174256
+
+go = defaultMain
+       (localOption
+           (QuickCheckReplay (Just 174256))
+           (testProperty "ADA" $ adaPreservationChain @(AlonzoEra TestCrypto)))

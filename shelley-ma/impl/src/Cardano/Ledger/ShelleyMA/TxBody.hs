@@ -375,6 +375,9 @@ instance HasField tag (TxBodyRaw e) c => HasField (tag::Symbol) (TxBody e) c whe
 instance Crypto era ~ crypto => HasField "inputs" (TxBody era) (Set (TxIn crypto)) where
   getField (TxBodyConstr (Memo m _)) = getField @"inputs" m
 
+instance (Crypto era ~ c) => HasField "potentialInputs" (TxBody era) (Set (TxIn c)) where
+  getField (TxBodyConstr (Memo m _)) = getField @"inputs" m
+
 instance HasField "outputs" (TxBody era) (StrictSeq (TxOut era)) where
   getField (TxBodyConstr (Memo m _)) = getField @"outputs" m
 
