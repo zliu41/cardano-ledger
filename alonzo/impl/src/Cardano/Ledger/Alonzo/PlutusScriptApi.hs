@@ -256,6 +256,7 @@ scriptsNeeded ::
   tx ->
   [(ScriptPurpose (Crypto era), ScriptHash (Crypto era))]
 scriptsNeeded (UTxO utxomap) tx = spend ++ reward ++ cert ++ minted
+  -- Note that collateral inputs MUST be key hash so they need no scripts
   where
     txb = getField @"body" tx
     !spend = foldl' accum [] (getField @"inputs" txb)

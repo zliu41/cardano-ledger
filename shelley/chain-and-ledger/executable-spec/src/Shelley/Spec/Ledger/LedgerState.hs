@@ -756,7 +756,7 @@ genesisState genDelegs0 utxo0 =
 txsizeBound ::
   forall era out.
   ( HasField "outputs" (Core.TxBody era) (StrictSeq out),
-    HasField "inputs" (Core.TxBody era) (Set (TxIn (Crypto era)))
+    HasField "potentialInputs" (Core.TxBody era) (Set (TxIn (Crypto era)))
   ) =>
   Tx era ->
   Integer
@@ -770,7 +770,7 @@ txsizeBound tx = numInputs * inputSize + numOutputs * outputSize + rest
     addrHeader = 1
     address = 2 + addrHeader + 2 * addrHashLen
     txbody = getField @"body" tx
-    numInputs = toInteger . length . getField @"inputs" $ txbody
+    numInputs = toInteger . length . getField @"potentialInputs" $ txbody
     inputSize = smallArray + uint + hashObj
     numOutputs = toInteger . length . getField @"outputs" $ txbody
     outputSize = smallArray + uint + address
@@ -880,7 +880,7 @@ witsVKeyNeeded ::
     HasField "body" tx (Core.TxBody era),
     HasField "wdrls" (Core.TxBody era) (Wdrl (Crypto era)),
     HasField "certs" (Core.TxBody era) (StrictSeq (DCert (Crypto era))),
-    HasField "inputs" (Core.TxBody era) (Set (TxIn (Crypto era))),
+    HasField "potentialInputs" (Core.TxBody era) (Set (TxIn (Crypto era))),
     HasField "update" (Core.TxBody era) (StrictMaybe (Update era)),
     HasField "address" (Core.TxOut era) (Addr (Crypto era))
   ) =>
@@ -898,7 +898,7 @@ witsVKeyNeeded utxo' tx genDelegs =
   where
     txbody = getField @"body" tx
     inputAuthors :: Set (KeyHash 'Witness (Crypto era))
-    inputAuthors = foldr accum Set.empty (getField @"inputs" txbody)
+    inputAuthors = foldr accum Set.empty (getField @"potentialInputs" txbody)
       where
         accum txin ans =
           case txinLookup txin utxo' of

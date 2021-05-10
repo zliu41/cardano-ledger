@@ -337,10 +337,7 @@ utxoTransition = do
 
   let txb = txbody tx
       vi@(ValidityInterval _ i_f) = getField @"vldt" txb
-      inputsAndCollateral =
-        Set.union
-          (getField @"inputs" txb)
-          (getField @"collateral" txb)
+      inputsAndCollateral = getField @"potentialInputs" txb
 
   inInterval slot vi
     ?! OutsideValidityIntervalUTxO (getField @"vldt" txb) slot

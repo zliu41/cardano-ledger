@@ -623,6 +623,9 @@ instance
 instance (Crypto era ~ c) => HasField "inputs" (TxBody era) (Set (TxIn c)) where
   getField (TxBodyConstr (Memo m _)) = _inputs m
 
+instance (Crypto era ~ c) => HasField "potentialInputs" (TxBody era) (Set (TxIn c)) where
+  getField (TxBodyConstr (Memo m _)) = Set.union (_inputs m) (_collateral m)
+
 instance HasField "outputs" (TxBody era) (StrictSeq (TxOut era)) where
   getField (TxBodyConstr (Memo m _)) = _outputs m
 
@@ -707,7 +710,7 @@ ppTxBody (TxBodyConstr (Memo (TxBodyRaw i ifee o c w fee vi u rsh mnt sdh axh ni
   ppRecord
     "TxBody(Alonzo)"
     [ ("inputs", ppSet ppTxIn i),
-      ("inputs_fee", ppSet ppTxIn ifee),
+      ("inputs_collateral", ppSet ppTxIn ifee),
       ("outputs", ppStrictSeq ppTxOut o),
       ("certificates", ppStrictSeq ppDCert c),
       ("withdrawals", ppWdrl w),

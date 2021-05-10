@@ -234,7 +234,9 @@ instance
 
 type ShelleyStyleWitnessNeeds era =
   ( HasField "certs" (Core.TxBody era) (StrictSeq (DCert (Crypto era))),
-    HasField "inputs" (Core.TxBody era) (Set (TxIn (Crypto era))),
+    HasField "potentialInputs" (Core.TxBody era) (Set (TxIn (Crypto era))),  -- scriptsNeeded
+    HasField "inputs" (Core.TxBody era) (Set (TxIn (Crypto era))), -- witsVKeyNeeded’  TODO DO WE NEED BOTH, Shoud witsVKeyNeeded require potentialInputs too?
+
     HasField "wdrls" (Core.TxBody era) (Wdrl (Crypto era)),
     HasField "addrWits" (TxInBlock era) (Set (WitVKey 'Witness (Crypto era))),
     HasField "bootWits" (TxInBlock era) (Set (BootstrapWitness (Crypto era))),

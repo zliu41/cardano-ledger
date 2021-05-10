@@ -327,7 +327,7 @@ scriptsNeeded ::
     HasField "body" tx (Core.TxBody era),
     HasField "certs" (Core.TxBody era) (StrictSeq (DCert (Crypto era))),
     HasField "wdrls" (Core.TxBody era) (Wdrl (Crypto era)),
-    HasField "inputs" (Core.TxBody era) (Set (TxIn (Crypto era))),
+    HasField "potentialInputs" (Core.TxBody era) (Set (TxIn (Crypto era))),
     HasField "address" (Core.TxOut era) (Addr (Crypto era))
   ) =>
   UTxO era ->
@@ -348,7 +348,7 @@ scriptsNeeded u tx =
   where
     txbody = getField @"body" tx
     withdrawals = unWdrl $ getField @"wdrls" $ txbody
-    u'' = eval ((txinsScript (getField @"inputs" $ txbody) u) ◁ u)
+    u'' = eval ((txinsScript (getField @"potentialInputs" $ txbody) u) ◁ u)   -- Both inputs and possible collateral
     certificates = (toList . getField @"certs") txbody
 
 -- | Compute the subset of inputs of the set 'txInps' for which each input is
