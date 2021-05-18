@@ -48,6 +48,12 @@ import Shelley.Spec.Ledger.API
     ShelleyGenesis,
     StrictMaybe (..),
   )
+import Cardano.Binary
+  ( FromCBOR(..)
+  , ToCBOR(..)
+  , enforceSize
+  , encodeListLen
+  )
 import qualified Shelley.Spec.Ledger.API as API
 import qualified Shelley.Spec.Ledger.PParams as Shelley
 import qualified Shelley.Spec.Ledger.TxBody as Shelley
@@ -78,6 +84,31 @@ data AlonzoGenesis = AlonzoGenesis
     maxCollateralInputs :: Natural
   }
   deriving (Eq, Generic, NoThunks)
+
+instance FromCBOR AlonzoGenesis where
+  fromCBOR = do
+    enforceSize "AlonzoGenesis" 8
+    AlonzoGenesis
+      <$> fromCBOR
+      <*> fromCBOR
+      <*> fromCBOR
+      <*> fromCBOR
+      <*> fromCBOR
+      <*> fromCBOR
+      <*> fromCBOR
+      <*> fromCBOR
+
+instance ToCBOR AlonzoGenesis where
+    toCBOR av =
+      encodeListLen 8
+        <> toCBOR (adaPerUTxOWord       av)
+        <> toCBOR (costmdls             av)
+        <> toCBOR (prices               av)
+        <> toCBOR (maxTxExUnits         av)
+        <> toCBOR (maxBlockExUnits      av)
+        <> toCBOR (maxValSize           av)
+        <> toCBOR (collateralPercentage av)
+        <> toCBOR (maxCollateralInputs  av)
 
 type instance PreviousEra (AlonzoEra c) = MaryEra c
 
