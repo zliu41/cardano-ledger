@@ -88,16 +88,16 @@ data Implementation era =
 
 deriving anyclass instance Era era => FromJSON (Implementation era)
 
-instance Era era => Identifiable (Implementation era) where
-  newtype Id (Implementation era) =
-    ImplementationId { unImplementationId :: Hash era (Implementation era)}
-    deriving stock (Eq, Ord, Show, Generic)
-    deriving newtype (NFData, NoThunks, ToJSON, ToJSONKey)
+mkImplementation
+  :: Hash era (SIP.Proposal era)
+  -> SlotNo
+  -> Protocol (Implementation era)
+  -> Implementation era
+mkImplementation = Implementation
 
-  _id = ImplementationId . Cardano.hashWithSerialiser toCBOR
-
-deriving newtype instance Era era => FromJSON (Id (Implementation era))
-deriving newtype instance Era era => FromJSONKey (Id (Implementation era))
+--------------------------------------------------------------------------------
+-- Proposal instance
+--------------------------------------------------------------------------------
 
 instance Era era => Proposal (Implementation era) where
   data Submission (Implementation era) =
@@ -172,12 +172,18 @@ mkRevelation vk salt impl =
     , revelationSalt = salt
     }
 
-mkImplementation
-  :: Hash era (SIP.Proposal era)
-  -> SlotNo
-  -> Protocol (Implementation era)
-  -> Implementation era
-mkImplementation = Implementation
+mkVote
+  :: Era era
+  => VKey era
+  -> Id (Implementation era)
+  -> Confidence
+  -> Vote (Implementation era)
+mkVote vk implId someConfidence =
+  ImplVote
+    { implVoter      = ImplVoter $ KeyHashObj $ Shelley.KeyHash $ hashVerKeyDSIGN vk
+    , implCandidate  = implId
+    , implConfidence = someConfidence
+    }
 
 mkProtocol
   :: Era era
@@ -193,33 +199,9 @@ mkProtocol pVersion protocol ppUpdate =
     , impParametersUpdate   = ppUpdate
     }
 
-mkVote
-  :: Era era
-  => VKey era
-  -> Id (Implementation era)
-  -> Confidence
-  -> Vote (Implementation era)
-mkVote vk implId someConfidence =
-  ImplVote
-    { implVoter      = ImplVoter $ KeyHashObj $ Shelley.KeyHash $ hashVerKeyDSIGN vk
-    , implCandidate  = implId
-    , implConfidence = someConfidence
-    }
-
-wrapIMPSubmission
-  :: Submission (Implementation era)
-  -> Update.Payload (SIP.Proposal era) (Implementation era)
-wrapIMPSubmission = Update.Approval . Proposal.Submit
-
-wrapIMPRevelation
-  :: Revelation (Implementation era)
-  -> Update.Payload (SIP.Proposal era) (Implementation era)
-wrapIMPRevelation = Update.Approval . Proposal.Reveal
-
-wrapIMPVote
-  :: Vote (Implementation era)
-  -> Update.Payload (SIP.Proposal era) (Implementation era)
-wrapIMPVote = Update.Approval . Proposal.Cast
+--------------------------------------------------------------------------------
+-- Commitable instance
+--------------------------------------------------------------------------------
 
 instance Era era => Commitable (Revelation (Implementation era)) where
   type Commit (Revelation (Implementation era)) =
@@ -235,20 +217,6 @@ instance Era era => Commitable (Revelation (Implementation era)) where
         , unImplementationId $ _id $ revealedImplementation r
         )
     )
-
-instance Signed (Submission (Implementation era)) where
-  signatureVerifies = const True
-
-instance Signed (Vote (Implementation era)) where
-  signatureVerifies = const True
-
-instance Identifiable (Voter (Implementation era)) where
-  newtype Id (Voter (Implementation era)) =
-    VoterId { unVoterId :: Voter (Implementation era) }
-    deriving stock (Eq, Ord, Show, Generic)
-    deriving newtype (NFData, NoThunks, ToJSON, ToJSONKey, FromJSONKey, FromJSON)
-
-  _id = VoterId
 
 --------------------------------------------------------------------------------
 -- Implementation instance
@@ -337,15 +305,28 @@ mkEndorsement vk pVersion =
     , endorsedVersion = ImplVersion pVersion
     }
 
-wrapEndorsement
-  :: Endorsement era
-  -> Update.Payload (SIP.Proposal era) (Implementation era)
-wrapEndorsement e
-  = Update.Activation
-  $ Update.Endorsement
-      { Update.endorserId      = endorserId e
-      , Update.endorsedVersion = endorsedVersion e
-      }
+--------------------------------------------------------------------------------
+-- Identifiable instances
+--------------------------------------------------------------------------------
+
+instance Era era => Identifiable (Implementation era) where
+  newtype Id (Implementation era) =
+    ImplementationId { unImplementationId :: Hash era (Implementation era)}
+    deriving stock (Eq, Ord, Show, Generic)
+    deriving newtype (NFData, NoThunks, ToJSON, ToJSONKey)
+
+  _id = ImplementationId . Cardano.hashWithSerialiser toCBOR
+
+deriving newtype instance Era era => FromJSON (Id (Implementation era))
+deriving newtype instance Era era => FromJSONKey (Id (Implementation era))
+
+instance Identifiable (Voter (Implementation era)) where
+  newtype Id (Voter (Implementation era)) =
+    VoterId { unVoterId :: Voter (Implementation era) }
+    deriving stock (Eq, Ord, Show, Generic)
+    deriving newtype (NFData, NoThunks, ToJSON, ToJSONKey, FromJSONKey, FromJSON)
+
+  _id = VoterId
 
 instance Era era => Identifiable (Protocol (Implementation era)) where
   newtype Id (Protocol (Implementation era)) =
@@ -375,8 +356,38 @@ deriving newtype instance
   Era era => FromJSON (Id (Endorser (Protocol (Implementation era))))
 
 --------------------------------------------------------------------------------
+-- Signed instances
+--------------------------------------------------------------------------------
+
+instance Signed (Submission (Implementation era)) where
+  signatureVerifies = const True
+
+instance Signed (Vote (Implementation era)) where
+  signatureVerifies = const True
+
+--------------------------------------------------------------------------------
 -- Serialisation instances
 --------------------------------------------------------------------------------
+
+instance
+  ( Typeable era
+  , Era era
+  ) => ToCBOR (Implementation era) where
+  toCBOR i =  encodeListLen 3
+           <> toCBOR (sipId i)
+           <> toCBOR (implVotingPeriodDuration i)
+           <> toCBOR (implProtocol i)
+
+instance
+  ( Typeable era
+  , Era era
+  ) => FromCBOR (Implementation era) where
+  fromCBOR = do
+    decodeListLenOf 3
+    si <- fromCBOR
+    iv <- fromCBOR
+    ip <- fromCBOR
+    return $! Implementation si iv ip
 
 instance
   ( Typeable era
@@ -417,24 +428,42 @@ instance
     return $! ImplRevelation ri rv rs
 
 instance
-  ( Typeable era
+  (Typeable era
   , Era era
-  ) => ToCBOR (Implementation era) where
-  toCBOR i =  encodeListLen 3
-           <> toCBOR (sipId i)
-           <> toCBOR (implVotingPeriodDuration i)
-           <> toCBOR (implProtocol i)
+  ) => ToCBOR (Vote (Implementation era)) where
+  toCBOR v =  encodeListLen 3
+           <> toCBOR (implVoter v)
+           <> toCBOR (implCandidate v)
+           <> toCBOR (implConfidence v)
 
 instance
-  ( Typeable era
+  (Typeable era
   , Era era
-  ) => FromCBOR (Implementation era) where
+  ) => FromCBOR (Vote (Implementation era)) where
   fromCBOR = do
     decodeListLenOf 3
-    si <- fromCBOR
-    iv <- fromCBOR
-    ip <- fromCBOR
-    return $! Implementation si iv ip
+    iv  <- fromCBOR
+    ica <- fromCBOR
+    ico <- fromCBOR
+    return $! ImplVote iv ica ico
+
+deriving newtype instance
+  Era era => ToCBOR (Voter (Implementation era))
+
+deriving newtype instance
+  Era era => FromCBOR (Voter (Implementation era))
+
+deriving newtype instance
+  Era era => ToCBOR (Id (Implementation era))
+
+deriving newtype instance
+  Era era => FromCBOR (Id (Implementation era))
+
+deriving newtype instance
+  Era era => ToCBOR (Id (Voter (Implementation era)))
+
+deriving newtype instance
+  Era era => FromCBOR (Id (Voter (Implementation era)))
 
 instance
   ( Typeable era
@@ -458,61 +487,11 @@ instance
     pu  <- fromCBOR
     return $! ImplProtocol v sId sV pu
 
-instance
-  (Typeable era
-  , Era era
-  ) => ToCBOR (Vote (Implementation era)) where
-  toCBOR v =  encodeListLen 3
-           <> toCBOR (implVoter v)
-           <> toCBOR (implCandidate v)
-           <> toCBOR (implConfidence v)
-
-instance
-  (Typeable era
-  , Era era
-  ) => FromCBOR (Vote (Implementation era)) where
-  fromCBOR = do
-    decodeListLenOf 3
-    iv  <- fromCBOR
-    ica <- fromCBOR
-    ico <- fromCBOR
-    return $! ImplVote iv ica ico
-
 deriving newtype instance
   Typeable era => ToCBOR (Version (Protocol (Implementation era)))
 
 deriving newtype instance
   Typeable era => FromCBOR (Version (Protocol (Implementation era)))
-
-deriving newtype instance
- (Typeable era, Era era) => ToCBOR (Id (Protocol (Implementation era)))
-
-deriving newtype instance
- (Typeable era, Era era) => FromCBOR (Id (Protocol (Implementation era)))
-
-deriving newtype instance
-  Era era => ToCBOR (Id (Implementation era))
-
-deriving newtype instance
-  Era era => FromCBOR (Id (Implementation era))
-
-deriving newtype instance
-  Era era => ToCBOR (Id (Voter (Implementation era)))
-
-deriving newtype instance
-  Era era => FromCBOR (Id (Voter (Implementation era)))
-
-deriving newtype instance
-  Era era => ToCBOR (Voter (Implementation era))
-
-deriving newtype instance
-  Era era => FromCBOR (Voter (Implementation era))
-
-deriving newtype instance
-  (Typeable era, Era era) => ToCBOR (Id (Endorser (Protocol (Implementation era))))
-
-deriving newtype instance
-  (Typeable era, Era era) => FromCBOR (Id (Endorser (Protocol (Implementation era))))
 
 instance (Typeable era, Era era) => ToCBOR (Endorsement era) where
   toCBOR e =  encodeListLen 2
@@ -525,3 +504,44 @@ instance (Typeable era, Era era) => FromCBOR (Endorsement era) where
     eid <- fromCBOR
     ev  <- fromCBOR
     return $! Endorsement eid ev
+
+deriving newtype instance
+ (Typeable era, Era era) => ToCBOR (Id (Protocol (Implementation era)))
+
+deriving newtype instance
+ (Typeable era, Era era) => FromCBOR (Id (Protocol (Implementation era)))
+
+deriving newtype instance
+  (Typeable era, Era era) => ToCBOR (Id (Endorser (Protocol (Implementation era))))
+
+deriving newtype instance
+  (Typeable era, Era era) => FromCBOR (Id (Endorser (Protocol (Implementation era))))
+
+--------------------------------------------------------------------------------
+-- Payload wrapping functions
+--------------------------------------------------------------------------------
+
+wrapIMPSubmission
+  :: Submission (Implementation era)
+  -> Update.Payload (SIP.Proposal era) (Implementation era)
+wrapIMPSubmission = Update.Approval . Proposal.Submit
+
+wrapIMPRevelation
+  :: Revelation (Implementation era)
+  -> Update.Payload (SIP.Proposal era) (Implementation era)
+wrapIMPRevelation = Update.Approval . Proposal.Reveal
+
+wrapIMPVote
+  :: Vote (Implementation era)
+  -> Update.Payload (SIP.Proposal era) (Implementation era)
+wrapIMPVote = Update.Approval . Proposal.Cast
+
+wrapEndorsement
+  :: Endorsement era
+  -> Update.Payload (SIP.Proposal era) (Implementation era)
+wrapEndorsement e
+  = Update.Activation
+  $ Update.Endorsement
+      { Update.endorserId      = endorserId e
+      , Update.endorsedVersion = endorsedVersion e
+      }
