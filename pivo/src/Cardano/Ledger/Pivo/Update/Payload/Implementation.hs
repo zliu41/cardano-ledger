@@ -223,13 +223,18 @@ wrapIMPVote = Update.Approval . Proposal.Cast
 
 instance Era era => Commitable (Revelation (Implementation era)) where
   type Commit (Revelation (Implementation era)) =
-    Hash era (Int, VKeyHash era, Hash era (Implementation era))
+    ( VKeyHash era -- Commit author
+    , Hash era (Int, VKeyHash era, Hash era (Implementation era))
+    )
 
-  commit r = Cardano.hashWithSerialiser toCBOR
-           $ ( revelationSalt r
-             , revelator r
-             , unImplementationId $ _id $ revealedImplementation r
-             )
+  commit r =
+    ( revelator r
+    , Cardano.hashWithSerialiser toCBOR
+      $ ( revelationSalt r
+        , revelator r
+        , unImplementationId $ _id $ revealedImplementation r
+        )
+    )
 
 instance Signed (Submission (Implementation era)) where
   signatureVerifies = const True

@@ -37,7 +37,10 @@ data Submission era =
   , commit :: Commit era
   } deriving (Eq, Show, Generic, NFData, NoThunks, ToJSON)
 
-type Commit era = Hash era (Int, VKeyHash era, Hash era (Proposal era))
+type Commit era =
+  ( VKeyHash era -- Commit author
+  , Hash era (Int, VKeyHash era, Hash era (Proposal era))
+  )
 
 instance (Typeable era, Era era) => ToCBOR (Submission era) where
   toCBOR Submission { author, commit }
@@ -84,9 +87,8 @@ mkCommit
   -> Proposal era
   -> Commit era
 mkCommit someSalt vkHash proposal =
-  Cardano.hashWithSerialiser
-    toCBOR
-    ( someSalt
-    , vkHash
-    , unProposalId $ _id proposal
-    )
+  ( vkHash
+  , hash (someSalt, vkHash, unProposalId $ _id proposal)
+  )
+  where
+    hash = Cardano.hashWithSerialiser toCBOR
