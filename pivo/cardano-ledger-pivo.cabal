@@ -23,7 +23,10 @@ library
     Cardano.Ledger.Pivo
     Cardano.Ledger.Pivo.TxBody
     Cardano.Ledger.Pivo.Update
+    Cardano.Ledger.Pivo.Update.Classes.HasWitnesses
     -- SIP
+    Cardano.Ledger.Pivo.Update.Payload.SIP2
+
     Cardano.Ledger.Pivo.Update.Payload.SIP
     Cardano.Ledger.Pivo.Update.Payload.SIP.Proposal
     Cardano.Ledger.Pivo.Update.Payload.SIP.Submission

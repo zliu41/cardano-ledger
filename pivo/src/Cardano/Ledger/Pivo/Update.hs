@@ -119,6 +119,7 @@ instance Monoid (Payload era) where
 witnesses :: Payload era -> Set (KeyHash 'Witness (Crypto era))
 witnesses =  foldMap SIP.witnesses     . sipSubmissions
           <> foldMap SIP.voteWitnesses . sipVotes
+          -- TODO:  we need the witnesses of the activation and endorsement phases
 
 --------------------------------------------------------------------------------
 -- Update environment
