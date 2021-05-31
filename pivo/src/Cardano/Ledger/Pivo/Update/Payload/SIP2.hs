@@ -35,11 +35,13 @@ import           Cardano.Crypto.DSIGN                            (hashVerKeyDSIG
 import qualified Cardano.Crypto.Hash                             as Cardano
 import           Cardano.Slotting.Slot (SlotNo)
 
+import qualified Cardano.Ledger.Crypto
 import           Cardano.Ledger.Era                              (Era)
 import qualified Cardano.Ledger.Era                              as Era
 import           Shelley.Spec.Ledger.Credential                  (Credential (KeyHashObj))
 
 import qualified Shelley.Spec.Ledger.Keys                        as Shelley
+
 
 import qualified Cardano.Ledger.Update as Update
 import           Cardano.Ledger.Pivo.Update.Payload.Types        (VKey)
@@ -183,8 +185,9 @@ mkVote vk proposalId someConfidence =
 --------------------------------------------------------------------------------
 
 instance
+  (Era.Crypto era ~ c) =>
   HasWitnesses (Submission (SIP era))
-               (Shelley.KeyHash 'Shelley.Witness (Era.Crypto era)) where
+               (Shelley.KeyHash 'Shelley.Witness c) where
   witnesses = singleton . Shelley.KeyHash . author
 
 -- instance
