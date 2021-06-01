@@ -10,6 +10,7 @@
 {-# LANGUAGE ScopedTypeVariables #-}
 {-# LANGUAGE StandaloneDeriving #-}
 {-# LANGUAGE TypeFamilies #-}
+{-# LANGUAGE DeriveAnyClass #-}
 
 module Cardano.Ledger.Mary.Value
   ( PolicyID (..),
@@ -118,7 +119,7 @@ instance FromCBOR AssetName where
 
 -- | Policy ID
 newtype PolicyID crypto = PolicyID {policyID :: ScriptHash crypto}
-  deriving (Show, Eq, ToCBOR, FromCBOR, Ord, NoThunks, NFData)
+  deriving (Generic, Show, Eq, ToCBOR, FromCBOR, Ord, NoThunks, NFData)
 
 -- | The Value representing MultiAssets
 data Value crypto = Value !Integer !(Map (PolicyID crypto) (Map AssetName Integer))
@@ -330,7 +331,7 @@ instance
 
 instance CC.Crypto crypto => Compactible (Value crypto) where
   newtype CompactForm (Value crypto) = CompactValue (CompactValue crypto)
-    deriving (Eq, Typeable, Show, NoThunks, ToCBOR, FromCBOR)
+    deriving (Generic, Eq, Typeable, Show, NoThunks, ToCBOR, FromCBOR)
   toCompact x = CompactValue <$> to x
   fromCompact (CompactValue x) = from x
 
@@ -352,7 +353,7 @@ data CompactValue crypto
       {-# UNPACK #-} !Word64 -- ada
       {-# UNPACK #-} !Word32 -- number of ma's
       {-# UNPACK #-} !ShortByteString -- rep
-  deriving (Show, Typeable)
+  deriving (Generic, Show, Typeable)
 
 instance CC.Crypto crypto => Eq (CompactValue crypto) where
   a == b = from a == from b
