@@ -53,7 +53,7 @@ import Cardano.Crypto.Hash
     hashWithSerialiser,
   )
 import Cardano.Crypto.KES
-  ( KESAlgorithm,
+  ( KESSignAlgorithm,
     SignKeyKES,
     VerKeyKES,
     deriveVerKeyKES,
@@ -79,13 +79,14 @@ import qualified Cardano.Ledger.Crypto as CC (Crypto)
 import Cardano.Ledger.Era (Crypto (..))
 import qualified Cardano.Ledger.Era as Era
 import Cardano.Ledger.Shelley.Constraints
-import Cardano.Prelude (Coercible, asks)
+import Cardano.Prelude (Coercible, asks, ByteString)
 import Cardano.Slotting.EpochInfo
   ( epochInfoEpoch,
     epochInfoFirst,
     epochInfoSize,
     fixedEpochInfo,
   )
+import Cardano.Crypto.Libsodium (mlsbFromByteString)
 import Cardano.Slotting.Time (SystemStart (..), mkSlotLength)
 import Control.Monad.Trans.Reader (runReaderT)
 import Control.State.Transition.Extended hiding (Assertion)
@@ -121,10 +122,10 @@ import Shelley.Spec.Ledger.BaseTypes
     Nonce,
     ShelleyBase,
     UnitInterval,
-    epochInfo,
     mkActiveSlotCoeff,
     mkNonceFromOutputVRF,
     mkUnitInterval,
+    epochInfo
   )
 import Shelley.Spec.Ledger.BlockChain (BHBody (..), Block, TxSeq, bhbody, bheader)
 import Shelley.Spec.Ledger.Credential (Credential (..), StakeReference (..))
@@ -219,7 +220,13 @@ mkSeedFromWords ::
   (Word64, Word64, Word64, Word64, Word64) ->
   Seed
 mkSeedFromWords stuff =
-  mkSeedFromBytes . hashToBytes $ hashWithSerialiser @Blake2b_256 toCBOR stuff
+  mkSeedFromBytes . mkByteStringSeedFromWords $ stuff
+
+mkByteStringSeedFromWords ::
+  (Word64, Word64, Word64, Word64, Word64) ->
+  ByteString
+mkByteStringSeedFromWords stuff =
+  hashToBytes $ hashWithSerialiser @Blake2b_256 toCBOR stuff
 
 -- | For testing purposes, generate a deterministic genesis key pair given a seed.
 mkGenKey ::
@@ -274,12 +281,13 @@ mkCertifiedVRF a sk =
 
 -- | For testing purposes, generate a deterministic KES key pair given a seed.
 mkKESKeyPair ::
-  KESAlgorithm v =>
+  KESSignAlgorithm m v =>
   (Word64, Word64, Word64, Word64, Word64) ->
-  (SignKeyKES v, VerKeyKES v)
-mkKESKeyPair seed =
-  let sk = genKeyKES $ mkSeedFromWords seed
-   in (sk, deriveVerKeyKES sk)
+  m (SignKeyKES v, VerKeyKES v)
+mkKESKeyPair seed = do
+  sk <- genKeyKES $ mlsbFromByteString (mkByteStringSeedFromWords seed)
+  vk <- deriveVerKeyKES sk
+  return (sk, vk)
 
 mkAddr ::
   CC.Crypto crypto =>
@@ -328,20 +336,25 @@ epochSize = runIdentity . epochInfoSize (epochInfo testGlobals)
 -- | Try to evolve KES key until specific KES period is reached, given the
 -- current KES period.
 evolveKESUntil ::
-  (KESAlgorithm v, ContextKES v ~ ()) =>
+  forall m v.
+  (KESSignAlgorithm m v, ContextKES v ~ ()) =>
   SignKeyKES v ->
   -- | Current KES period
   KESPeriod ->
   -- | Target KES period
   KESPeriod ->
-  Maybe (SignKeyKES v)
-evolveKESUntil sk1 (KESPeriod current) (KESPeriod target) = go sk1 current target
+  m (Maybe (SignKeyKES v))
+evolveKESUntil sk1 (KESPeriod current) (KESPeriod target) =
+  go sk1 current target
   where
-    go !_ c t | t < c = Nothing
-    go !sk c t | c == t = Just sk
-    go !sk c t = case updateKES () sk c of
-      Nothing -> Nothing
-      Just sk' -> go sk' (c + 1) t
+    go :: SignKeyKES v -> Word -> Word -> m (Maybe (SignKeyKES v))
+    go !_ c t | t < c = return Nothing
+    go !sk c t | c == t = return (Just sk)
+    go !sk c t = do
+      msk' <- updateKES () sk c
+      case msk' of
+        Nothing -> return Nothing
+        Just sk' -> go sk' (c + 1) t
 
 maxKESIterations :: Word64
 maxKESIterations = runShelleyBase (asks maxKESEvo)

@@ -10,6 +10,7 @@
 {-# LANGUAGE TypeApplications #-}
 {-# LANGUAGE TypeFamilies #-}
 {-# LANGUAGE UndecidableInstances #-}
+{-# LANGUAGE LambdaCase #-}
 
 module Test.Shelley.Spec.Ledger.Generator.Core
   ( AllIssuerKeys (..),
@@ -54,9 +55,10 @@ where
 import Cardano.Binary (ToCBOR)
 import Cardano.Crypto.DSIGN.Class (DSIGNAlgorithm (..))
 import Cardano.Crypto.VRF (evalCertified)
+import Cardano.Crypto.KES.Class (KESSignAlgorithm)
 import Cardano.Ledger.Coin (Coin (..))
 import qualified Cardano.Ledger.Core as Core
-import Cardano.Ledger.Crypto (DSIGN)
+import Cardano.Ledger.Crypto (DSIGN, KES)
 import qualified Cardano.Ledger.Crypto as CC (Crypto)
 import Cardano.Ledger.Era (Crypto (..))
 import qualified Cardano.Ledger.Era as Era
@@ -223,7 +225,8 @@ data AllIssuerKeys v (r :: KeyRole) = AllIssuerKeys
     hot :: [(KESPeriod, (SignKeyKES v, VerKeyKES v))],
     hk :: KeyHash r v
   }
-  deriving (Show)
+
+-- deriving instance Show (AllIssuerKeys v r)
 
 -- | Generator environment.
 data GenEnv era = GenEnv
@@ -255,7 +258,7 @@ data KeySpace era = KeySpace_
     ksIndexedStakeScripts :: Map (ScriptHash (Crypto era)) (Core.Script era, Core.Script era)
   }
 
-deriving instance (Era era, Show (Core.Script era)) => Show (KeySpace era)
+-- deriving instance (Era era, Show (Core.Script era)) => Show (KeySpace era)
 
 pattern KeySpace ::
   forall era.
@@ -479,6 +482,7 @@ unitIntervalToNatural = floor . ((10000 % 1) *) . intervalValue
 
 mkBlockHeader ::
   ( Mock crypto
+  , KESSignAlgorithm m (KES crypto)
   ) =>
   -- | Hash of previous block
   HashHeader crypto ->
@@ -500,8 +504,8 @@ mkBlockHeader ::
   Natural ->
   -- | Block body hash
   Hash crypto EraIndependentBlockBody ->
-  BHeader crypto
-mkBlockHeader prev pkeys s blockNo enonce kesPeriod c0 oCert bodySize bodyHash =
+  m (BHeader crypto)
+mkBlockHeader prev pkeys s blockNo enonce kesPeriod c0 oCert bodySize bodyHash = do
   let (_, (sHot, _)) = head $ hot pkeys
       KeyPair vKeyCold _ = cold pkeys
       nonceNonce = mkSeed seedEta s enonce
@@ -520,18 +524,20 @@ mkBlockHeader prev pkeys s blockNo enonce kesPeriod c0 oCert bodySize bodyHash =
           oCert
           (ProtVer 0 0)
       kpDiff = kesPeriod - c0
-      hotKey = case evolveKESUntil sHot (KESPeriod 0) (KESPeriod kpDiff) of
-        Nothing ->
-          error ("could not evolve key to iteration " ++ show (c0, kesPeriod, kpDiff))
-        Just hkey -> hkey
-      sig = signedKES () kpDiff bhb hotKey
-   in BHeader bhb sig
+  hotKey <- evolveKESUntil sHot (KESPeriod 0) (KESPeriod kpDiff) >>= \case
+              Nothing ->
+                error ("could not evolve key to iteration " ++ show (c0, kesPeriod, kpDiff))
+              Just hkey ->
+                return hkey
+  sig <- signedKES () kpDiff bhb hotKey
+  return $ BHeader bhb sig
 
 mkBlock ::
-  forall era r.
+  forall era r m.
   ( UsesTxBody era,
     PreAlonzo era,
-    Mock (Crypto era)
+    Mock (Crypto era),
+    KESSignAlgorithm m (KES (Crypto era))
   ) =>
   -- | Hash of previous block
   HashHeader (Crypto era) ->
@@ -551,19 +557,20 @@ mkBlock ::
   Word ->
   -- | Operational certificate
   OCert (Crypto era) ->
-  Block era
-mkBlock prev pkeys txns s blockNo enonce kesPeriod c0 oCert =
+  m (Block era)
+mkBlock prev pkeys txns s blockNo enonce kesPeriod c0 oCert = do
   let bodySize = fromIntegral $ bBodySize $ (TxSeq @era . StrictSeq.fromList) txns
       bodyHash = bbHash $ TxSeq @era $ StrictSeq.fromList txns
-      bh = mkBlockHeader prev pkeys s blockNo enonce kesPeriod c0 oCert bodySize bodyHash
-   in Block bh (TxSeq @era $ StrictSeq.fromList txns)
+  bh <- mkBlockHeader prev pkeys s blockNo enonce kesPeriod c0 oCert bodySize bodyHash
+  return $ Block bh (TxSeq @era $ StrictSeq.fromList txns)
 
 -- | Create a block with a faked VRF result.
 mkBlockFakeVRF ::
-  forall era r.
+  forall era r m.
   ( UsesTxBody era,
     PreAlonzo era,
-    ExMock (Crypto era)
+    ExMock (Crypto era),
+    KESSignAlgorithm m (KES (Crypto era))
   ) =>
   -- | Hash of previous block
   HashHeader (Crypto era) ->
@@ -587,8 +594,8 @@ mkBlockFakeVRF ::
   Word ->
   -- | Operational certificate
   OCert (Crypto era) ->
-  Block era
-mkBlockFakeVRF prev pkeys txns s blockNo enonce (NatNonce bnonce) l kesPeriod c0 oCert =
+  m (Block era)
+mkBlockFakeVRF prev pkeys txns s blockNo enonce (NatNonce bnonce) l kesPeriod c0 oCert = do
   let (_, (sHot, _)) = head $ hot pkeys
       KeyPair vKeyCold _ = cold pkeys
       nonceNonce = mkSeed seedEta s enonce
@@ -613,13 +620,13 @@ mkBlockFakeVRF prev pkeys txns s blockNo enonce (NatNonce bnonce) l kesPeriod c0
           oCert
           (ProtVer 0 0)
       kpDiff = kesPeriod - c0
-      hotKey = case evolveKESUntil sHot (KESPeriod 0) (KESPeriod kpDiff) of
-        Nothing ->
-          error ("could not evolve key to iteration " ++ show (c0, kesPeriod, kpDiff))
-        Just hkey -> hkey
-      sig = signedKES () kpDiff bhb hotKey
-      bh = BHeader bhb sig
-   in Block bh (TxSeq @era $ StrictSeq.fromList txns)
+  hotKey <- evolveKESUntil sHot (KESPeriod 0) (KESPeriod kpDiff) >>= \case
+    Nothing ->
+      error ("could not evolve key to iteration " ++ show (c0, kesPeriod, kpDiff))
+    Just hkey -> return hkey
+  sig <- signedKES () kpDiff bhb hotKey
+  let bh = BHeader bhb sig
+  return $ Block bh (TxSeq @era $ StrictSeq.fromList txns)
 
 -- | We provide our own nonces to 'mkBlock', which we then wish to recover as
 -- the output of the VRF functions. In general, however, we just derive them

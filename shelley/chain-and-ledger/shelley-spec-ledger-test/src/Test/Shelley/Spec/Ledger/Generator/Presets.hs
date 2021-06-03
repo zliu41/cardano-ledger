@@ -21,7 +21,9 @@ module Test.Shelley.Spec.Ledger.Generator.Presets
   )
 where
 
-import qualified Cardano.Ledger.Crypto as CC (Crypto)
+import qualified Cardano.Ledger.Crypto as CC (Crypto, KES)
+import qualified Cardano.Ledger.Era as Era (Crypto)
+import Cardano.Crypto.KES.Class (KESSignAlgorithm)
 import Data.Map.Strict (Map)
 import qualified Data.Map.Strict as Map
 import Data.Word (Word64)
@@ -56,31 +58,32 @@ import Test.Shelley.Spec.Ledger.Utils
     mkVRFKeyPair,
     slotsPerKESIteration,
   )
+import Control.Monad (forM)
 
 -- | Example generator environment, consisting of default constants and an
 -- corresponding keyspace.
 genEnv ::
-  ScriptClass era =>
+  (ScriptClass era, KESSignAlgorithm m (CC.KES (Era.Crypto era))) =>
   proxy era ->
-  GenEnv era
+  m (GenEnv era)
 genEnv _ =
   GenEnv
-    (keySpace defaultConstants)
-    defaultConstants
+    <$> keySpace defaultConstants
+    <*> pure defaultConstants
 
 -- | Example keyspace for use in generators
 keySpace ::
-  forall era.
-  ScriptClass era =>
+  forall era m.
+  (ScriptClass era, KESSignAlgorithm m (CC.KES (Era.Crypto era))) =>
   Constants ->
-  KeySpace era
+  m (KeySpace era)
 keySpace c =
   KeySpace
-    (coreNodeKeys c)
-    (genesisDelegates c)
-    (stakePoolKeys c)
-    (keyPairs c)
-    (combinedScripts @era c)
+    <$> (coreNodeKeys c)
+    <*> (genesisDelegates c)
+    <*> (stakePoolKeys c)
+    <*> pure (keyPairs c)
+    <*> pure (combinedScripts @era c)
 
 -- | Select between _lower_ and _upper_ keys from 'keyPairs'
 someKeyPairs :: CC.Crypto crypto => Constants -> Int -> Int -> Gen (KeyPairs crypto)
@@ -94,76 +97,73 @@ someKeyPairs c lower upper =
 -- NOTE: we use a seed range in the [1000...] range
 -- to create keys that don't overlap with any of the other generated keys
 coreNodeKeys ::
-  CC.Crypto crypto =>
+  (CC.Crypto crypto, KESSignAlgorithm m (CC.KES crypto)) =>
   Constants ->
-  [(KeyPair 'Genesis crypto, AllIssuerKeys crypto 'GenesisDelegate)]
+  m [(KeyPair 'Genesis crypto, AllIssuerKeys crypto 'GenesisDelegate)]
 coreNodeKeys c@Constants {numCoreNodes} =
-  [ ( (toKeyPair . mkGenKey) (x, 0, 0, 0, 0),
-      issuerKeys c 0 x
-    )
-    | x <- [1001 .. 1000 + numCoreNodes]
-  ]
+  forM [1001 .. 1000 + numCoreNodes] $ \x -> do
+    let kp = (toKeyPair . mkGenKey) (x, 0, 0, 0, 0)
+    ik <- issuerKeys c 0 x
+    return (kp, ik)
   where
     toKeyPair (sk, vk) = KeyPair vk sk
 
 -- Pre-generate a set of keys to use for genesis delegates.
-genesisDelegates :: CC.Crypto crypto => Constants -> [AllIssuerKeys crypto 'GenesisDelegate]
+genesisDelegates :: (CC.Crypto crypto, KESSignAlgorithm m (CC.KES crypto)) => Constants -> m [AllIssuerKeys crypto 'GenesisDelegate]
 genesisDelegates c =
-  [ issuerKeys c 20 x
-    | x <- [0 .. 50]
-  ]
+  mapM (issuerKeys c 10) [0 .. 50]
 
 -- Pre-generate a set of keys to use for stake pools.
-stakePoolKeys :: CC.Crypto crypto => Constants -> [AllIssuerKeys crypto 'StakePool]
+stakePoolKeys :: (CC.Crypto crypto, KESSignAlgorithm m (CC.KES crypto)) => Constants -> m [AllIssuerKeys crypto 'StakePool]
 stakePoolKeys c =
-  [ issuerKeys c 10 x
-    | x <- [0 .. 50]
-  ]
+  mapM (issuerKeys c 10) [0 .. 50]
 
 -- | Generate all keys for any entity which will be issuing blocks.
 issuerKeys ::
-  (CC.Crypto crypto) =>
+  (CC.Crypto crypto, KESSignAlgorithm m (CC.KES crypto)) =>
   Constants ->
   -- | Namespace parameter. Can be used to differentiate between different
   --   "types" of issuer.
   Word64 ->
   Word64 ->
-  AllIssuerKeys crypto r
-issuerKeys Constants {maxSlotTrace} ns x =
+  m (AllIssuerKeys crypto r)
+issuerKeys Constants {maxSlotTrace} ns x = do
   let (skCold, vkCold) = mkKeyPair (x, 0, 0, 0, ns + 1)
-   in AllIssuerKeys
-        { cold = KeyPair vkCold skCold,
-          hot =
-            [ ( KESPeriod (fromIntegral (iter * fromIntegral maxKESIterations)),
-                mkKESKeyPair (x, 0, 0, fromIntegral iter, ns + 3)
-              )
-              | iter <-
-                  [ 0
-                    .. ( 1
-                           + div
-                             maxSlotTrace
-                             ( fromIntegral
-                                 (maxKESIterations * slotsPerKESIteration)
-                             )
+  let iterRange =
+            [ 0
+              .. ( 1
+                     + div
+                       maxSlotTrace
+                       ( fromIntegral
+                           (maxKESIterations * slotsPerKESIteration)
                        )
-                  ]
-            ],
+                 )
+            ]
+  hotKP <- forM iterRange $ \iter -> do
+    kp <- mkKESKeyPair (x, 0, 0, fromIntegral iter, ns + 3)
+    return ( KESPeriod (fromIntegral (iter * fromIntegral maxKESIterations)),
+             kp
+           )
+  return AllIssuerKeys
+        { cold = KeyPair vkCold skCold,
+          hot = hotKP,
           vrf = mkVRFKeyPair (x, 0, 0, 0, ns + 2),
           hk = hashKey vkCold
         }
 
 genesisDelegs0 ::
-  CC.Crypto crypto =>
+  (CC.Crypto crypto, KESSignAlgorithm m (CC.KES crypto)) =>
   Constants ->
-  Map (KeyHash 'Genesis crypto) (GenDelegPair crypto)
-genesisDelegs0 c =
-  Map.fromList
+  m (Map (KeyHash 'Genesis crypto) (GenDelegPair crypto))
+genesisDelegs0 c = do
+  cnk <- coreNodeKeys c
+  return $ Map.fromList
     [ ( hashVKey gkey,
         GenDelegPair
           (coerceKeyRole $ hashVKey (cold pkeys))
           (hashVerKeyVRF . snd . vrf $ pkeys)
       )
-      | (gkey, pkeys) <- coreNodeKeys c
+      | (gkey, pkeys) <- cnk
     ]
   where
     hashVKey = hashKey . vKey

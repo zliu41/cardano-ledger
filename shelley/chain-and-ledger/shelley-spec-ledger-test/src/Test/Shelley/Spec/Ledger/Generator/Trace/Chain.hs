@@ -18,7 +18,9 @@
 
 module Test.Shelley.Spec.Ledger.Generator.Trace.Chain where
 
+import Cardano.Crypto.KES.Class (KESSignAlgorithm)
 import qualified Cardano.Ledger.Core as Core
+import Cardano.Ledger.Crypto (KES)
 import Cardano.Ledger.Era (Crypto, Era)
 import Cardano.Ledger.Shelley.Constraints
   ( UsesAuxiliary,
@@ -109,7 +111,8 @@ instance
     Signal (Core.EraRule "TICK" era) ~ SlotNo,
     HasField "inputs" (Core.TxBody era) (Set (TxIn (Crypto era))),
     HasField "outputs" (Core.TxBody era) (StrictSeq (Core.TxOut era)),
-    QC.HasTrace (Core.EraRule "LEDGERS" era) (GenEnv era)
+    QC.HasTrace (Core.EraRule "LEDGERS" era) (GenEnv era),
+    KESSignAlgorithm Gen (KES (Crypto era))
   ) =>
   HasTrace (CHAIN era) (GenEnv era)
   where
@@ -136,7 +139,8 @@ lastByronHeaderHash _ = HashHeader $ mkHash 0
 mkGenesisChainState ::
   forall era a.
   ( ShelleyTest era,
-    EraGen era
+    EraGen era,
+    KESSignAlgorithm Gen (KES (Crypto era))
   ) =>
   GenEnv era ->
   IRC (CHAIN era) ->
@@ -145,6 +149,7 @@ mkGenesisChainState ge@(GenEnv _ constants) (IRC _slotNo) = do
   utxo0 <- genUtxo0 ge
 
   pParams <- genPParams constants
+  delegs0 <- genesisDelegs0 constants
 
   pure . Right . withRewards $
     initialShelleyState
@@ -157,7 +162,6 @@ mkGenesisChainState ge@(GenEnv _ constants) (IRC _slotNo) = do
       (hashHeaderToNonce (lastByronHeaderHash p))
   where
     epoch0 = EpochNo 0
-    delegs0 = genesisDelegs0 constants
     -- We preload the initial state with some Treasury to enable generation
     -- of things dependent on Treasury (e.g. MIR Treasury certificates)
     withRewards :: ChainState h -> ChainState h

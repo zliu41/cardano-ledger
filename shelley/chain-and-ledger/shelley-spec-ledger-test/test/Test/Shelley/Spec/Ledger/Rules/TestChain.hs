@@ -23,7 +23,9 @@ module Test.Shelley.Spec.Ledger.Rules.TestChain
 where
 
 import Cardano.Binary (ToCBOR)
+import Cardano.Crypto.KES.Class (KESSignAlgorithm)
 import Cardano.Ledger.Coin
+import qualified Cardano.Ledger.Crypto as CC
 import qualified Cardano.Ledger.Core as Core
 import Cardano.Ledger.Era (Crypto, Era)
 import qualified Cardano.Ledger.Era as Era
@@ -35,6 +37,7 @@ import Cardano.Slotting.Slot (EpochNo)
 import Control.Provenance (runProvM)
 import Control.SetAlgebra (dom, domain, eval, (<|), (∩), (⊆))
 import Control.State.Transition
+import qualified Control.State.Transition.Extended as STS
 import Control.State.Transition.Trace
   ( SourceSignalTarget (..),
     Trace (..),
@@ -151,7 +154,8 @@ collisionFreeComplete ::
     Signal (Core.EraRule "UTXOW" era) ~ Tx era,
     HasField "inputs" (Core.TxBody era) (Set (TxIn (Crypto era))),
     HasField "certs" (Core.TxBody era) (StrictSeq (DCert (Crypto era))),
-    Show (State (Core.EraRule "PPUP" era))
+    Show (State (Core.EraRule "PPUP" era)),
+    KESSignAlgorithm Gen (CC.KES (Crypto era))
   ) =>
   Property
 collisionFreeComplete =
@@ -189,7 +193,8 @@ adaPreservationChain ::
     HasField "inputs" (Core.TxBody era) (Set (TxIn (Crypto era))),
     HasField "certs" (Core.TxBody era) (StrictSeq (DCert (Crypto era))),
     HasField "wdrls" (Core.TxBody era) (Wdrl (Crypto era)),
-    Show (State (Core.EraRule "PPUP" era))
+    Show (State (Core.EraRule "PPUP" era)),
+    KESSignAlgorithm Gen (CC.KES (Crypto era))
   ) =>
   Property
 adaPreservationChain =
@@ -918,7 +923,8 @@ poolProperties ::
     ShelleyTest era,
     ChainProperty era,
     QC.HasTrace (CHAIN era) (GenEnv era),
-    HasField "certs" (Core.TxBody era) (StrictSeq (DCert (Crypto era)))
+    HasField "certs" (Core.TxBody era) (StrictSeq (DCert (Crypto era))),
+    KESSignAlgorithm Gen (CC.KES (Crypto era))
   ) =>
   Property
 poolProperties =
@@ -996,7 +1002,8 @@ delegProperties ::
     ShelleyTest era,
     QC.HasTrace (CHAIN era) (GenEnv era),
     ChainProperty era,
-    HasField "certs" (Core.TxBody era) (StrictSeq (DCert (Crypto era)))
+    HasField "certs" (Core.TxBody era) (StrictSeq (DCert (Crypto era))),
+    KESSignAlgorithm Gen (CC.KES (Crypto era))
   ) =>
   Property
 delegProperties =
@@ -1185,7 +1192,8 @@ removedAfterPoolreap ::
   ( ChainProperty era,
     ShelleyTest era,
     EraGen era,
-    QC.HasTrace (CHAIN era) (GenEnv era)
+    QC.HasTrace (CHAIN era) (GenEnv era),
+    KESSignAlgorithm Gen (CC.KES (Crypto era))
   ) =>
   Property
 removedAfterPoolreap =
@@ -1210,19 +1218,22 @@ forAllChainTrace ::
   ( Testable prop,
     ShelleyTest era,
     EraGen era,
-    QC.HasTrace (CHAIN era) (GenEnv era)
+    QC.HasTrace (CHAIN era) (GenEnv era),
+    KESSignAlgorithm Gen (CC.KES (Crypto era))
   ) =>
   Word64 -> -- trace length
   (Trace (CHAIN era) -> prop) ->
   Property
 forAllChainTrace n prop =
-  withMaxSuccess (fromIntegral numberOfTests) . property $
-    forAllTraceFromInitState
-      testGlobals
+  withMaxSuccess (fromIntegral numberOfTests) . property $ do
+    env <- Preset.genEnv p
+    pure @Gen $ forAllTraceFromInitState
+      (testGlobals :: QC.BaseEnv (CHAIN era))
       n
-      (Preset.genEnv p)
-      (Just $ mkGenesisChainState (Preset.genEnv p))
-      prop
+      env
+      (Just $ mkGenesisChainState env
+        :: Maybe (IRC (CHAIN era) -> Gen (Either [[STS.PredicateFailure (CHAIN era)]] (State (CHAIN era)))))
+      (prop :: Trace (CHAIN era) -> prop)
   where
     p :: Proxy era
     p = Proxy

@@ -20,12 +20,15 @@ module Test.Shelley.Spec.Ledger.Rules.ClassifyTraces
 where
 
 import Cardano.Binary (serialize')
+import Cardano.Crypto.KES.Class (KESSignAlgorithm)
 import qualified Cardano.Ledger.Core as Core
+import qualified Cardano.Ledger.Crypto as CC
 import Cardano.Ledger.Era (Crypto, Era, TxInBlock)
 import Cardano.Ledger.Shelley.Constraints
   ( UsesTxBody,
     UsesTxOut,
   )
+import Cardano.Prelude (runIdentity, Identity)
 import Cardano.Slotting.Slot (EpochSize (..))
 import Control.State.Transition (STS (State))
 import Control.State.Transition.Trace
@@ -115,21 +118,22 @@ relevantCasesAreCovered ::
     ChainProperty era,
     PreAlonzo era,
     QC.HasTrace (CHAIN era) (GenEnv era),
+    KESSignAlgorithm Identity (CC.KES (Crypto era)),
     HasField "certs" (Core.TxBody era) (StrictSeq (DCert (Crypto era))),
     HasField "wdrls" (Core.TxBody era) (Wdrl (Crypto era)),
     HasField "update" (Core.TxBody era) (StrictMaybe (PParams.Update era))
   ) =>
   Property
-relevantCasesAreCovered = do
+relevantCasesAreCovered =
   let tl = 100
-  checkCoverage $
+  in checkCoverage $
     forAllBlind
-      (traceFromInitState @(CHAIN era) testGlobals tl (genEnv p) genesisChainSt)
+      (traceFromInitState @(CHAIN era) testGlobals tl (runIdentity $ genEnv p) genesisChainSt)
       relevantCasesAreCoveredForTrace
   where
     p :: Proxy era
     p = Proxy
-    genesisChainSt = Just $ mkGenesisChainState (genEnv p)
+    genesisChainSt = Just $ mkGenesisChainState (runIdentity $ genEnv p)
 
 relevantCasesAreCoveredForTrace ::
   forall era.
@@ -327,7 +331,7 @@ onlyValidLedgerSignalsAreGenerated =
   where
     p :: Proxy era
     p = Proxy
-    ge = genEnv p
+    ge = runIdentity $ genEnv p
     genesisLedgerSt = Just $ mkGenesisLedgerState ge
 
 -- | Check that the abstract transaction size function
@@ -350,7 +354,7 @@ propAbstractSizeBoundsBytes = property $ do
   forAllTraceFromInitState @(LEDGER era)
     testGlobals
     tl
-    (genEnv p)
+    (runIdentity $ genEnv p)
     genesisLedgerSt
     $ \tr -> do
       let txs :: [Tx era]
@@ -359,7 +363,7 @@ propAbstractSizeBoundsBytes = property $ do
   where
     p :: Proxy era
     p = Proxy
-    genesisLedgerSt = Just $ mkGenesisLedgerState (genEnv p)
+    genesisLedgerSt = Just $ mkGenesisLedgerState (runIdentity $ genEnv p)
 
 -- | Check that the abstract transaction size function
 -- is not off by an acceptable order of magnitude.
@@ -388,7 +392,7 @@ propAbstractSizeNotTooBig = property $ do
   forAllTraceFromInitState @(LEDGER era)
     testGlobals
     tl
-    (genEnv p)
+    (runIdentity $ genEnv p)
     genesisLedgerSt
     $ \tr -> do
       let txs :: [Tx era]
@@ -397,7 +401,7 @@ propAbstractSizeNotTooBig = property $ do
   where
     p :: Proxy era
     p = Proxy
-    genesisLedgerSt = Just $ mkGenesisLedgerState (genEnv p)
+    genesisLedgerSt = Just $ mkGenesisLedgerState (runIdentity $ genEnv p)
 
 onlyValidChainSignalsAreGenerated ::
   forall era.
@@ -408,16 +412,16 @@ onlyValidChainSignalsAreGenerated ::
   ) =>
   Property
 onlyValidChainSignalsAreGenerated =
-  withMaxSuccess 100 $
+  withMaxSuccess 100 $ do
     onlyValidSignalsAreGeneratedFromInitState @(CHAIN era)
       testGlobals
       100
-      (genEnv p)
+      (runIdentity $ genEnv p)
       genesisChainSt
   where
     p :: Proxy era
     p = Proxy
-    genesisChainSt = Just $ mkGenesisChainState (genEnv p)
+    genesisChainSt = Just $ mkGenesisChainState (runIdentity $ genEnv p)
 
 -- | Counts the epochs spanned by this trace
 epochsInTrace :: forall era. Era era => [Block era] -> Int

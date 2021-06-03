@@ -167,15 +167,16 @@ bobSHK :: CC.Crypto crypto => Credential 'Staking crypto
 bobSHK = (KeyHashObj . hashKey . vKey) bobStake
 
 -- | Bob's stake pool keys (cold keys, VRF keys, hot KES keys)
-bobPoolKeys :: CC.Crypto crypto => AllIssuerKeys crypto 'StakePool
-bobPoolKeys =
+bobPoolKeys :: CC.Crypto crypto
+            => m (AllIssuerKeys crypto 'StakePool)
+bobPoolKeys = do
+  (skCold, vkCold) <- mkKeyPair (2, 0, 0, 0, 1)
+  kpHot <- mkKESKeyPair (2, 0, 0, 0, 3)
   AllIssuerKeys
     (KeyPair vkCold skCold)
     (mkVRFKeyPair (2, 0, 0, 0, 2))
-    [(KESPeriod 0, mkKESKeyPair (2, 0, 0, 0, 3))]
+    [(KESPeriod 0, kpHot)]
     (hashKey vkCold)
-  where
-    (skCold, vkCold) = mkKeyPair (2, 0, 0, 0, 1)
 
 -- | Bob's stake pool parameters
 bobPoolParams :: forall crypto. CC.Crypto crypto => PoolParams crypto

@@ -16,8 +16,11 @@
 
 module Test.Shelley.Spec.Ledger.Generator.Trace.Ledger where
 
+import Cardano.Prelude (Identity, runIdentity)
 import Cardano.Binary (ToCBOR)
+import Cardano.Crypto.KES.Class (KESSignAlgorithm)
 import qualified Cardano.Ledger.Core as Core
+import qualified Cardano.Ledger.Crypto as CC (KES)
 import Cardano.Ledger.Era (Crypto)
 import Cardano.Ledger.Shelley.Constraints
   ( TransValue,
@@ -31,7 +34,6 @@ import Control.Monad.Trans.Reader (runReaderT)
 import Control.State.Transition
 import qualified Control.State.Transition.Trace.Generator.QuickCheck as TQC
 import Data.Default.Class (Default)
-import Data.Functor.Identity (runIdentity)
 import Data.Sequence (Seq)
 import qualified Data.Sequence as Seq
 import Data.Sequence.Strict (StrictSeq)
@@ -201,12 +203,13 @@ mkGenesisLedgerState ::
   ( UsesValue era,
     UsesTxOut era,
     EraGen era,
-    Default (State (Core.EraRule "PPUP" era))
+    Default (State (Core.EraRule "PPUP" era)),
+    KESSignAlgorithm Identity (CC.KES (Crypto era))
   ) =>
   GenEnv era ->
   IRC (LEDGER era) ->
   Gen (Either a (UTxOState era, DPState (Crypto era)))
 mkGenesisLedgerState ge@(GenEnv _ c) _ = do
   utxo0 <- genUtxo0 ge
-  let (LedgerState utxoSt dpSt) = genesisState (genesisDelegs0 c) utxo0
+  let (LedgerState utxoSt dpSt) = genesisState (runIdentity $ genesisDelegs0 c) utxo0
   pure $ Right (utxoSt, dpSt)

@@ -14,9 +14,10 @@ module Test.Shelley.Spec.Ledger.Generator.Block
   )
 where
 
+import Cardano.Crypto.KES.Class (KESSignAlgorithm)
 import qualified Cardano.Crypto.VRF as VRF
 import qualified Cardano.Ledger.Core as Core
-import Cardano.Ledger.Crypto (VRF)
+import Cardano.Ledger.Crypto (VRF, KES)
 import Cardano.Ledger.Era (Crypto)
 import Cardano.Slotting.Slot (WithOrigin (..))
 import Control.SetAlgebra (dom, eval)
@@ -83,7 +84,8 @@ genBlock ::
     Mock (Crypto era),
     GetLedgerView era,
     ShelleyLedgerSTS era,
-    QC.HasTrace (Core.EraRule "LEDGERS" era) (GenEnv era)
+    QC.HasTrace (Core.EraRule "LEDGERS" era) (GenEnv era),
+    KESSignAlgorithm Gen (KES (Crypto era))
   ) =>
   GenEnv era ->
   ChainState era ->
@@ -101,7 +103,8 @@ genBlockWithTxGen ::
     Mock (Crypto era),
     PreAlonzo era,
     GetLedgerView era,
-    ApplyBlock era
+    ApplyBlock era,
+    KESSignAlgorithm Gen (KES (Crypto era))
   ) =>
   TxGen era ->
   GenEnv era ->
@@ -144,19 +147,19 @@ genBlockWithTxGen
             else fromIntegral m
         oCert = mkOCert keys issueNumber ((fst . head) hotKeys)
 
+    txs <- toList <$> genTxs pp acnt ls nextSlot
     mkBlock
-      <$> pure hashheader
-      <*> pure keys
-      <*> toList
-      <$> genTxs pp acnt ls nextSlot
-      <*> pure nextSlot
-      <*> pure (block + 1)
-      <*> pure (chainEpochNonce chainSt)
-      <*> pure kesPeriod_
+      hashheader
+      keys
+      txs
+      nextSlot
+      (block + 1)
+      (chainEpochNonce chainSt)
+      kesPeriod_
       -- This seems to be trying to work out the start of the KES "era",
       -- e.g. the KES period in which this key starts to be valid.
-      <*> pure (fromIntegral (m * fromIntegral maxKESIterations))
-      <*> pure oCert
+      (fromIntegral (m * fromIntegral maxKESIterations))
+      oCert
     where
       -- This is safe to take form the original chain state, since we only tick
       -- it forward; no new blocks will have been applied.

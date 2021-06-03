@@ -55,14 +55,15 @@ mkAllCoreNodeKeys ::
   (CC.Crypto crypto) =>
   Word64 ->
   AllIssuerKeys crypto r
-mkAllCoreNodeKeys w =
-  AllIssuerKeys
-    (KeyPair vkCold skCold)
-    (mkVRFKeyPair (w, 0, 0, 0, 2))
-    [(KESPeriod 0, mkKESKeyPair (w, 0, 0, 0, 3))]
-    (hashKey vkCold)
-  where
-    (skCold, vkCold) = mkKeyPair (w, 0, 0, 0, 1)
+mkAllCoreNodeKeys w = do
+  (skCold, vkCold) <- mkKeyPair (w, 0, 0, 0, 1)
+  kp <- mkKESKeyPair (w, 0, 0, 0, 3)
+  return $
+    AllIssuerKeys
+      (KeyPair vkCold skCold)
+      (mkVRFKeyPair (w, 0, 0, 0, 2))
+      [(KESPeriod 0, kp)]
+      (hashKey vkCold)
 
 coreNodes ::
   forall crypto.

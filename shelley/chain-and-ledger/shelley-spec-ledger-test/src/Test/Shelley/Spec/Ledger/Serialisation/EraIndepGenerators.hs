@@ -25,6 +25,7 @@ module Test.Shelley.Spec.Ledger.Serialisation.EraIndepGenerators
   )
 where
 
+import Cardano.Prelude (Identity, runIdentity)
 import Cardano.Binary
   ( ToCBOR (..),
     toCBOR,
@@ -39,12 +40,13 @@ import Cardano.Crypto.DSIGN.Class
   )
 import Cardano.Crypto.DSIGN.Mock (VerKeyDSIGN (..))
 import Cardano.Crypto.Hash (HashAlgorithm, hashWithSerialiser)
+import Cardano.Crypto.KES.Class (KESSignAlgorithm)
 import qualified Cardano.Crypto.Hash as Hash
 import Cardano.Ledger.AuxiliaryData (AuxiliaryDataHash (..))
 import Cardano.Ledger.Coin (DeltaCoin (..))
 import qualified Cardano.Ledger.Core as Core
 import Cardano.Ledger.Crypto (DSIGN)
-import qualified Cardano.Ledger.Crypto as CC (Crypto)
+import qualified Cardano.Ledger.Crypto as CC (Crypto, KES)
 import Cardano.Ledger.Era (Crypto, Era, SupportsSegWit (..), ValidateScript)
 import Cardano.Ledger.SafeHash (HasAlgorithm, SafeHash, unsafeMakeSafeHash)
 import Cardano.Ledger.Shelley.Constraints
@@ -165,10 +167,10 @@ type MockGen era =
     Arbitrary (VerKeyDSIGN (DSIGN (Crypto era)))
   )
 
-instance Mock crypto => Arbitrary (BHeader crypto) where
+instance (Mock crypto, KESSignAlgorithm Identity (CC.KES crypto)) => Arbitrary (BHeader crypto) where
   arbitrary = do
     prevHash <- arbitrary :: Gen (HashHeader crypto)
-    allPoolKeys <- elements (map snd (coreNodeKeys defaultConstants))
+    allPoolKeys <- elements . map snd $ runIdentity (coreNodeKeys defaultConstants)
     curSlotNo <- SlotNo <$> choose (0, 10)
     curBlockNo <- BlockNo <$> choose (0, 100)
     epochNonce <- arbitrary :: Gen Nonce
@@ -177,7 +179,7 @@ instance Mock crypto => Arbitrary (BHeader crypto) where
     let kesPeriod = 1
         keyRegKesPeriod = 1
         ocert = mkOCert allPoolKeys 1 (KESPeriod kesPeriod)
-    return $
+    return . runIdentity $
       mkBlockHeader
         prevHash
         allPoolKeys
@@ -786,7 +788,8 @@ genBlock ::
   ( Era era,
     ToCBORGroup (TxSeq era),
     Mock (Crypto era),
-    Arbitrary (TxInBlock era)
+    Arbitrary (TxInBlock era),
+    KESSignAlgorithm Identity (CC.KES (Crypto era))
   ) =>
   Gen (Block era)
 genBlock = Block <$> arbitrary <*> (toTxSeq @era <$> arbitrary)
@@ -811,7 +814,8 @@ instance
     ToCBORGroup (TxSeq era),
     SupportsSegWit era,
     Mock (Crypto era),
-    Arbitrary (TxInBlock era)
+    Arbitrary (TxInBlock era),
+    KESSignAlgorithm Identity (CC.KES (Crypto era))
   ) =>
   Arbitrary (Block era)
   where

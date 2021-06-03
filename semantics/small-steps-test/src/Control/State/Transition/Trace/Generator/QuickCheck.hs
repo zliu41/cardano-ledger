@@ -177,7 +177,7 @@ forAllTrace
   -> Word64
   -- ^ Maximum trace length.
   -> traceGenEnv
-  -> (Trace sts -> prop)
+  -> (Trace sts -> QuickCheck.Gen prop)
   -> QuickCheck.Property
 forAllTrace baseEnv maxTraceLength traceGenEnv =
   forAllTraceFromInitState baseEnv maxTraceLength traceGenEnv Nothing
@@ -255,10 +255,8 @@ onlyValidSignalsAreGeneratedFromInitState
 onlyValidSignalsAreGeneratedFromInitState baseEnv maxTraceLength traceGenEnv genSt0 =
   forAllTraceFromInitState baseEnv maxTraceLength traceGenEnv genSt0 validSignalsAreGenerated
   where
-    validSignalsAreGenerated
-      :: Trace sts
-      -> QuickCheck.Property
-    validSignalsAreGenerated someTrace =
+    validSignalsAreGenerated :: Trace sts -> QuickCheck.Gen QuickCheck.Property
+    validSignalsAreGenerated someTrace = pure $
       QuickCheck.forAllShrink
       (sigGen @sts @traceGenEnv traceGenEnv env lastState)
       (shrinkSignal @sts @traceGenEnv)
@@ -290,7 +288,7 @@ traceLengthsAreClassified
   -- ^ Trace generation environment
   -> QuickCheck.Property
 traceLengthsAreClassified baseEnv maxTraceLength intervalSize traceGenEnv =
-  forAllTrace @sts baseEnv maxTraceLength traceGenEnv (classifyTraceLength maxTraceLength intervalSize)
+  forAllTrace @sts baseEnv maxTraceLength traceGenEnv (pure . classifyTraceLength maxTraceLength intervalSize)
 
 -- | Classify the trace length as either:
 --
