@@ -123,6 +123,8 @@ instance
   ) => HasWitnesses (Payload era) (KeyHash 'Witness c) where
   witnesses =  foldMap witnesses . sipSubmissions
             <> foldMap witnesses . sipVotes
+            <> foldMap witnesses . impSubmissions
+            <> foldMap witnesses . impVotes
           -- TODO:  we need the witnesses of the activation and endorsement phases
 
 --------------------------------------------------------------------------------

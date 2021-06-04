@@ -22,6 +22,7 @@ import Control.DeepSeq (NFData ())
 import NoThunks.Class (NoThunks ())
 import Data.Aeson (ToJSON, FromJSON, ToJSONKey, FromJSONKey)
 import Data.Text (Text)
+import Data.Set (singleton)
 
 import Cardano.Crypto.DSIGN (hashVerKeyDSIGN)
 import Cardano.Binary (ToCBOR (toCBOR), FromCBOR (fromCBOR), encodeListLen, decodeListLenOf)
@@ -59,6 +60,7 @@ import Cardano.Ledger.Update.Proposal
   , ImplementationType (Protocol)
   , Application
   )
+import Cardano.Ledger.Pivo.Update.Classes.HasWitnesses (HasWitnesses, witnesses)
 
 import qualified Cardano.Ledger.Update.Proposal as Proposal
 import qualified Cardano.Ledger.Update as Update
@@ -198,6 +200,26 @@ mkProtocol pVersion protocol ppUpdate =
     , implSupersedesVersion = version protocol
     , impParametersUpdate   = ppUpdate
     }
+
+--------------------------------------------------------------------------------
+-- HasWitnesses instances
+--------------------------------------------------------------------------------
+
+instance
+  ( Era.Crypto era ~ c
+  ) => HasWitnesses (Submission (Implementation era))
+                    (Shelley.KeyHash 'Shelley.Witness c) where
+  witnesses = singleton . Shelley.KeyHash . submissionAuthor
+
+instance
+  ( Era.Crypto era ~ c
+  ) => HasWitnesses (Vote (Implementation era))
+                    (Shelley.KeyHash 'Shelley.Witness c) where
+  witnesses v =
+    case unImplVoter (implVoter v) of
+      KeyHashObj vkeyHash -> singleton $ Shelley.coerceKeyRole vkeyHash
+      _                   -> mempty
+
 
 --------------------------------------------------------------------------------
 -- Commitable instance
