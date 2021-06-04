@@ -38,6 +38,7 @@ import Shelley.Spec.Ledger.Slot (SlotNo)
 import qualified Shelley.Spec.Ledger.EpochBoundary as Shelley (Stake (unStake), _stake, _pstakeMark)
 import qualified Shelley.Spec.Ledger.Coin as Shelley (unCoin)
 
+import Cardano.Ledger.Pivo.Update.Payload.SIP (SIP)
 import qualified Cardano.Ledger.Pivo.Update.Payload.SIP as SIP
 import qualified Cardano.Ledger.Pivo.Update.Payload.Implementation as IMP
 import Cardano.Ledger.Pivo.Rules.Common (getUpdateEnv)
@@ -101,7 +102,7 @@ instance HasAdversarialStakeRatio (TickEnv era) where
 
 instance HasStakeDistribution
            (TickEnv era)
-           (VoterId (SIP.Proposal era)) where
+           (VoterId (SIP era)) where
   -- fixme: this conversion is unacceptable on mainnet. To remove all the type
   -- casts it seems we'd need to:
   --
@@ -112,7 +113,7 @@ instance HasStakeDistribution
   -- - Make the stake distribution parametric on the stake type.
   stakeDistribution env
     = fromList
-    $ fmap (SIP.VoterId *** Stake . fromInteger . Shelley.unCoin) -- fixme: unsafe Integer to Word64 conversion
+    $ fmap (_id . SIP.SIPVoter *** Stake . fromInteger . Shelley.unCoin) -- fixme: unsafe Integer to Word64 conversion
     $ Map.toList
     $ Shelley.unStake
     $ sipVotersSD env

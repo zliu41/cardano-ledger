@@ -74,11 +74,11 @@ import qualified Shelley.Spec.Ledger.Keys as Shelley
 
 import Cardano.Ledger.Pivo.Update.Payload.Types (Hash, VKeyHash, VKey)
 
-import qualified Cardano.Ledger.Pivo.Update.Payload.SIP as SIP
+import  Cardano.Ledger.Pivo.Update.Payload.SIP (SIP, Id(SIPId))
 
 data Implementation era =
   Implementation
-    { sipId                    :: Hash era (SIP.Proposal era)
+    { sipId                    :: Hash era (SIP era)
       -- ^ Id of the SIP that this implementation implements.
     , implVotingPeriodDuration :: SlotNo
     , implProtocol             :: Protocol (Implementation era)
@@ -89,7 +89,7 @@ data Implementation era =
 deriving anyclass instance Era era => FromJSON (Implementation era)
 
 mkImplementation
-  :: Hash era (SIP.Proposal era)
+  :: Hash era (SIP era)
   -> SlotNo
   -> Protocol (Implementation era)
   -> Implementation era
@@ -223,7 +223,7 @@ instance Era era => Commitable (Revelation (Implementation era)) where
 --------------------------------------------------------------------------------
 
 instance Era era =>
-         Proposal.Implementation (SIP.Proposal era) (Implementation era) where
+         Proposal.Implementation (SIP era) (Implementation era) where
   data Protocol (Implementation era) =
     ImplProtocol
       { implProtocolVersion   :: Version (Protocol (Implementation era))
@@ -244,7 +244,7 @@ instance Era era =>
     deriving stock (Show, Eq, Generic)
     deriving newtype (NFData, NoThunks, ToJSON, FromJSON, ToCBOR, FromCBOR)
 
-  preProposalId = SIP.ProposalId . sipId
+  preProposalId = SIPId . sipId
 
     -- We only support protocol implementations at the moment.
   implementationType = Protocol . implProtocol
@@ -523,22 +523,22 @@ deriving newtype instance
 
 wrapIMPSubmission
   :: Submission (Implementation era)
-  -> Update.Payload (SIP.Proposal era) (Implementation era)
+  -> Update.Payload (SIP era) (Implementation era)
 wrapIMPSubmission = Update.Approval . Proposal.Submit
 
 wrapIMPRevelation
   :: Revelation (Implementation era)
-  -> Update.Payload (SIP.Proposal era) (Implementation era)
+  -> Update.Payload (SIP era) (Implementation era)
 wrapIMPRevelation = Update.Approval . Proposal.Reveal
 
 wrapIMPVote
   :: Vote (Implementation era)
-  -> Update.Payload (SIP.Proposal era) (Implementation era)
+  -> Update.Payload (SIP era) (Implementation era)
 wrapIMPVote = Update.Approval . Proposal.Cast
 
 wrapEndorsement
   :: Endorsement era
-  -> Update.Payload (SIP.Proposal era) (Implementation era)
+  -> Update.Payload (SIP era) (Implementation era)
 wrapEndorsement e
   = Update.Activation
   $ Update.Endorsement

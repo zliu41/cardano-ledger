@@ -23,18 +23,11 @@ library
     Cardano.Ledger.Pivo
     Cardano.Ledger.Pivo.TxBody
     Cardano.Ledger.Pivo.Update
+    Cardano.Ledger.Pivo.Update.Proposal
     Cardano.Ledger.Pivo.Update.Classes.HasWitnesses
-    -- SIP
-    Cardano.Ledger.Pivo.Update.Payload.SIP2
-
+    -- Payload
     Cardano.Ledger.Pivo.Update.Payload.SIP
-    Cardano.Ledger.Pivo.Update.Payload.SIP.Proposal
-    Cardano.Ledger.Pivo.Update.Payload.SIP.Submission
-    Cardano.Ledger.Pivo.Update.Payload.SIP.Revelation
-    Cardano.Ledger.Pivo.Update.Payload.SIP.Vote
-    -- Implementation
     Cardano.Ledger.Pivo.Update.Payload.Implementation
-    -- Types
     Cardano.Ledger.Pivo.Update.Payload.Types
     -- Rules
     Cardano.Ledger.Pivo.Rules

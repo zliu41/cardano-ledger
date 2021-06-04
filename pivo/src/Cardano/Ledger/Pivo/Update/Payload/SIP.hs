@@ -1,168 +1,355 @@
-{-# LANGUAGE DataKinds #-}
-{-# LANGUAGE DeriveAnyClass #-}
+{-# LANGUAGE FlexibleInstances          #-}
+{-# LANGUAGE MultiParamTypeClasses      #-}
+{-# LANGUAGE DataKinds                  #-}
+{-# LANGUAGE DeriveAnyClass             #-}
+{-# LANGUAGE DeriveGeneric              #-}
+{-# LANGUAGE DerivingStrategies         #-}
+{-# LANGUAGE FlexibleContexts           #-}
 {-# LANGUAGE GeneralizedNewtypeDeriving #-}
-{-# LANGUAGE DeriveGeneric #-}
-{-# LANGUAGE DerivingStrategies #-}
-{-# LANGUAGE FlexibleContexts #-}
-{-# LANGUAGE FlexibleInstances #-}
-{-# LANGUAGE NamedFieldPuns #-}
-{-# LANGUAGE StandaloneDeriving #-}
-{-# LANGUAGE TypeFamilies #-}
-{-# LANGUAGE UndecidableInstances #-}
+{-# LANGUAGE NamedFieldPuns             #-}
+{-# LANGUAGE OverloadedStrings          #-}
+{-# LANGUAGE RankNTypes                 #-}
+{-# LANGUAGE ScopedTypeVariables        #-}
+{-# LANGUAGE StandaloneDeriving         #-}
+{-# LANGUAGE TypeApplications           #-}
+{-# LANGUAGE TypeFamilies               #-}
+{-# LANGUAGE UndecidableInstances       #-}
 
-{-# OPTIONS_GHC -Wno-orphans #-}
-module Cardano.Ledger.Pivo.Update.Payload.SIP
-  (-- * SIP submissions
-    SIPS.Submission ( SIPS.Submission
-                   , SIPS.author
-                   , SIPS.commit
-                   )
-  , SIPS.witnesses
-  , SIPS.mkSubmission
-  , SIPS.mkCommit
-  , wrapSIPSubmission
-  , wrapSIPRevelation
-  , wrapSIPVote
-    -- * SIP revelations
-  , SIPR.Revelation ( SIPR.Revelation
-                   , SIPR.revelator
-                   , SIPR.salt
-                   )
-  , SIPR.mkRevelation
-    -- * SIP votes
-  , SIPV.Vote ( SIPV.voter
-              , SIPV.candidate
-              , SIPV.confidence
-              )
-  , SIPV.mkVote
-  , SIPV.voteWitnesses
-    -- * Proposals
-  , SIP.Proposal
-  , SIP.mkProposal
-    -- * Id's
-  , Id (VoterId, SIP.ProposalId, SIP.unProposalId)
-    -- ** Proposal newtype functions
-  , unSIPSubmission
-  , unSIPRevelation
-  , unSIPVote
-  , unSIPVoter, Voter(SIPVoter)
-    -- ** Update module re-exports
-  , Proposal.Confidence ( Proposal.For
-                        , Proposal.Against
-                        , Proposal.Abstain
-                        )
-  , Proposal._id
-  )
-where
+module Cardano.Ledger.Pivo.Update.Payload.SIP where
 
-import Data.Typeable (Typeable)
-import Control.DeepSeq (NFData)
-import GHC.Generics (Generic)
-import NoThunks.Class (NoThunks)
-import Data.Aeson (ToJSON, FromJSON, ToJSONKey, FromJSONKey)
+import           Control.DeepSeq                                 (NFData)
+import           Data.Aeson                                      (FromJSON, ToJSONKey, FromJSONKey,
+                                                                  ToJSON)
+import           Data.Typeable                                   (Typeable)
+import           GHC.Generics                                    (Generic)
+import           NoThunks.Class                                  (NoThunks)
+import           Data.Text                                       (Text)
+import           Data.Set                                        (singleton)
 
-import Cardano.Binary (ToCBOR, FromCBOR)
+import           Cardano.Binary                                  (FromCBOR (fromCBOR),
+                                                                  ToCBOR (toCBOR),
+                                                                  decodeListLenOf,
+                                                                  encodeListLen)
+import           Cardano.Crypto.DSIGN                            (hashVerKeyDSIGN)
+import qualified Cardano.Crypto.Hash                             as Cardano
+import           Cardano.Slotting.Slot (SlotNo)
 
-import Cardano.Ledger.Update.Proposal
-  ( Commitable
-  , Commit
+import           Cardano.Ledger.Era                              (Era)
+import qualified Cardano.Ledger.Era                              as Era
+import           Shelley.Spec.Ledger.Credential                  (Credential (KeyHashObj))
+
+import qualified Cardano.Ledger.Update as Update
+import           Cardano.Ledger.Pivo.Update.Payload.Types        (VKey)
+import           Cardano.Ledger.Update.Proposal                  (Confidence,
+                                                                  Id, _id
   , Proposal ( Revelation
              , Submission
              , Vote
              , Voter
-             , revelationCommit
-             , proposal
-             , votingPeriodDuration
-             , voter
-             , candidate
-             , confidence
              )
-  , Identifiable (_id)
-  , Signed (signatureVerifies)
-  , Id
+  , Identifiable
+  , Signed
+  , Commitable (Commit)
   )
+import qualified Cardano.Ledger.Update.Proposal                  as Proposal
+import Cardano.Ledger.Update.Proposal ()
 
-import qualified Cardano.Ledger.Update.Proposal as Proposal
-import qualified Cardano.Ledger.Update as Update
+import qualified Shelley.Spec.Ledger.Keys                        as Shelley
 
-import Cardano.Ledger.Era (Era)
+import Cardano.Ledger.Pivo.Update.Payload.Types (Hash, VKeyHash)
+import Cardano.Ledger.Pivo.Update.Classes.HasWitnesses                   (HasWitnesses, witnesses)
 
-import qualified Cardano.Ledger.Pivo.Update.Payload.SIP.Submission as SIPS
-import qualified Cardano.Ledger.Pivo.Update.Payload.SIP.Revelation as SIPR
-import qualified Cardano.Ledger.Pivo.Update.Payload.SIP.Vote as SIPV
-import qualified Cardano.Ledger.Pivo.Update.Payload.SIP.Proposal as SIP
 
-instance Era era => Proposal (SIP.Proposal era) where
-  newtype Submission (SIP.Proposal era) =
-    SIPSubmission { unSIPSubmission :: SIPS.Submission era }
+data SIP era =
+  SIP
+    { proposalTextHash     :: Hash era Text
+      -- ^ Hash of the proposal's text. For now we assume the proposal is simply
+      -- a string.
+    , sipVotingPeriodDuration :: SlotNo
+    }
+  deriving (Eq, Show, Generic, NFData, NoThunks, ToJSON)
+
+deriving instance Era era => FromJSON (SIP era)
+
+mkSIP :: Era era => Text -> SlotNo -> SIP era
+mkSIP someText duration =
+  SIP
+    { proposalTextHash     = Cardano.hashWithSerialiser toCBOR someText
+    , sipVotingPeriodDuration = duration
+    }
+
+--------------------------------------------------------------------------------
+-- Proposal instance
+--------------------------------------------------------------------------------
+
+instance Era era => Proposal.Proposal (SIP era) where
+  data Submission (SIP era) =
+    SIPSubmission
+      { author :: VKeyHash era
+        -- ^ Submission author. This will be compared against the revelator key
+        -- in 'Revelation'.
+      , commit :: Commit (Revelation (SIP era))
+      }
     deriving stock (Eq, Show, Generic)
-    deriving newtype (NFData, NoThunks, ToJSON)
+    deriving anyclass (NFData, NoThunks, ToJSON)
 
-  newtype Revelation (SIP.Proposal era) =
-    SIPRevelation { unSIPRevelation :: SIPR.Revelation era }
+  data Revelation (SIP era) =
+    SIPRevelation
+      { proposal  :: SIP era
+       -- ^ SIP that is being revealed.
+      , revelator :: VKeyHash era
+        -- ^ Revelation author. This should coincide with the submission author.
+      , salt      :: Int
+        -- ^ Salt used to calculate the commit.
+      }
     deriving stock (Eq, Show, Generic)
-    deriving newtype (NFData, NoThunks, ToJSON)
+    deriving anyclass (NFData, NoThunks, ToJSON, FromJSON)
 
-  newtype Vote       (SIP.Proposal era) =
-    SIPVote       { unSIPVote :: SIPV.Vote era }
+  data Vote (SIP era) =
+    SIPVote
+      { voter      :: Voter (SIP era)
+      , candidate  :: Id (SIP era)
+      , confidence :: Confidence
+      }
     deriving stock (Eq, Show, Generic)
-    deriving newtype (NFData, NoThunks, ToJSON)
+    deriving anyclass (NFData, NoThunks, ToJSON, ToJSONKey, FromJSON)
 
-  newtype Voter      (SIP.Proposal era) =
-    SIPVoter      { unSIPVoter :: SIPV.VoterId era }
-    deriving stock (Eq, Show, Generic)
-    deriving newtype (NFData, NoThunks, ToJSON)
+  newtype Voter (SIP era) =
+     SIPVoter { unSIPVoter :: Credential 'Shelley.Staking (Era.Crypto era) }
+     deriving stock (Eq, Ord, Show, Generic)
+     deriving newtype (NFData, NoThunks, ToJSON, ToJSONKey)
 
-  revelationCommit = SIPS.commit . unSIPSubmission
+  revelationCommit = commit
 
-  proposal = SIPR.proposal . unSIPRevelation
+  proposal = proposal
 
-  votingPeriodDuration = SIP.votingPeriodDuration
+  votingPeriodDuration = sipVotingPeriodDuration
 
-  voter = VoterId . SIPV.voter . unSIPVote
+  voter = VoterId . voter
 
-  candidate = SIPV.candidate . unSIPVote
+  candidate = candidate
 
-  confidence = SIPV.confidence . unSIPVote
+  confidence = confidence
 
-wrapSIPSubmission
-  :: SIPS.Submission era -> Update.Payload (SIP.Proposal era) impl
-wrapSIPSubmission = Update.Ideation . Proposal.Submit . SIPSubmission
+deriving instance Era era => FromJSON (Submission (SIP era))
+deriving newtype instance Era era => FromJSON (Voter (SIP era))
+deriving newtype instance Era era => FromJSONKey (Voter (SIP era))
 
-wrapSIPRevelation
-  :: SIPR.Revelation era -> Update.Payload (SIP.Proposal era) impl
-wrapSIPRevelation = Update.Ideation . Proposal.Reveal . SIPRevelation
+mkSubmission
+  :: Era era
+  => VKey era
+  -- ^ SIP's author.
+  -> Int
+  -- ^ Salt used to calculate the submission commit.
+  -> SIP era
+  -> Submission (SIP era)
+mkSubmission vk salt sip =
+  SIPSubmission
+    { author = hashVerKeyDSIGN vk
+    , commit = Proposal.commit (mkRevelation vk salt sip)
+    }
 
-wrapSIPVote
-  :: SIPV.Vote era -> Update.Payload (SIP.Proposal era) impl
-wrapSIPVote = Update.Ideation . Proposal.Cast . SIPVote
+mkRevelation
+  :: Era era
+  => VKey era
+  -> Int
+  -> SIP era
+  -> Revelation (SIP era)
+mkRevelation vk someSalt someSIP =
+  SIPRevelation
+    { proposal  = someSIP
+    , revelator = hashVerKeyDSIGN vk
+    , salt      = someSalt
+    }
 
-instance Era era => Commitable (Revelation (SIP.Proposal era)) where
-  type Commit (Revelation (SIP.Proposal era)) = SIPS.Commit era
+mkVote
+  :: forall era
+   . Era era
+  => VKey era
+  -> Id (SIP era)
+  -> Confidence
+  -> Vote (SIP era)
+mkVote vk proposalId someConfidence =
+  SIPVote
+    { voter      = SIPVoter $ KeyHashObj $ Shelley.KeyHash $ hashVerKeyDSIGN vk
+    , candidate  = proposalId
+    , confidence = someConfidence
+    }
 
-  commit (SIPRevelation r) =
-    SIPS.mkCommit (SIPR.salt r) (SIPR.revelator r) (SIPR.proposal r)
+--------------------------------------------------------------------------------
+-- HasWitnesses instances
+--------------------------------------------------------------------------------
 
-instance Signed (Submission (SIP.Proposal era)) where
-  -- See comment in the Signed instance for SIP.Proposal
-  signatureVerifies = const True
+instance
+  ( Era.Crypto era ~ c
+  ) => HasWitnesses (Submission (SIP era))
+                    (Shelley.KeyHash 'Shelley.Witness c) where
+  witnesses = singleton . Shelley.KeyHash . author
 
-instance Signed (Vote (SIP.Proposal era)) where
-  -- See comment in the Signed instance for SIP.Proposal
-  signatureVerifies = const True
+instance
+  ( Era.Crypto era ~ c
+  ) => HasWitnesses (Vote (SIP era))
+                    (Shelley.KeyHash 'Shelley.Witness c) where
+  witnesses v =
+    case unSIPVoter (voter v) of
+      KeyHashObj vkeyHash -> singleton $ Shelley.coerceKeyRole vkeyHash
+      _                   -> mempty
 
-instance Identifiable (Voter (SIP.Proposal era)) where
-  newtype Id (Voter (SIP.Proposal era)) = VoterId (SIPV.VoterId era)
+--------------------------------------------------------------------------------
+-- Commitable instance
+--------------------------------------------------------------------------------
+
+instance Era era => Commitable (Revelation (SIP era)) where
+  type Commit (Revelation (SIP era)) =
+    ( VKeyHash era -- Commit author
+    , Hash era (Int, VKeyHash era, Hash era (SIP era))
+    )
+
+  commit r =
+    ( revelator r
+    , Cardano.hashWithSerialiser toCBOR
+      $ ( salt r
+        , revelator r
+        , unSIPId $ _id $ proposal r
+        )
+    )
+
+--------------------------------------------------------------------------------
+-- Identifiable instances
+--------------------------------------------------------------------------------
+
+instance Era era => Identifiable (SIP era) where
+  newtype Id (SIP era) =
+    SIPId { unSIPId :: Hash era (SIP era) }
     deriving stock (Eq, Ord, Show, Generic)
     deriving newtype (NFData, NoThunks, ToJSON, ToJSONKey)
-  _id = VoterId . unSIPVoter
 
-deriving newtype instance Era era => FromJSONKey (Id (Voter (SIP.Proposal era)))
+  _id = SIPId . Cardano.hashWithSerialiser toCBOR
 
-deriving newtype instance Era era => FromJSON (Id (Voter (SIP.Proposal era)))
+deriving newtype instance Era era => FromJSON (Id (SIP era))
+deriving newtype instance Era era => FromJSONKey (Id (SIP era))
+
+
+instance Identifiable (Voter (SIP era)) where
+  newtype Id (Voter (SIP era)) =
+    VoterId { unVoterId :: Voter (SIP era)}
+    deriving stock (Eq, Ord, Show, Generic)
+    deriving newtype (NFData, NoThunks, ToJSON, ToJSONKey, FromJSONKey, FromJSON)
+
+  _id = VoterId
+
+--------------------------------------------------------------------------------
+-- Signed instances
+--------------------------------------------------------------------------------
+
+instance Signed (SIP era) where
+  -- This is an mismatch between Shelley and the update mechanism design: the
+  -- update mechanism requires that we can verify the proposal's signature,
+  -- however in the Shelley design, signing the payload is outside the scope of
+  -- other sub-systems (like the update sub-system) due to the use of the
+  -- segregated witness approach.
+  --
+  -- Given that using segregated witnesses make sense in the context of
+  -- blockchain systems it is the update sub-module that has to be adapted.
+  signatureVerifies = const True
+
+instance Signed (Submission (SIP era)) where
+  -- See comment in the Signed instance for @SIP era@.
+  signatureVerifies = const True
+
+instance Signed (Vote (SIP era)) where
+  -- See comment in the Signed instance for @SIP era@.
+  signatureVerifies = const True
+
+--------------------------------------------------------------------------------
+-- Serialisation instances
+--------------------------------------------------------------------------------
+
+instance (Typeable era, Era era) => ToCBOR (SIP era) where
+  toCBOR (SIP { proposalTextHash, sipVotingPeriodDuration }) =
+    encodeListLen 2 <> toCBOR proposalTextHash <> toCBOR sipVotingPeriodDuration
+
+instance (Typeable era, Era era) => FromCBOR (SIP era) where
+  fromCBOR = do
+    decodeListLenOf 2
+    h <- fromCBOR
+    d <- fromCBOR
+    return $! SIP h d
+
+instance (Typeable era, Era era) => ToCBOR (Submission (SIP era)) where
+  toCBOR SIPSubmission { author, commit }
+    =  encodeListLen 2
+    <> toCBOR author
+    <> toCBOR commit
+
+instance (Typeable era, Era era) => FromCBOR (Submission (SIP era)) where
+  fromCBOR = do
+    decodeListLenOf 2
+    a <- fromCBOR
+    h <- fromCBOR
+    return $! SIPSubmission a h
+
+instance (Typeable era, Era era) => ToCBOR (Revelation (SIP era)) where
+  toCBOR SIPRevelation { proposal, revelator, salt }
+    =  encodeListLen 3
+    <> toCBOR proposal
+    <> toCBOR revelator
+    <> toCBOR salt
+
+instance (Typeable era, Era era) => FromCBOR (Revelation (SIP era)) where
+  fromCBOR = do
+    decodeListLenOf 3
+    p <- fromCBOR
+    r <- fromCBOR
+    s <- fromCBOR
+    return $! SIPRevelation p r s
+
+instance (Typeable era, Era era) => ToCBOR (Vote (SIP era)) where
+  toCBOR SIPVote { voter, candidate, confidence }
+    =  encodeListLen 3
+    <> toCBOR voter
+    <> toCBOR candidate
+    <> toCBOR confidence
+
+instance (Typeable era, Era era) => FromCBOR (Vote (SIP era)) where
+  fromCBOR = do
+    decodeListLenOf 3
+    v <- fromCBOR
+    c <- fromCBOR
+    d <- fromCBOR
+    return $! SIPVote v c d
+
+-- TODO: make these instances equal to their counterparts
+instance (Typeable era, Era era) => ToCBOR (Id (SIP era)) where
+  toCBOR (SIPId hash) = toCBOR hash
+
+instance (Typeable era, Era era) => FromCBOR (Id (SIP era)) where
+  fromCBOR = SIPId <$> fromCBOR
 
 deriving newtype instance
-  (Typeable era, Era era) => ToCBOR (Id (Voter (SIP.Proposal era)))
+  Era era => ToCBOR (Voter (SIP era))
 
 deriving newtype instance
-  (Typeable era, Era era) => FromCBOR (Id (Voter (SIP.Proposal era)))
+  Era era => FromCBOR (Voter (SIP era))
+
+deriving newtype instance
+  Era era => ToCBOR (Id (Voter (SIP era)))
+
+deriving newtype instance
+  Era era => FromCBOR (Id (Voter (SIP era)))
+
+--------------------------------------------------------------------------------
+-- Payload wrapping functions
+--------------------------------------------------------------------------------
+
+wrapSIPSubmission
+  :: Submission (SIP era) -> Update.Payload (SIP era) impl
+wrapSIPSubmission = Update.Ideation . Proposal.Submit
+
+wrapSIPRevelation
+  :: Revelation (SIP era) -> Update.Payload (SIP era) impl
+wrapSIPRevelation = Update.Ideation . Proposal.Reveal
+
+wrapSIPVote
+  :: Vote (SIP era) -> Update.Payload (SIP era) impl
+wrapSIPVote = Update.Ideation . Proposal.Cast

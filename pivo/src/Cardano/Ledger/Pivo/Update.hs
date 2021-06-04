@@ -1,4 +1,6 @@
 {-# LANGUAGE DataKinds #-}
+{-# LANGUAGE FlexibleInstances #-}
+{-# LANGUAGE GADTs #-}
 {-# LANGUAGE DerivingStrategies #-}
 {-# LANGUAGE GeneralizedNewtypeDeriving #-}
 {-# LANGUAGE DeriveAnyClass #-}
@@ -40,7 +42,6 @@ import Control.DeepSeq (NFData ())
 import NoThunks.Class (NoThunks ())
 import Data.Typeable (Typeable)
 import Data.Text (Text)
-import Data.Set (Set)
 import Data.Default.Class (Default, def)
 import Data.Sequence.Strict (StrictSeq (Empty))
 
@@ -72,16 +73,18 @@ import Cardano.Ledger.Era (Crypto, Era)
 
 import Shelley.Spec.Ledger.Keys (KeyHash, KeyRole (Witness))
 
+import Cardano.Ledger.Pivo.Update.Classes.HasWitnesses (HasWitnesses, witnesses)
 import Cardano.Ledger.Pivo.Update.Payload.Implementation (Implementation, protocolZero)
+import Cardano.Ledger.Pivo.Update.Payload.SIP (SIP)
 import qualified Cardano.Ledger.Pivo.Update.Payload.SIP as SIP
 import qualified Cardano.Ledger.Pivo.Update.Payload.Implementation as IMP
 
 import Shelley.Spec.Ledger.TxBody ()
 
 data Payload era =
-  Payload { sipSubmissions :: !(StrictSeq (SIP.Submission era))
-          , sipRevelations :: !(StrictSeq (SIP.Revelation era))
-          , sipVotes       :: !(StrictSeq (SIP.Vote era))
+  Payload { sipSubmissions :: !(StrictSeq (SIP.Submission (SIP era)))
+          , sipRevelations :: !(StrictSeq (SIP.Revelation (SIP era)))
+          , sipVotes       :: !(StrictSeq (SIP.Vote (SIP era)))
           , impSubmissions :: !(StrictSeq (IMP.Submission (Implementation era)))
           , impRevelations :: !(StrictSeq (IMP.Revelation (Implementation era)))
           , impVotes       :: !(StrictSeq (IMP.Vote (Implementation era)))
@@ -115,10 +118,11 @@ instance Monoid (Payload era) where
       }
   mappend = (<>)
 
--- | Key hashes that have to witness the update payload.
-witnesses :: Payload era -> Set (KeyHash 'Witness (Crypto era))
-witnesses =  foldMap SIP.witnesses     . sipSubmissions
-          <> foldMap SIP.voteWitnesses . sipVotes
+instance
+  (Crypto era ~ c
+  ) => HasWitnesses (Payload era) (KeyHash 'Witness c) where
+  witnesses =  foldMap witnesses . sipSubmissions
+            <> foldMap witnesses . sipVotes
           -- TODO:  we need the witnesses of the activation and endorsement phases
 
 --------------------------------------------------------------------------------
@@ -154,7 +158,7 @@ instance TracksSlotTime (Environment era) where
 
 -- | Update state. This is shared among all the update rules (e.g. PUP and UPEC)
 newtype State era =
-  State { unState :: USS.State (SIP.Proposal era) (Implementation era) }
+  State { unState :: USS.State (SIP era) (Implementation era) }
   deriving stock (Show, Eq, Generic)
   deriving newtype (ToCBOR, FromCBOR, NFData, NoThunks, ToJSON, FromJSON)
 
@@ -164,7 +168,7 @@ instance Era era => Default (State era) where
 instance
   ( Era era
   ) => USS.HasActivationState (State era)
-                              (SIP.Proposal era)
+                              (SIP era)
                               (Implementation era) where
   getActivationState = USS.getActivationState . unState
 
