@@ -220,6 +220,14 @@ instance
       KeyHashObj vkeyHash -> singleton $ Shelley.coerceKeyRole vkeyHash
       _                   -> mempty
 
+instance
+  ( Era.Crypto era ~ c
+  ) => HasWitnesses (Endorsement era)
+                    (Shelley.KeyHash 'Shelley.Witness c) where
+  witnesses e =
+    case unEndorserId (endorserId e) of
+      KeyHashObj vkeyHash -> singleton $ Shelley.coerceKeyRole vkeyHash
+      _                   -> mempty
 
 --------------------------------------------------------------------------------
 -- Commitable instance

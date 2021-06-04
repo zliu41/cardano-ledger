@@ -125,7 +125,7 @@ instance
             <> foldMap witnesses . sipVotes
             <> foldMap witnesses . impSubmissions
             <> foldMap witnesses . impVotes
-          -- TODO:  we need the witnesses of the activation and endorsement phases
+            <> foldMap witnesses . endorsements
 
 --------------------------------------------------------------------------------
 -- Update environment
