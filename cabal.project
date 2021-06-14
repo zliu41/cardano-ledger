@@ -71,9 +71,14 @@ source-repository-package
     word-array
 
 allow-newer:
+  -- From Plutus, see notes there
   monoidal-containers:aeson,
   size-based:template-haskell,
 
   -- TODO: This is only needed until index-state is updated to 2021-02-17 or later.
   test-framework:random,
   test-framework-quickcheck2:random
+
+constraints:
+  -- From Plutus, see notes there
+  dependent-sum > 0.6.2.0
