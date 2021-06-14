@@ -71,6 +71,12 @@ source-repository-package
     prettyprinter-configurable
     word-array
 
+-- From Plutus, see notes there
+source-repository-package
+  type: git
+  location: https://github.com/Quid2/flat.git
+  tag: 95e5d7488451e43062ca84d5376b3adcc465f1cd
+
 allow-newer:
   -- From Plutus, see notes there
   monoidal-containers:aeson,
