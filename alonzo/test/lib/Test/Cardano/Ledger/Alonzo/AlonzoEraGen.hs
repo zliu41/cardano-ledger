@@ -22,7 +22,7 @@ import qualified Cardano.Ledger.Alonzo.PParams as Alonzo (PParams, extendPP, ret
 import Cardano.Ledger.Alonzo.PlutusScriptApi (scriptsNeededFromBody)
 import Cardano.Ledger.Alonzo.Rules.Utxo (utxoEntrySize)
 import Cardano.Ledger.Alonzo.Rules.Utxow (langsUsed)
-import Cardano.Ledger.Alonzo.Scripts (isPlutusScript, pointWiseExUnits, scriptfee)
+import Cardano.Ledger.Alonzo.Scripts (isPlutusScript, scriptfee)
 import Cardano.Ledger.Alonzo.Scripts as Alonzo
   ( CostModel (..),
     ExUnits (..),
@@ -35,7 +35,6 @@ import Cardano.Ledger.Alonzo.Tx
     ScriptPurpose (..),
     ValidatedTx (..),
     hashWitnessPPData,
-    minfee,
     rdptr,
   )
 import Cardano.Ledger.Alonzo.TxBody (TxBody (..), TxOut (..), inputs')
@@ -352,21 +351,9 @@ instance Mock c => EraGen (AlonzoEra c) where
         Nothing -> storageCost 0 pp script
       else storageCost 0 pp script
 
-  genEraDone pp tx =
-    let txb = getField @"body" tx
-        theFee = getField @"txfee" txb -- Coin supplied to pay fees
-        minimumFee = minfee @(AlonzoEra c) pp tx
-     in if (minimumFee <= theFee)
-          then pure tx
-          else discard
+  genEraDone _pp _tx = error "not implemented"
 
-  genEraTweakBlock pp txns =
-    let txTotal, ppMax :: ExUnits
-        txTotal = Prelude.foldr (<>) mempty (fmap (getField @"totExunits") txns)
-        ppMax = getField @"_maxBlockExUnits" pp
-     in if pointWiseExUnits (<=) txTotal ppMax
-          then pure txns
-          else discard
+  genEraTweakBlock _pp _txns = error "not implemented"
 
 storageCost :: ToCBOR t => Integer -> (Alonzo.PParams era) -> t -> Coin
 storageCost extra pp x = (extra + encodedLen x) <×> Coin (fromIntegral (getField @"_minfeeA" pp))
