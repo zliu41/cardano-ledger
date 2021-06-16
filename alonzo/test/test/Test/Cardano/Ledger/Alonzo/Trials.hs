@@ -258,26 +258,26 @@ fastPropertyTests =
 manytimes :: String -> Int -> Int -> IO ()
 manytimes prop count _seed =
   defaultMain $
-    ( -- localOption (QuickCheckReplay (Just seed)) $
-      localOption (QuickCheckShowReplay True) $
-        -- localOption (QuickCheckVerbose True) $
-        case prop of
-          "valid" ->
-            ( testProperty
-                "Only valid CHAIN STS signals are generated"
-                (withMaxSuccess count (onlyValidLedgerSignalsAreGenerated @(AlonzoEra TestCrypto)))
-            )
-          "ada" ->
-            ( testProperty
-                "collection of Ada preservation properties:"
-                (withMaxSuccess count (adaPreservationChain @(AlonzoEra TestCrypto)))
-            )
-          "deleg" ->
-            ( testProperty
-                "STS Rules - Delegation Properties"
-                (withMaxSuccess count (delegProperties @(AlonzoEra TestCrypto)))
-            )
-          other -> error ("unknown test: " ++ other)
+    ( localOption (QuickCheckReplay (Just _seed)) $
+        localOption (QuickCheckShowReplay True) $
+          -- localOption (QuickCheckVerbose True) $
+          case prop of
+            "valid" ->
+              ( testProperty
+                  "Only valid CHAIN STS signals are generated"
+                  (withMaxSuccess count (onlyValidLedgerSignalsAreGenerated @(AlonzoEra TestCrypto)))
+              )
+            "ada" ->
+              ( testProperty
+                  "collection of Ada preservation properties:"
+                  (withMaxSuccess count (adaPreservationChain @(AlonzoEra TestCrypto)))
+              )
+            "deleg" ->
+              ( testProperty
+                  "STS Rules - Delegation Properties"
+                  (withMaxSuccess count (delegProperties @(AlonzoEra TestCrypto)))
+              )
+            other -> error ("unknown test: " ++ other)
     )
 
 -- ==============================================================================

@@ -21,7 +21,7 @@ import qualified Cardano.Ledger.Alonzo.PParams as Alonzo (PParams, extendPP, ret
 import Cardano.Ledger.Alonzo.PlutusScriptApi (scriptsNeededFromBody)
 import Cardano.Ledger.Alonzo.Rules.Utxo (utxoEntrySize)
 import Cardano.Ledger.Alonzo.Rules.Utxow (langsUsed)
-import Cardano.Ledger.Alonzo.Scripts (isPlutusScript, scriptfee)
+import Cardano.Ledger.Alonzo.Scripts (isPlutusScript, pointWiseExUnits, scriptfee)
 import Cardano.Ledger.Alonzo.Scripts as Alonzo
   ( CostModel (..),
     ExUnits (..),
@@ -86,6 +86,8 @@ import Test.Shelley.Spec.Ledger.Generator.ScriptClass (Quantifier (..), ScriptCl
 import Test.Shelley.Spec.Ledger.Generator.Update (genM, genShelleyPParamsDelta)
 import qualified Test.Shelley.Spec.Ledger.Generator.Update as Shelley (genPParams)
 import Test.Shelley.Spec.Ledger.Generator.Utxo (encodedLen)
+
+-- ============================================================
 
 isKeyHashAddr :: Addr crypto -> Bool
 isKeyHashAddr (AddrBootstrap _) = True
@@ -338,7 +340,15 @@ instance Mock c => EraGen (AlonzoEra c) where
         Nothing -> storageCost 0 pp script
       else storageCost 0 pp script
 
-  genEraDone x = x -- ptrace "\nDone " x x
+  genEraDone x = pure x -- pure (ptrace "\nDone " x x)
+
+  genEraTweakBlock pp txns =
+    let txTotal, ppMax :: ExUnits
+        txTotal = Prelude.foldr (<>) mempty (fmap (getField @"totExunits") txns)
+        ppMax = getField @"_maxBlockExUnits" pp
+     in if pointWiseExUnits (<=) txTotal ppMax
+          then pure txns
+          else discard
 
 storageCost :: ToCBOR t => Integer -> (Alonzo.PParams era) -> t -> Coin
 storageCost extra pp x = (extra + encodedLen x) <×> Coin (fromIntegral (getField @"_minfeeA" pp))

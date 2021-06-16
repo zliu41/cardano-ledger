@@ -29,7 +29,7 @@ import qualified Cardano.Ledger.Core as Core
 import Cardano.Ledger.Era (Crypto, Era, TxInBlock)
 import Cardano.Ledger.Keys (DSignable, Hash)
 import Control.State.Transition
-  ( Assertion (..),
+  ( -- Assertion (..),
     AssertionViolation (..),
     Embed (..),
     STS (..),
@@ -43,7 +43,7 @@ import Data.Sequence (Seq)
 import Data.Sequence.Strict (StrictSeq)
 import qualified Data.Sequence.Strict as StrictSeq
 import GHC.Records (HasField, getField)
-import Shelley.Spec.Ledger.EpochBoundary (obligation)
+-- import Shelley.Spec.Ledger.EpochBoundary (obligation)
 import Shelley.Spec.Ledger.LedgerState
   ( DPState (..),
     DState (..),
@@ -154,7 +154,9 @@ instance
       <> "\n"
       <> show avState
 
-  assertions =
+  assertions = []
+
+{-
     [ PostCondition
         "Deposit pot must equal obligation"
         ( \(TRC (LedgerEnv {ledgerPp}, _, _))
@@ -163,6 +165,7 @@ instance
                 == _deposited utxoSt
         )
     ]
+-}
 
 instance
   ( Era era,
