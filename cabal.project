@@ -63,8 +63,8 @@ source-repository-package
 source-repository-package
   type: git
   location: https://github.com/input-output-hk/decentralized-software-updates
-  tag: c515878a15e89cb4a8749159a66a5ef82102a188
-  --sha256: 10sjj3ld1zisj3gjx9a4f4vm37983g6jnvf3rrgv0ccn73cxcp9b
+  tag: e8325a440782a9c362a121340cea64a37e876e2a
+  --sha256: 1l2gaqynlcagzb9svj4nsaml6243lvs602w0ffinxf7qd4b44r2h
   subdir: executable-spec
 
 source-repository-package
