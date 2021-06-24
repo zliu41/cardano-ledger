@@ -271,7 +271,6 @@ instance
 
   type PredicateFailure (CHAIN era) = ChainPredicateFailure era
 
-  data Event _
     = BbodyEvent (Event (Core.EraRule "BBODY" era))
     | TicknEvent (Event TICKN)
     | TickEvent (Event (TICK era))
@@ -425,7 +424,6 @@ instance
   Embed (BBODY era) (CHAIN era)
   where
   wrapFailed = BbodyFailure
-  wrapEvent = BbodyEvent
 
 instance
   ( Era era,
@@ -435,7 +433,6 @@ instance
   Embed TICKN (CHAIN era)
   where
   wrapFailed = TicknFailure
-  wrapEvent = TicknEvent
 
 instance
   ( Era era,
@@ -446,7 +443,6 @@ instance
   Embed (TICK era) (CHAIN era)
   where
   wrapFailed = TickFailure
-  wrapEvent = TickEvent
 
 instance
   ( Era era,
@@ -457,7 +453,6 @@ instance
   Embed (PRTCL c) (CHAIN era)
   where
   wrapFailed = PrtclFailure
-  wrapEvent = PrtclEvent
 
 data AdaPots = AdaPots
   { treasuryAdaPot :: Coin,

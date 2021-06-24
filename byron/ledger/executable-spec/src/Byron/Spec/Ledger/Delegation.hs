@@ -301,7 +301,6 @@ instance STS SDELEG where
   type Signal SDELEG = DCert
   type Environment SDELEG = DSEnv
   type PredicateFailure SDELEG = SdelegPredicateFailure
-  data Event _
 
   initialRules = [ return DSState
                    { _dSStateScheduledDelegations = []
@@ -375,7 +374,6 @@ instance STS ADELEG where
   type Signal ADELEG = (Slot, (VKeyGenesis, VKey))
   type Environment ADELEG = Set VKeyGenesis
   type PredicateFailure ADELEG = AdelegPredicateFailure
-  data Event _
 
 
   initialRules = [
@@ -435,7 +433,6 @@ instance STS SDELEGS where
   type Signal SDELEGS = [DCert]
   type Environment SDELEGS = DSEnv
   type PredicateFailure SDELEGS = SdelegsPredicateFailure
-  data Event _ = SDelegEvent (Event SDELEG)
 
   initialRules = [ do
                      IRC env <- judgmentContext
@@ -454,7 +451,6 @@ instance STS SDELEGS where
 
 instance Embed SDELEG SDELEGS where
   wrapFailed = SDelegFailure
-  wrapEvent = SDelegEvent
 
 -- | Delegation rules sequencing
 data ADELEGS deriving (Data, Typeable)
@@ -467,7 +463,6 @@ instance STS ADELEGS where
   type State ADELEGS = DState
   type Signal ADELEGS = [(Slot, (VKeyGenesis, VKey))]
   type Environment ADELEGS = Set VKeyGenesis
-  data Event _ = ADelegEvent (Event ADELEG)
 
   type PredicateFailure ADELEGS
     = AdelegsPredicateFailure
@@ -489,7 +484,6 @@ instance STS ADELEGS where
 
 instance Embed ADELEG ADELEGS where
   wrapFailed = ADelegFailure
-  wrapEvent = ADelegEvent
 
 -- | Delegation interface
 data DELEG deriving (Data, Typeable)
@@ -505,7 +499,6 @@ instance STS DELEG where
   type Environment DELEG = DIEnv
 
   type PredicateFailure DELEG = DelegPredicateFailure
-  data Event _
     = SDelegSEvent (Event SDELEGS)
     | ADelegSEvent (Event ADELEGS)
 
@@ -537,11 +530,9 @@ instance STS DELEG where
 
 instance Embed SDELEGS DELEG where
   wrapFailed = SDelegSFailure
-  wrapEvent = SDelegSEvent
 
 instance Embed ADELEGS DELEG where
   wrapFailed = ADelegSFailure
-  wrapEvent = ADelegSEvent
 
 --------------------------------------------------------------------------------
 -- Generators
@@ -621,7 +612,6 @@ instance STS MSDELEG where
   type State MSDELEG = DSState
   type Signal MSDELEG = Maybe DCert
   type PredicateFailure MSDELEG = MsdelegPredicateFailure
-  data Event _ = SDELEGEvent (Event SDELEG)
 
   initialRules = []
 
@@ -635,7 +625,6 @@ instance STS MSDELEG where
 
 instance Embed SDELEG MSDELEG where
   wrapFailed = SDELEGFailure
-  wrapEvent = SDELEGEvent
 
 instance HasTrace MSDELEG where
 

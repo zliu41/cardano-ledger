@@ -305,7 +305,6 @@ instance STS UBLOCK where
 
   type PredicateFailure UBLOCK = UBlockPredicateFailure
 
-  data Event _
     = UPIREGEvent (Event UPIREG)
     | UPIVOTESEvent (Event UPIVOTES)
     | UPIENDEvent (Event UPIEND)
@@ -356,15 +355,12 @@ instance STS UBLOCK where
 
 instance Embed UPIREG UBLOCK where
   wrapFailed = UPIREGFailure
-  wrapEvent = UPIREGEvent
 
 instance Embed UPIVOTES UBLOCK where
   wrapFailed = UPIVOTESFailure
-  wrapEvent = UPIVOTESEvent
 
 instance Embed UPIEND UBLOCK where
   wrapFailed = UPIENDFailure
-  wrapEvent = UPIENDEvent
 
 instance HasTrace UBLOCK where
   envGen _ =

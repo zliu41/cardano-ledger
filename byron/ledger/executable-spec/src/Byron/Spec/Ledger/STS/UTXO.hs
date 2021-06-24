@@ -70,7 +70,6 @@ instance STS UTXO where
   type State UTXO = UTxOState
   type Signal UTXO = Tx
   type PredicateFailure UTXO = UtxoPredicateFailure
-  data Event _
 
   initialRules =
     [ do

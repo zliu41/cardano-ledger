@@ -42,7 +42,6 @@ instance STS EPOCH where
   type Signal EPOCH = Slot
   type PredicateFailure EPOCH = EpochPredicateFailure
 
-  data Event _ = UPIECEvent (Event UPIEC)
 
   initialRules = []
 
@@ -59,4 +58,3 @@ instance STS EPOCH where
 
 instance Embed UPIEC EPOCH where
   wrapFailed = UPIECFailure
-  wrapEvent = UPIECEvent

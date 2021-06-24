@@ -138,7 +138,6 @@ instance
     PredicateFailure (CR hashAlgo hashToDataMap commitData) =
       CRPredicateFailure hashAlgo hashToDataMap commitData
 
-  data Event _ = Cert
 
   initialRules =
     [ pure

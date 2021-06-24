@@ -66,7 +66,6 @@ instance
   type
     PredicateFailure (UTXOW era) =
       UtxowPredicateFailure era
-  data Event _ = UtxoEvent (Event (UTXO era))
 
   transitionRules = [shelleyStyleWitness witsVKeyNeeded id]
 
@@ -82,7 +81,6 @@ instance
   Embed (UTXO era) (UTXOW era)
   where
   wrapFailed = UtxoFailure
-  wrapEvent = UtxoEvent
 
 instance
   ( Era era,
@@ -93,4 +91,3 @@ instance
   Embed (UTXOW era) (Shelley.LEDGER era)
   where
   wrapFailed = Shelley.UtxowFailure
-  wrapEvent = Shelley.UtxowEvent

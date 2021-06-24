@@ -95,11 +95,9 @@ import Test.Tasty.QuickCheck
 
 instance Embed (AlonzoBBODY (AlonzoEra TestCrypto)) (CHAIN (AlonzoEra TestCrypto)) where
   wrapFailed = BbodyFailure
-  wrapEvent = BbodyEvent
 
 instance Embed (AlonzoUTXOW (AlonzoEra TestCrypto)) (LEDGER (AlonzoEra TestCrypto)) where
   wrapFailed = UtxowFailure
-  wrapEvent = UtxowEvent
 
 -- ======================================================================================
 -- It is incredably hard to debug property test generators.  These functions mimic the

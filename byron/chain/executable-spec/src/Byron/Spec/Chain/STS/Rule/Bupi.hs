@@ -39,7 +39,6 @@ instance STS BUPI where
 
   type PredicateFailure BUPI = BupiPredicateFailure
 
-  data Event _
     = UPIREGEvent  (Event UPIREG)
     | UPVOTESEvent (Event UPIVOTES)
     | UPIENDEvent  (Event UPIEND)
@@ -72,12 +71,9 @@ instance STS BUPI where
 
 instance Embed UPIREG BUPI where
   wrapFailed = UPIREGFailure
-  wrapEvent = UPIREGEvent
 
 instance Embed UPIVOTES BUPI where
   wrapFailed = UPIVOTESFailure
-  wrapEvent = UPVOTESEvent
 
 instance Embed UPIEND BUPI where
   wrapFailed = UPIENDFailure
-  wrapEvent = UPIENDEvent

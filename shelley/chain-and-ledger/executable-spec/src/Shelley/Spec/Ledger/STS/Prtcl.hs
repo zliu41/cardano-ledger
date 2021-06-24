@@ -148,7 +148,6 @@ instance
   type BaseM (PRTCL crypto) = ShelleyBase
   type PredicateFailure (PRTCL crypto) = PrtclPredicateFailure crypto
 
-  data Event _
     = OverlayEvent (Event (OVERLAY crypto))
     | UpdnEvent (Event (UPDN crypto))
 
@@ -203,7 +202,6 @@ instance
   Embed (OVERLAY crypto) (PRTCL crypto)
   where
   wrapFailed = OverlayFailure
-  wrapEvent = OverlayEvent
 
 instance
   ( Crypto crypto,
@@ -214,7 +212,6 @@ instance
   Embed (UPDN crypto) (PRTCL crypto)
   where
   wrapFailed = UpdnFailure
-  wrapEvent = UpdnEvent
 
 data PrtlSeqFailure crypto
   = WrongSlotIntervalPrtclSeq

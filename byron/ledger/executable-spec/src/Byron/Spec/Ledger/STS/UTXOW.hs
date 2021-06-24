@@ -58,7 +58,6 @@ instance STS UTXOW where
   type State UTXOW = UTxOState
   type Signal UTXOW = Tx
   type PredicateFailure UTXOW = UtxowPredicateFailure
-  data Event _ = UtxoEvent (Event UTXO)
 
   initialRules =
     [ do
@@ -94,7 +93,6 @@ witnessed (Tx tx wits) utxo =
 
 instance Embed UTXO UTXOW where
   wrapFailed = UtxoFailure
-  wrapEvent = UtxoEvent
 
 -- | Constant list of addresses intended to be used in the generators.
 traceAddrs :: [Addr]

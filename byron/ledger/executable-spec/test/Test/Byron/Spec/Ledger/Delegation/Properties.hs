@@ -109,7 +109,6 @@ instance STS DBLOCK where
   type State DBLOCK = (DSEnv, DIState)
   type Signal DBLOCK = DBlock
   type PredicateFailure DBLOCK = DBlockPredicateFailure
-  data Event _ =
     DELEGEvent (Event DELEG)
 
   initialRules
@@ -134,7 +133,6 @@ instance STS DBLOCK where
 
 instance Embed DELEG DBLOCK where
   wrapFailed = DPF
-  wrapEvent = DELEGEvent
 
 -- | Check that all the delegation certificates in the trace were correctly
 -- applied.

@@ -90,6 +90,7 @@ import Data.Kind (Type, Constraint)
 import Data.Proxy (Proxy (..))
 import Data.Typeable (typeRep)
 import NoThunks.Class (NoThunks (..))
+import Data.Void (Void)
 
 data RuleType
   = Initial
@@ -187,10 +188,9 @@ class
   type BaseM a = Identity
 
   -- | Event type.
-  data Event a :: Type
 
-  -- type Event a :: Type
-  -- type Event a = Void
+  type Event a :: Type
+  type Event a = Void
 
   -- | Descriptive type for the possible failures which might cause a transition
   -- to fail.
@@ -233,7 +233,6 @@ class (STS sub, BaseM sub ~ BaseM super) => Embed sub super where
 
 instance STS sts => Embed sts sts where
   wrapFailed = id
-  wrapEvent = id
 
 data EventPolicy
   = EventPolicyReturn
@@ -464,9 +463,11 @@ applySTSIndifferently =
         }
 
 newtype RuleEventLoggerT s m a = RuleEventLoggerT (StateT [PredicateFailure s] (WriterT [Event s] m) a)
-  deriving (MonadWriter [Event s], Monad, Applicative, Functor)
+  deriving (Monad, Applicative, Functor)
 
-deriving instance (x ~ [PredicateFailure s], Monad m) => MonadState x (RuleEventLoggerT s m)
+
+deriving instance (e ~ [Event s], Monad m) => MonadWriter e (RuleEventLoggerT s m)
+deriving instance (f ~ [PredicateFailure s], Monad m) => MonadState f (RuleEventLoggerT s m)
 
 instance MonadTrans (RuleEventLoggerT s) where
   lift = RuleEventLoggerT . lift . lift
@@ -516,7 +517,7 @@ applyRuleInternal ep vp goSTS jc r =
           sfails :: [[PredicateFailure sub]]
           (ss, sfails) = (discardEvents ep @sub) s
       traverse_ (\a -> modify (a :)) $ wrapFailed @sub @s <$> concat sfails
-      runClause $ Writer (fmap wrapEvent $ getEvents ep @sub @(State sub, [[PredicateFailure sub]]) s) ()
+      runClause $ Writer (wrapEvent @sub @s <$> getEvents ep @sub @(State sub, [[PredicateFailure sub]]) s) ()
       pure $ next ss
     runClause (Writer w a) = case ep of
       EPReturn -> tell w $> a
@@ -642,7 +643,6 @@ instance
   type Signal (STUB e st si f m) = si
   type PredicateFailure (STUB e st si f m) = f
   type BaseM (STUB e st si f m) = m
-  data Event _
 
   transitionRules = []
   initialRules = []

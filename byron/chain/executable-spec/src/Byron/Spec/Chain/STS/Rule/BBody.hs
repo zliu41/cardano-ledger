@@ -57,7 +57,6 @@ instance STS BBODY where
 
   type PredicateFailure BBODY = BbodyPredicateFailure
 
-  data Event _
     = BUPIEvent (Event BUPI)
     | DelegationEvent (Event DELEG)
     | UTXOWSEvent (Event UTXOWS)
@@ -98,12 +97,9 @@ instance STS BBODY where
 
 instance Embed BUPI BBODY where
   wrapFailed = BUPIFailure
-  wrapEvent = BUPIEvent
 
 instance Embed DELEG BBODY where
   wrapFailed = DelegationFailure
-  wrapEvent = DelegationEvent
 
 instance Embed UTXOWS BBODY where
   wrapFailed = UTXOWSFailure
-  wrapEvent = UTXOWSEvent
