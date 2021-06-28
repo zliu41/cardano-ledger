@@ -11,8 +11,10 @@
 module Shelley.Spec.Ledger.API.Wallet
   ( getNonMyopicMemberRewards,
     getUTxO,
+    getUTxOSubset,
     getFilteredUTxO,
     getLeaderSchedule,
+    getPools,
     getPoolParameters,
     getTotalStake,
     poolsByTotalStakeFraction,
@@ -21,13 +23,16 @@ module Shelley.Spec.Ledger.API.Wallet
 where
 
 import qualified Cardano.Crypto.VRF as VRF
+import Cardano.Ledger.Address (Addr (..))
 import Cardano.Ledger.BaseTypes (Globals (..), Seed, UnitInterval, epochInfo)
 import Cardano.Ledger.Coin (Coin (..))
 import qualified Cardano.Ledger.Core as Core
+import Cardano.Ledger.Credential (Credential (..))
 import Cardano.Ledger.Crypto (VRF)
 import Cardano.Ledger.Era (Crypto, Era)
 import Cardano.Ledger.Keys (KeyHash, KeyRole (..), SignKeyVRF)
 import Cardano.Ledger.Shelley.Constraints (UsesValue)
+import Cardano.Ledger.Slot (epochInfoSize)
 import Cardano.Slotting.EpochInfo (epochInfoRange)
 import Cardano.Slotting.Slot (EpochSize, SlotNo)
 import Control.Monad.Trans.Reader (runReader)
@@ -44,10 +49,8 @@ import qualified Data.Set as Set
 import GHC.Records (HasField, getField)
 import Numeric.Natural (Natural)
 import Shelley.Spec.Ledger.API.Protocol (ChainDepState (..))
-import Shelley.Spec.Ledger.Address (Addr (..))
 import Shelley.Spec.Ledger.BlockChain (checkLeaderValue, mkSeed, seedL)
 import Shelley.Spec.Ledger.CompactAddr (CompactAddr, compactAddr)
-import Shelley.Spec.Ledger.Credential (Credential (..))
 import Shelley.Spec.Ledger.Delegation.Certificates
   ( IndividualPoolStake (..),
     PoolDistr (..),
@@ -77,8 +80,7 @@ import Shelley.Spec.Ledger.Rewards
   )
 import Shelley.Spec.Ledger.STS.NewEpoch (calculatePoolDistr)
 import Shelley.Spec.Ledger.STS.Tickn (TicknState (..))
-import Shelley.Spec.Ledger.Slot (epochInfoSize)
-import Shelley.Spec.Ledger.TxBody (PoolParams (..))
+import Shelley.Spec.Ledger.TxBody (PoolParams (..), TxIn (..))
 import Shelley.Spec.Ledger.UTxO (UTxO (..))
 
 -- | Get pool sizes, but in terms of total stake
@@ -236,6 +238,16 @@ getFilteredUTxO ss addrs =
     -- address in the small set of address.
     addrSBSs = Set.map compactAddr addrs
 
+getUTxOSubset ::
+  NewEpochState era ->
+  Set (TxIn (Crypto era)) ->
+  UTxO era
+getUTxOSubset ss txins =
+  UTxO $
+    fullUTxO `Map.restrictKeys` txins
+  where
+    UTxO fullUTxO = getUTxO ss
+
 -- | Get the (private) leader schedule for this epoch.
 --
 --   Given a private VRF key, returns the set of slots in which this node is
@@ -268,12 +280,24 @@ getLeaderSchedule globals ss cds poolHash key pp = Set.filter isLeader epochSlot
     epochSlots = Set.fromList [a .. b]
     (a, b) = runIdentity $ epochInfoRange ei currentEpoch
 
--- | Get the registered stake pool parameters for a given ID.
+-- | Get the /current/ registered stake pool parameters for a given set of
+-- stake pools. The result map will contain entries for all the given stake
+-- pools that are currently registered.
+getPools ::
+  NewEpochState era ->
+  Set (KeyHash 'StakePool (Crypto era))
+getPools = Map.keysSet . f
+  where
+    f = _pParams . _pstate . _delegationState . esLState . nesEs
+
+-- | Get the /current/ registered stake pool parameters for a given set of
+-- stake pools. The result map will contain entries for all the given stake
+-- pools that are currently registered.
 getPoolParameters ::
   NewEpochState era ->
-  KeyHash 'StakePool (Crypto era) ->
-  Maybe (PoolParams (Crypto era))
-getPoolParameters nes poolId = Map.lookup poolId (f nes)
+  Set (KeyHash 'StakePool (Crypto era)) ->
+  Map (KeyHash 'StakePool (Crypto era)) (PoolParams (Crypto era))
+getPoolParameters = Map.restrictKeys . f
   where
     f = _pParams . _pstate . _delegationState . esLState . nesEs
 

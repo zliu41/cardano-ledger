@@ -13,10 +13,10 @@
 
 module Cardano.Ledger.Alonzo.Rules.Utxow where
 
--- import Shelley.Spec.Ledger.UTxO(UTxO(..))
-
 import Cardano.Binary (FromCBOR (..), ToCBOR (..))
+import Cardano.Ledger.Address (Addr (..), bootstrapKeyHash, getRwdCred)
 import Cardano.Ledger.Alonzo.Data (DataHash)
+import Cardano.Ledger.Alonzo.Language (Language (..))
 import Cardano.Ledger.Alonzo.PParams (PParams)
 import Cardano.Ledger.Alonzo.PlutusScriptApi
   ( checkScriptData,
@@ -40,6 +40,7 @@ import Cardano.Ledger.BaseTypes
     strictMaybeToMaybe,
   )
 import qualified Cardano.Ledger.Core as Core
+import Cardano.Ledger.Credential (Credential (KeyHashObj))
 import Cardano.Ledger.Era (Crypto, Era, SupportsSegWit (..), ValidateScript (..))
 import Cardano.Ledger.Keys (GenDelegs, KeyHash, KeyRole (..), asWitness)
 import Cardano.Ledger.Rules.ValidationMode ((?!#))
@@ -47,6 +48,7 @@ import Control.DeepSeq (NFData (..))
 import Control.Iterate.SetAlgebra (domain, eval, (⊆), (◁), (➖))
 import Control.State.Transition.Extended
 import Data.Coders
+import Data.Foldable (toList)
 import qualified Data.Map.Strict as Map
 import Data.Sequence.Strict (StrictSeq)
 import Data.Set (Set)
@@ -55,8 +57,6 @@ import Data.Typeable (Typeable)
 import GHC.Generics (Generic)
 import GHC.Records
 import NoThunks.Class
-import Shelley.Spec.Ledger.Address (Addr (..), bootstrapKeyHash, getRwdCred)
-import Shelley.Spec.Ledger.Credential (Credential (KeyHashObj))
 import Shelley.Spec.Ledger.Delegation.Certificates
   ( delegCWitness,
     genesisCWitness,
@@ -86,9 +86,9 @@ import Shelley.Spec.Ledger.TxBody
     Wdrl,
     unWdrl,
   )
-import Shelley.Spec.Ledger.UTxO (UTxO, txinLookup)
+import Shelley.Spec.Ledger.UTxO (UTxO (..), txinLookup)
 
--- =====================================================
+-- =================================================
 
 -- | The Predicate failure type in the Alonzo Era. It embeds the Predicate
 --   failure type of the Shelley Era, as they share some failure modes.
@@ -96,7 +96,11 @@ data AlonzoPredFail era
   = WrappedShelleyEraFailure !(UtxowPredicateFailure era)
   | UnRedeemableScripts ![(ScriptPurpose (Crypto era), ScriptHash (Crypto era))]
   | MissingRequiredDatums
-      !(Set (DataHash (Crypto era)))
+      !(Set (DataHash (Crypto era))) -- Set of missing data hashes
+      !(Set (DataHash (Crypto era))) -- Set of received data hashes
+  | NonOutputSupplimentaryDatums
+      !(Set (DataHash (Crypto era))) -- Set of unallowed data hashes
+      !(Set (DataHash (Crypto era))) -- Set of acceptable supplimental data hashes
   | PPViewHashesDontMatch
       !(StrictMaybe (WitnessPPDataHash (Crypto era)))
       -- ^ The PPHash in the TxBody
@@ -148,10 +152,11 @@ encodePredFail ::
   Encode 'Open (AlonzoPredFail era)
 encodePredFail (WrappedShelleyEraFailure x) = Sum WrappedShelleyEraFailure 0 !> E toCBOR x
 encodePredFail (UnRedeemableScripts x) = Sum UnRedeemableScripts 1 !> To x
-encodePredFail (MissingRequiredDatums x) = Sum MissingRequiredDatums 2 !> To x
-encodePredFail (PPViewHashesDontMatch x y) = Sum PPViewHashesDontMatch 3 !> To x !> To y
-encodePredFail (MissingRequiredSigners x) = Sum MissingRequiredSigners 4 !> To x
-encodePredFail (UnspendableUTxONoDatumHash x) = Sum UnspendableUTxONoDatumHash 5 !> To x
+encodePredFail (MissingRequiredDatums x y) = Sum MissingRequiredDatums 2 !> To x !> To y
+encodePredFail (NonOutputSupplimentaryDatums x y) = Sum NonOutputSupplimentaryDatums 3 !> To x !> To y
+encodePredFail (PPViewHashesDontMatch x y) = Sum PPViewHashesDontMatch 4 !> To x !> To y
+encodePredFail (MissingRequiredSigners x) = Sum MissingRequiredSigners 5 !> To x
+encodePredFail (UnspendableUTxONoDatumHash x) = Sum UnspendableUTxONoDatumHash 6 !> To x
 
 instance
   ( Era era,
@@ -173,13 +178,21 @@ decodePredFail ::
   Decode 'Open (AlonzoPredFail era)
 decodePredFail 0 = SumD WrappedShelleyEraFailure <! D fromCBOR
 decodePredFail 1 = SumD UnRedeemableScripts <! From
-decodePredFail 2 = SumD MissingRequiredDatums <! From
-decodePredFail 3 = SumD PPViewHashesDontMatch <! From <! From
-decodePredFail 4 = SumD MissingRequiredSigners <! From
-decodePredFail 5 = SumD UnspendableUTxONoDatumHash <! From
+decodePredFail 2 = SumD MissingRequiredDatums <! From <! From
+decodePredFail 3 = SumD NonOutputSupplimentaryDatums <! From <! From
+decodePredFail 4 = SumD PPViewHashesDontMatch <! From <! From
+decodePredFail 5 = SumD MissingRequiredSigners <! From
+decodePredFail 6 = SumD UnspendableUTxONoDatumHash <! From
 decodePredFail n = Invalid n
 
 -- =============================================
+
+-- | given the "txscripts" field of the Witnesses, compute the set of languages used in a transaction
+langsUsed :: forall era. (Core.Script era ~ Script era, ValidateScript era) => Map.Map (ScriptHash (Crypto era)) (Script era) -> Set Language
+langsUsed hashScriptMap =
+  Set.fromList
+    [ l | (_hash, script) <- Map.toList hashScriptMap, (not . isNativeScript @era) script, Just l <- [language @era script]
+    ]
 
 {- Defined in the Shelley Utxow rule.
 type ShelleyStyleWitnessNeeds era =
@@ -263,8 +276,21 @@ alonzoStyleWitness = do
     SJust utxoHashes -> do
       let txHashes = domain (unTxDats . txdats . wits $ tx)
           inputHashes = Set.fromList utxoHashes
-          unmatchedInputHashes = eval (inputHashes ➖ txHashes)
-      Set.null unmatchedInputHashes ?! MissingRequiredDatums unmatchedInputHashes
+          unmatchedDatumHashes = eval (inputHashes ➖ txHashes)
+      Set.null unmatchedDatumHashes ?! MissingRequiredDatums unmatchedDatumHashes txHashes
+
+      -- Check that all supplimental datums contained in the witness set appear in the outputs.
+      let outputDatumHashes =
+            Set.fromList
+              [ dh
+                | out <- toList $ getField @"outputs" txbody,
+                  SJust dh <- [getField @"datahash" out]
+              ]
+          supplimentalDatumHashes = eval (txHashes ➖ inputHashes)
+          (okSupplimentalDHs, notOkSupplimentalDHs) =
+            Set.partition (`Set.member` outputDatumHashes) supplimentalDatumHashes
+      Set.null notOkSupplimentalDHs
+        ?! NonOutputSupplimentaryDatums notOkSupplimentalDHs okSupplimentalDHs
 
   {-  ∀ sph ∈ scriptsNeeded utxo tx, checkScriptData tx utxo  ph  -}
   let sphs :: [(ScriptPurpose (Crypto era), ScriptHash (Crypto era))]
@@ -405,6 +431,7 @@ instance
     HasField "collateral" (Core.TxBody era) (Set (TxIn (Crypto era))),
     -- Supply the HasField and Validate instances for Alonzo
     ShelleyStyleWitnessNeeds era, -- supplies a subset of those needed. All the old Shelley Needs still apply.
+    Show (Core.TxOut era),
     AlonzoStyleAdditions era
   ) =>
   STS (AlonzoUTXOW era)

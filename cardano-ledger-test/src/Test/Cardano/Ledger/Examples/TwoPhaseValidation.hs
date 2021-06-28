@@ -24,6 +24,7 @@ import qualified Cardano.Crypto.Hash as CH
 import qualified Cardano.Crypto.KES.Class as KES
 import Cardano.Crypto.VRF (evalCertified)
 import qualified Cardano.Crypto.VRF.Class as VRF
+import Cardano.Ledger.Address (Addr (..))
 import Cardano.Ledger.Alonzo (AlonzoEra)
 import Cardano.Ledger.Alonzo.Data (Data (..), hashData)
 import Cardano.Ledger.Alonzo.Language (Language (..))
@@ -50,6 +51,11 @@ import Cardano.Ledger.BaseTypes (Network (..), Seed, StrictMaybe (..))
 import Cardano.Ledger.Coin (Coin (..))
 import Cardano.Ledger.Core (EraRule)
 import qualified Cardano.Ledger.Core as Core
+import Cardano.Ledger.Credential
+  ( Credential (..),
+    StakeCredential,
+    StakeReference (..),
+  )
 import qualified Cardano.Ledger.Crypto as CC
 import Cardano.Ledger.Era (Era (..), SupportsSegWit (..), ValidateScript (hashScript))
 import Cardano.Ledger.Hashes (EraIndependentTxBody, ScriptHash)
@@ -68,6 +74,7 @@ import Cardano.Ledger.Mary.Value (PolicyID (..))
 import Cardano.Ledger.SafeHash (hashAnnotated)
 import Cardano.Ledger.Serialization (ToCBORGroup)
 import Cardano.Ledger.ShelleyMA.Timelocks (ValidityInterval (..))
+import Cardano.Ledger.Slot (BlockNo (..))
 import qualified Cardano.Ledger.Tx as Core (Tx (..))
 import Cardano.Ledger.Val (inject, (<+>))
 import Cardano.Slotting.EpochInfo (EpochInfo, fixedEpochInfo)
@@ -85,7 +92,7 @@ import qualified Data.Sequence.Strict as StrictSeq
 import qualified Data.Set as Set
 import Data.Time.Clock.POSIX (posixSecondsToUTCTime)
 import Numeric.Natural (Natural)
-import Plutus.V1.Ledger.Api (defaultCekCostModelParams)
+import Plutus.V1.Ledger.Api (defaultCostModelParams)
 import qualified PlutusTx as Plutus
 import Shelley.Spec.Ledger.API
   ( BHBody (..),
@@ -101,20 +108,13 @@ import Shelley.Spec.Ledger.API
     ProtVer (..),
     UTxO (..),
   )
-import Shelley.Spec.Ledger.Address (Addr (..))
 import Shelley.Spec.Ledger.BlockChain (bBodySize, mkSeed, seedEta, seedL)
-import Shelley.Spec.Ledger.Credential
-  ( Credential (..),
-    StakeCredential,
-    StakeReference (..),
-  )
 import Shelley.Spec.Ledger.EpochBoundary (BlocksMade (..))
 import Shelley.Spec.Ledger.LedgerState (UTxOState (..), WitHashes (..))
 import Shelley.Spec.Ledger.OCert (OCertSignable (..))
 import Shelley.Spec.Ledger.STS.Bbody (BbodyEnv (..), BbodyState (..))
 import Shelley.Spec.Ledger.STS.Utxo (UtxoEnv (..))
 import Shelley.Spec.Ledger.STS.Utxow (UtxowPredicateFailure (..))
-import Shelley.Spec.Ledger.Slot (BlockNo (..))
 import Shelley.Spec.Ledger.TxBody
   ( DCert (..),
     DelegCert (..),
@@ -151,7 +151,7 @@ testSystemStart = SystemStart $ posixSecondsToUTCTime 0
 
 -- | A cost model that sets everything as being free
 freeCostModel :: CostModel
-freeCostModel = CostModel $ 0 <$ fromJust defaultCekCostModelParams
+freeCostModel = CostModel $ 0 <$ fromJust defaultCostModelParams
 
 pp :: Proof era -> Core.PParams era
 pp pf =
@@ -913,6 +913,58 @@ utxoStEx9 ::
   UTxOState era
 utxoStEx9 pf = UTxOState (utxoEx9 pf) (Coin 0) (Coin 5) def
 
+-- ====================================================================================
+--  Example 10: A transaction with an acceptable supplimentary datum
+-- ====================================================================================
+
+outEx10 :: forall era. (Scriptic era) => Proof era -> Core.TxOut era
+outEx10 pf =
+  newTxOut
+    Override
+    pf
+    [ Address (scriptAddr (always 3 pf) pf),
+      Amount (inject $ Coin 995),
+      DHash [hashData $ datumExample1 @era]
+    ]
+
+okSupplimentaryDatumTxBody :: Scriptic era => Proof era -> Core.TxBody era
+okSupplimentaryDatumTxBody pf =
+  newTxBody
+    Override
+    pf
+    [ Inputs [TxIn genesisId 3],
+      Outputs [outEx10 pf],
+      Txfee (Coin 5)
+    ]
+
+okSupplimentaryDatumTx ::
+  forall era.
+  ( Scriptic era,
+    SignBody era
+  ) =>
+  Proof era ->
+  Core.Tx era
+okSupplimentaryDatumTx pf =
+  newTx
+    Override
+    pf
+    [ Body (okSupplimentaryDatumTxBody pf),
+      Witnesses'
+        [ AddrWits [makeWitnessVKey (hashAnnotated (okSupplimentaryDatumTxBody pf)) (someKeys pf)],
+          DataWits [datumExample1]
+        ]
+    ]
+
+utxoEx10 :: forall era. PostShelley era => Proof era -> UTxO era
+utxoEx10 pf = expectedUTxO pf (ExpectSuccess (okSupplimentaryDatumTxBody pf) (outEx10 pf)) 3
+
+utxoStEx10 ::
+  forall era.
+  (Default (State (EraRule "PPUP" era)), PostShelley era) =>
+  Proof era ->
+  UTxOState era
+utxoStEx10 pf = UTxOState (utxoEx10 pf) (Coin 0) (Coin 5) def
+
 -- =======================
 -- Invalid Transactions
 -- =======================
@@ -1254,6 +1306,40 @@ plutusOutputWithNoDataTx pf =
         ]
     ]
 
+totallyIrrelevantDatum :: Data era
+totallyIrrelevantDatum = Data (Plutus.I 1729)
+
+outputWithNoDatum :: forall era. Era era => Proof era -> Core.TxOut era
+outputWithNoDatum pf = newTxOut Override pf [Address $ someAddr pf, Amount (inject $ Coin 995)]
+
+notOkSupplimentaryDatumTxBody :: Scriptic era => Proof era -> Core.TxBody era
+notOkSupplimentaryDatumTxBody pf =
+  newTxBody
+    Override
+    pf
+    [ Inputs [TxIn genesisId 3],
+      Outputs [outputWithNoDatum pf],
+      Txfee (Coin 5)
+    ]
+
+notOkSupplimentaryDatumTx ::
+  forall era.
+  ( Scriptic era,
+    SignBody era
+  ) =>
+  Proof era ->
+  Core.Tx era
+notOkSupplimentaryDatumTx pf =
+  newTx
+    Override
+    pf
+    [ Body (notOkSupplimentaryDatumTxBody pf),
+      Witnesses'
+        [ AddrWits [makeWitnessVKey (hashAnnotated (notOkSupplimentaryDatumTxBody pf)) (someKeys pf)],
+          DataWits [totallyIrrelevantDatum]
+        ]
+    ]
+
 -- =======================
 -- Alonzo UTXOW Tests
 -- =======================
@@ -1318,7 +1404,11 @@ alonzoUTXOWexamples =
           testCase "validating scripts everywhere" $
             testUTXOW
               (trustMe True $ validatingTxManyScripts pf)
-              (Right . utxoStEx9 $ pf)
+              (Right . utxoStEx9 $ pf),
+          testCase "acceptable supplimentary datum" $
+            testUTXOW
+              (trustMe True $ okSupplimentaryDatumTx pf)
+              (Right . utxoStEx10 $ pf)
         ],
       testGroup
         "invalid transactions"
@@ -1439,6 +1529,7 @@ alonzoUTXOWexamples =
               ( Left
                   [ [ MissingRequiredDatums
                         (Set.singleton $ hashData @A datumExample1)
+                        mempty
                     ]
                   ]
               ),
@@ -1507,6 +1598,16 @@ alonzoUTXOWexamples =
             testUTXOW
               (trustMe True $ plutusOutputWithNoDataTx pf)
               ( Left [[UnspendableUTxONoDatumHash . Set.singleton $ TxIn genesisId 101]]
+              ),
+          testCase "unacceptable supplimentary datum" $
+            testUTXOW
+              (trustMe True $ notOkSupplimentaryDatumTx pf)
+              ( Left
+                  [ [ NonOutputSupplimentaryDatums
+                        (Set.singleton $ hashData @A totallyIrrelevantDatum)
+                        mempty
+                    ]
+                  ]
               )
         ]
     ]

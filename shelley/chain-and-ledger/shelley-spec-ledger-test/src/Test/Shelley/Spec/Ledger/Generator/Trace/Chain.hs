@@ -56,7 +56,7 @@ import Shelley.Spec.Ledger.BlockChain
 import Shelley.Spec.Ledger.LedgerState (stakeDistr)
 import Shelley.Spec.Ledger.STS.Bbody (BbodyEnv, BbodyState)
 import qualified Shelley.Spec.Ledger.STS.Chain as STS (ChainState (ChainState))
-import Shelley.Spec.Ledger.Slot (BlockNo (..), EpochNo (..), SlotNo (..))
+import Cardano.Ledger.Slot (BlockNo (..), EpochNo (..), SlotNo (..))
 import Test.QuickCheck (Gen)
 import Test.Shelley.Spec.Ledger.ConcreteCryptoTypes
   ( Mock,
@@ -144,7 +144,7 @@ mkGenesisChainState ::
   GenEnv era ->
   IRC (CHAIN era) ->
   Gen (Either a (ChainState era))
-mkGenesisChainState ge@(GenEnv _ constants) (IRC _slotNo) = do
+mkGenesisChainState ge@(GenEnv _ _ constants) (IRC _slotNo) = do
   utxo0 <- genUtxo0 ge
 
   pParams <- genEraPParams @era constants

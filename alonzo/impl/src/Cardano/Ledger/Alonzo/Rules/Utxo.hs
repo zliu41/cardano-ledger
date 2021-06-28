@@ -16,13 +16,17 @@
 module Cardano.Ledger.Alonzo.Rules.Utxo where
 
 import Cardano.Binary (FromCBOR (..), ToCBOR (..), serialize)
+import Cardano.Ledger.Address
+  ( Addr (..),
+    RewardAcnt,
+    bootstrapAddressAttrsSize,
+    getNetwork,
+    getRwdNetwork,
+  )
 import Cardano.Ledger.Alonzo.Data (dataHashSize)
 import Cardano.Ledger.Alonzo.Rules.Utxos (UTXOS, UtxosPredicateFailure)
 import Cardano.Ledger.Alonzo.Scripts (ExUnits (..), Prices, pointWiseExUnits)
-import Cardano.Ledger.Alonzo.Tx
-  ( ValidatedTx (..),
-    minfee,
-  )
+import Cardano.Ledger.Alonzo.Tx (ValidatedTx (..), minfee)
 import qualified Cardano.Ledger.Alonzo.Tx as Alonzo (ValidatedTx)
 import Cardano.Ledger.Alonzo.TxBody
   ( TxOut (..),
@@ -41,6 +45,7 @@ import Cardano.Ledger.BaseTypes
   )
 import Cardano.Ledger.Coin
 import qualified Cardano.Ledger.Core as Core
+import Cardano.Ledger.Credential (Credential (..))
 import Cardano.Ledger.Era (Crypto, Era, TxInBlock, ValidateScript (..))
 import qualified Cardano.Ledger.Era as Era
 import qualified Cardano.Ledger.Mary.Value as Alonzo (Value)
@@ -80,14 +85,6 @@ import GHC.Generics (Generic)
 import GHC.Records
 import NoThunks.Class (NoThunks)
 import Numeric.Natural (Natural)
-import Shelley.Spec.Ledger.Address
-  ( Addr (..),
-    RewardAcnt,
-    bootstrapAddressAttrsSize,
-    getNetwork,
-    getRwdNetwork,
-  )
-import Shelley.Spec.Ledger.Credential (Credential (..))
 import qualified Shelley.Spec.Ledger.LedgerState as Shelley
 import qualified Shelley.Spec.Ledger.STS.Utxo as Shelley
 import Shelley.Spec.Ledger.Tx (TxIn)
@@ -242,6 +239,9 @@ isKeyHashAddr (AddrBootstrap _) = True
 isKeyHashAddr (Addr _ (KeyHashObj _) _) = True
 isKeyHashAddr _ = False
 
+vKeyLocked :: Era era => TxOut era -> Bool
+vKeyLocked txout = isKeyHashAddr (getField @"address" txout)
+
 -- | feesOK is a predicate with several parts. Some parts only apply in special circumstances.
 --   1) The fee paid is >= the minimum fee
 --   2) If the total ExUnits are 0 in both Memory and Steps, no further part needs to be checked.
@@ -265,8 +265,7 @@ feesOK ::
     HasField "_minfeeA" (Core.PParams era) Natural,
     HasField "_minfeeB" (Core.PParams era) Natural,
     HasField "_prices" (Core.PParams era) Prices,
-    HasField "_collateralPercentage" (Core.PParams era) Natural,
-    HasField "address" (Alonzo.TxOut era) (Addr (Crypto era))
+    HasField "_collateralPercentage" (Core.PParams era) Natural
   ) =>
   Core.PParams era ->
   TxInBlock era ->
@@ -278,7 +277,6 @@ feesOK pp tx (UTxO m) = do
       collateral = getField @"collateral" txb -- Inputs allocated to pay theFee
       utxoCollateral = eval (collateral ◁ m) -- restrict Utxo to those inputs we use to pay fees.
       bal = balance @era (UTxO utxoCollateral)
-      vKeyLocked txout = isKeyHashAddr (getField @"address" txout)
       minimumFee = minfee @era pp tx
       collPerc = getField @"_collateralPercentage" pp
   -- Part 1
@@ -321,7 +319,7 @@ utxoTransition ::
     HasField "_maxTxSize" (Core.PParams era) Natural,
     HasField "_prices" (Core.PParams era) Prices,
     HasField "_maxTxExUnits" (Core.PParams era) ExUnits,
-    HasField "_adaPerUTxOWord" (Core.PParams era) Coin,
+    HasField "_coinsPerUTxOWord" (Core.PParams era) Coin,
     HasField "_maxValSize" (Core.PParams era) Natural,
     HasField "_collateralPercentage" (Core.PParams era) Natural,
     HasField "_maxCollateralInputs" (Core.PParams era) Natural,
@@ -380,8 +378,8 @@ utxoTransition = do
   -- Here in the implementation, we store the adaId policyID in the coin field of the value.
   Val.coin (getField @"mint" txb) == Val.zero ?!# TriesToForgeADA
 
-  {-   ∀ txout ∈ txouts txb, getValuetxout ≥ inject(uxoEntrySizetxout ∗ adaPerUTxOWordp p)   -}
-  let (Coin adaPerUTxOWord) = getField @"_adaPerUTxOWord" pp
+  {-   ∀ txout ∈ txouts txb, getValuetxout ≥ inject(uxoEntrySizetxout ∗ coinsPerUTxOWord p)   -}
+  let (Coin coinsPerUTxOWord) = getField @"_coinsPerUTxOWord" pp
       outputs = Map.elems $ unUTxO (txouts @era txb)
       outputsTooSmall =
         filter
@@ -391,7 +389,7 @@ utxoTransition = do
                     Val.pointwise -- pointwise is used because non-ada amounts must be >= 0 too
                       (>=)
                       v
-                      (Val.inject $ Coin (utxoEntrySize out * adaPerUTxOWord))
+                      (Val.inject $ Coin (utxoEntrySize out * coinsPerUTxOWord))
           )
           outputs
   null outputsTooSmall ?! OutputTooSmallUTxO outputsTooSmall
@@ -451,7 +449,7 @@ utxoTransition = do
 
   {-   totExunits tx ≤ maxTxExUnits pp    -}
   let maxTxEx = getField @"_maxTxExUnits" pp
-      totExunits = getField @"totExunits" tx
+      totExunits = getField @"totExunits" tx -- This sums up the ExUnits for all embedded Plutus Scripts anywhere in the transaction.
   pointWiseExUnits (<=) totExunits maxTxEx ?! ExUnitsTooBigUTxO maxTxEx totExunits
 
   {-   ‖collateral tx‖  ≤  maxCollInputs pp   -}
@@ -480,11 +478,10 @@ instance
     HasField "_minfeeB" (Core.PParams era) Natural,
     HasField "_keyDeposit" (Core.PParams era) Coin,
     HasField "_poolDeposit" (Core.PParams era) Coin,
-    HasField "_adaPerUTxOWord" (Core.PParams era) Coin,
     HasField "_maxTxSize" (Core.PParams era) Natural,
     HasField "_prices" (Core.PParams era) Prices,
     HasField "_maxTxExUnits" (Core.PParams era) ExUnits,
-    HasField "_adaPerUTxOWord" (Core.PParams era) Coin,
+    HasField "_coinsPerUTxOWord" (Core.PParams era) Coin,
     HasField "_maxValSize" (Core.PParams era) Natural,
     HasField "_collateralPercentage" (Core.PParams era) Natural,
     HasField "_maxCollateralInputs" (Core.PParams era) Natural,

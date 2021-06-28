@@ -19,28 +19,32 @@
 module Cardano.Ledger.Alonzo.Scripts
   ( Tag (..),
     Script (TimelockScript, PlutusScript),
-    ExUnits (..),
-    CostModel (..),
-    Prices (..),
-    hashCostModel,
     scriptfee,
     ppTag,
     ppScript,
-    ppExUnits,
-    ppCostModel,
-    ppPrices,
     isPlutusScript,
     alwaysSucceeds,
     alwaysFails,
     pointWiseExUnits,
+
+    -- * Cost Model
+    CostModel (..),
+    ExUnits (..),
+    Prices (..),
+    defaultCostModel,
+    hashCostModel,
     validateCostModelParams,
+    ppExUnits,
+    ppCostModel,
+    ppPrices,
   )
 where
 
 import Cardano.Binary (DecoderError (..), FromCBOR (fromCBOR), ToCBOR (toCBOR), serialize')
 import Cardano.Ledger.Coin (Coin (..))
+import qualified Cardano.Ledger.Core as Core
 import qualified Cardano.Ledger.Crypto as CC (Crypto)
-import Cardano.Ledger.Era (Era (Crypto))
+import Cardano.Ledger.Era (Era (Crypto), ValidateScript (hashScript))
 import Cardano.Ledger.Pretty
   ( PDoc,
     PrettyA (..),
@@ -71,7 +75,7 @@ import Data.Word (Word64, Word8)
 import GHC.Generics (Generic)
 import NoThunks.Class (InspectHeapNamed (..), NoThunks)
 import Numeric.Natural (Natural)
-import Plutus.V1.Ledger.Api (validateCostModelParams)
+import Plutus.V1.Ledger.Api (defaultCostModelParams, validateCostModelParams)
 import qualified Plutus.V1.Ledger.Examples as Plutus (alwaysFailingNAryFunction, alwaysSucceedingNAryFunction)
 
 -- | Marker indicating the part of a transaction for which this script is acting
@@ -94,8 +98,12 @@ instance NoThunks Tag
 -- | Scripts in the Alonzo Era, Either a Timelock script or a Plutus script.
 data Script era
   = TimelockScript (Timelock (Crypto era))
-  | PlutusScript (ShortByteString) -- A Plutus.V1.Ledger.Scripts(Script) that has been 'Flat'ened
-  deriving (Eq, Show, Generic, Ord)
+  | PlutusScript (ShortByteString) -- A Plutus.V1.Ledger.Scripts(Script) that has been 'CBOR' encoded
+  deriving (Eq, Generic, Ord)
+
+instance (ValidateScript era, Core.Script era ~ Script era) => Show (Script era) where
+  show (TimelockScript x) = "TimelockScript " ++ show x
+  show (s@(PlutusScript _)) = "PlutusScript " ++ show (hashScript @era s)
 
 deriving via
   InspectHeapNamed "Script" (Script era)
@@ -167,6 +175,9 @@ checkCostModel cm =
   if validateCostModelParams cm
     then Right (CostModel cm)
     else Left ("Invalid cost model: " ++ show cm)
+
+defaultCostModel :: Maybe CostModel
+defaultCostModel = CostModel <$> defaultCostModelParams
 
 instance FromCBOR CostModel where
   fromCBOR = decode $ SumD checkCostModel <? (D mapFromCBOR)
@@ -261,11 +272,11 @@ ppTag x = ppString (show x)
 
 instance PrettyA Tag where prettyA = ppTag
 
-ppScript :: Script era -> PDoc
-ppScript (PlutusScript _) = ppString "PlutusScript"
+ppScript :: forall era. (ValidateScript era, Core.Script era ~ Script era) => Script era -> PDoc
+ppScript (s@(PlutusScript _)) = ppString ("PlutusScript " ++ show (hashScript @era s))
 ppScript (TimelockScript x) = ppTimelock x
 
-instance PrettyA (Script era) where prettyA = ppScript
+instance (ValidateScript era, Core.Script era ~ Script era) => PrettyA (Script era) where prettyA = ppScript
 
 ppExUnits :: ExUnits -> PDoc
 ppExUnits (ExUnits mem step) =

@@ -16,6 +16,11 @@
 module Cardano.Ledger.ShelleyMA.Rules.Utxo where
 
 import Cardano.Binary (FromCBOR (..), ToCBOR (..), encodeListLen, serialize)
+import Cardano.Ledger.Address
+  ( Addr (AddrBootstrap),
+    bootstrapAddressAttrsSize,
+    getNetwork,
+  )
 import Cardano.Ledger.BaseTypes
   ( Network,
     ShelleyBase,
@@ -61,11 +66,6 @@ import GHC.Generics (Generic)
 import GHC.Records
 import NoThunks.Class (NoThunks)
 import Numeric.Natural (Natural)
-import Shelley.Spec.Ledger.Address
-  ( Addr (AddrBootstrap),
-    bootstrapAddressAttrsSize,
-    getNetwork,
-  )
 import Shelley.Spec.Ledger.LedgerState (PPUPState)
 import qualified Shelley.Spec.Ledger.LedgerState as Shelley
 import Shelley.Spec.Ledger.PParams (PParams, PParams' (..), Update)
@@ -115,7 +115,7 @@ scaledMinDeposit v (Coin mv)
   -- The calculation should represent this equation
   -- minValueParameter / coinUTxOSize = actualMinValue / valueUTxOSize
   -- actualMinValue = (minValueParameter / coinUTxOSize) * valueUTxOSize
-  | otherwise = Coin $ max mv (adaPerUTxOWord * (utxoEntrySizeWithoutVal + Val.size v))
+  | otherwise = Coin $ max mv (coinsPerUTxOWord * (utxoEntrySizeWithoutVal + Val.size v))
   where
     -- lengths obtained from tracing on HeapWords of inputs and outputs
     -- obtained experimentally, and number used here
@@ -132,8 +132,8 @@ scaledMinDeposit v (Coin mv)
 
     -- how much ada does a Word64 of UTxO space cost, calculated from minAdaValue PP
     -- round down
-    adaPerUTxOWord :: Integer
-    adaPerUTxOWord = quot mv (utxoEntrySizeWithoutVal + coinSize)
+    coinsPerUTxOWord :: Integer
+    coinsPerUTxOWord = quot mv (utxoEntrySizeWithoutVal + coinSize)
 
 -- ==========================================================
 

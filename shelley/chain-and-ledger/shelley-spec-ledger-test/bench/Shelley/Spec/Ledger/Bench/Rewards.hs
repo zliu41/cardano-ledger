@@ -26,7 +26,7 @@ import qualified Data.Map.Strict as Map
 import Data.Proxy (Proxy (..))
 import qualified Data.Sequence.Strict as StrictSeq
 import qualified Data.Set as Set
-import Shelley.Spec.Ledger.Address
+import Cardano.Ledger.Address
   ( Addr (..),
     mkRwdAcnt,
   )
@@ -37,7 +37,7 @@ import Cardano.Ledger.BaseTypes
     epochInfo,
     truncateUnitInterval,
   )
-import Shelley.Spec.Ledger.Credential (Credential (..), StakeReference (..))
+import Cardano.Ledger.Credential (Credential (..), StakeReference (..))
 import Shelley.Spec.Ledger.Genesis (ShelleyGenesisStaking (..))
 import Cardano.Ledger.Keys (KeyHash, KeyRole (Staking))
 import qualified Shelley.Spec.Ledger.LedgerState as LS
@@ -56,6 +56,7 @@ import Test.Shelley.Spec.Ledger.Generator.Constants
 import Test.Shelley.Spec.Ledger.Generator.Core
   ( AllIssuerKeys (..),
     GenEnv (..),
+    ScriptSpace(..),
     geConstants,
     geKeySpace,
     ksStakePools,
@@ -74,7 +75,7 @@ genChainInEpoch :: EpochNo -> Gen (ChainState B)
 genChainInEpoch epoch = do
   genesisChainState <-
     fromRight (error "genChainState failed")
-      <$> mkGenesisChainState @B (GenEnv ks cs) (IRC ())
+      <$> mkGenesisChainState @B (GenEnv ks (ScriptSpace [] Map.empty) cs) (IRC ())
   -- Our genesis chain state contains no registered staking. Since we want to
   -- calculate a reward update, we will set some up.
   -- What do we want to do here?

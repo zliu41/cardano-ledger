@@ -65,6 +65,7 @@ import Cardano.Binary
     decodeListLenOrIndef,
     encodeListLen,
   )
+import Cardano.Ledger.Address (Addr)
 import Cardano.Ledger.Alonzo.Data (AuxiliaryDataHash (..), DataHash)
 import Cardano.Ledger.BaseTypes
   ( Network,
@@ -126,7 +127,6 @@ import GHC.Generics (Generic)
 import GHC.Records (HasField (..))
 import GHC.Stack (HasCallStack)
 import NoThunks.Class (InspectHeapNamed (..), NoThunks)
-import Shelley.Spec.Ledger.Address (Addr)
 import Shelley.Spec.Ledger.CompactAddr (CompactAddr, compactAddr, decompactAddr)
 import Shelley.Spec.Ledger.Delegation.Certificates (DCert)
 import Shelley.Spec.Ledger.PParams (Update)
@@ -707,7 +707,7 @@ ppTxBody (TxBodyConstr (Memo (TxBodyRaw i ifee o c w fee vi u rsh mnt sdh axh ni
   ppRecord
     "TxBody(Alonzo)"
     [ ("inputs", ppSet ppTxIn i),
-      ("inputs_fee", ppSet ppTxIn ifee),
+      ("collateral", ppSet ppTxIn ifee),
       ("outputs", ppStrictSeq ppTxOut o),
       ("certificates", ppStrictSeq ppDCert c),
       ("withdrawals", ppWdrl w),
@@ -733,3 +733,12 @@ instance
   PrettyA (TxBody era)
   where
   prettyA = ppTxBody
+
+instance
+  ( Era era,
+    Show (Core.Value era),
+    PrettyA (Core.Value era)
+  ) =>
+  PrettyA (TxOut era)
+  where
+  prettyA x = ppTxOut x

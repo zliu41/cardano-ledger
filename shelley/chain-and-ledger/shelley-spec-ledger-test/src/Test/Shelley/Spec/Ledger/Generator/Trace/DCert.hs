@@ -53,7 +53,6 @@ import Data.Sequence.Strict (StrictSeq)
 import qualified Data.Sequence.Strict as StrictSeq
 import GHC.Generics (Generic)
 import GHC.Stack (HasCallStack)
-import Numeric.Natural (Natural)
 import Shelley.Spec.Ledger.API
   ( AccountState,
     DCert,
@@ -69,7 +68,7 @@ import Cardano.Ledger.BaseTypes (Globals, ShelleyBase)
 import Shelley.Spec.Ledger.Delegation.Certificates (isDeRegKey)
 import Cardano.Ledger.Keys (HasKeyRole (coerceKeyRole), asWitness)
 import Shelley.Spec.Ledger.STS.Delpl (DelplPredicateFailure)
-import Shelley.Spec.Ledger.Slot (SlotNo (..))
+import Cardano.Ledger.Slot (SlotNo (..))
 import Shelley.Spec.Ledger.TxBody (Ix)
 import Shelley.Spec.Ledger.UTxO (totalDeposits)
 import Test.QuickCheck (Gen)
@@ -169,6 +168,7 @@ instance
   sigGen
     ( GenEnv
         ks
+        _scriptspace
         constants
       )
     (slot, _txIx, pparams, accountState)
@@ -200,7 +200,7 @@ genDCerts ::
   Core.PParams era ->
   DPState (Crypto era) ->
   SlotNo ->
-  Natural ->
+  Ix ->
   AccountState ->
   Gen
     ( StrictSeq (DCert (Crypto era)),
@@ -212,6 +212,7 @@ genDCerts ::
 genDCerts
   ge@( GenEnv
          KeySpace_ {ksIndexedStakingKeys}
+         _scriptspace
          Constants {maxCertsPerTx}
        )
   pparams

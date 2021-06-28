@@ -14,6 +14,7 @@ module Cardano.Ledger.Alonzo.PlutusScriptApi
     evalScripts,
     -- Figure 12
     scriptsNeeded,
+    scriptsNeededFromBody,
     checkScriptData,
     language,
     CollectError (..),
@@ -22,6 +23,7 @@ module Cardano.Ledger.Alonzo.PlutusScriptApi
 where
 
 import Cardano.Binary (FromCBOR (..), ToCBOR (..))
+import Cardano.Ledger.Address (Addr)
 import Cardano.Ledger.Alonzo.Data (getPlutusData)
 import Cardano.Ledger.Alonzo.Language (Language (..))
 import Cardano.Ledger.Alonzo.Scripts (CostModel, ExUnits (..))
@@ -40,6 +42,7 @@ import Cardano.Ledger.Alonzo.TxInfo (runPLCScript, txInfo, valContext)
 import Cardano.Ledger.Alonzo.TxWitness (TxWitness (txwitsVKey'), txscripts', unTxDats)
 import Cardano.Ledger.BaseTypes (StrictMaybe (..))
 import qualified Cardano.Ledger.Core as Core
+import Cardano.Ledger.Credential (Credential (ScriptHashObj))
 import qualified Cardano.Ledger.Crypto as CC (Crypto)
 import Cardano.Ledger.Era (Crypto, Era, ValidateScript (..))
 import Cardano.Ledger.Mary.Value (PolicyID (..))
@@ -58,8 +61,6 @@ import qualified Data.Set as Set
 import GHC.Generics
 import GHC.Records (HasField (..))
 import NoThunks.Class (NoThunks)
-import Shelley.Spec.Ledger.Address (Addr)
-import Shelley.Spec.Ledger.Credential (Credential (ScriptHashObj))
 import Shelley.Spec.Ledger.Delegation.Certificates (DCert (..))
 import Shelley.Spec.Ledger.Scripts (ScriptHash (..))
 import Shelley.Spec.Ledger.TxBody
@@ -263,9 +264,33 @@ scriptsNeeded ::
   UTxO era ->
   tx ->
   [(ScriptPurpose (Crypto era), ScriptHash (Crypto era))]
-scriptsNeeded (UTxO utxomap) tx = spend ++ reward ++ cert ++ minted
+scriptsNeeded utxo tx = scriptsNeededFromBody utxo (getField @"body" tx)
+
+-- We only find certificate witnesses in Delegating and Deregistration DCerts
+-- that have ScriptHashObj credentials.
+addOnlyCwitness ::
+  [(ScriptPurpose crypto, ScriptHash crypto)] ->
+  DCert crypto ->
+  [(ScriptPurpose crypto, ScriptHash crypto)]
+addOnlyCwitness !ans (DCertDeleg c@(DeRegKey (ScriptHashObj hk))) =
+  (Certifying $ DCertDeleg c, hk) : ans
+addOnlyCwitness !ans (DCertDeleg c@(Delegate (Delegation (ScriptHashObj hk) _dpool))) =
+  (Certifying $ DCertDeleg c, hk) : ans
+addOnlyCwitness !ans _ = ans
+
+scriptsNeededFromBody ::
+  forall era.
+  ( Era era,
+    HasField "inputs" (Core.TxBody era) (Set (TxIn (Crypto era))),
+    HasField "wdrls" (Core.TxBody era) (Wdrl (Crypto era)),
+    HasField "certs" (Core.TxBody era) (StrictSeq (DCert (Crypto era))),
+    HasField "address" (Core.TxOut era) (Addr (Crypto era))
+  ) =>
+  UTxO era ->
+  Core.TxBody era ->
+  [(ScriptPurpose (Crypto era), ScriptHash (Crypto era))]
+scriptsNeededFromBody (UTxO utxomap) txb = spend ++ reward ++ cert ++ minted
   where
-    txb = getField @"body" tx
     !spend = foldl' accum [] (getField @"inputs" txb)
       where
         accum !ans !i =
@@ -288,15 +313,3 @@ scriptsNeeded (UTxO utxomap) tx = spend ++ reward ++ cert ++ minted
     !minted = foldr (\hash ans -> (Minting (PolicyID hash), hash) : ans) [] valuePolicyHashes
       where
         valuePolicyHashes = getField @"minted" txb
-
--- We only find certificate witnesses in Delegating and Deregistration DCerts
--- that have ScriptHashObj credentials.
-addOnlyCwitness ::
-  [(ScriptPurpose crypto, ScriptHash crypto)] ->
-  DCert crypto ->
-  [(ScriptPurpose crypto, ScriptHash crypto)]
-addOnlyCwitness !ans (DCertDeleg c@(DeRegKey (ScriptHashObj hk))) =
-  (Certifying $ DCertDeleg c, hk) : ans
-addOnlyCwitness !ans (DCertDeleg c@(Delegate (Delegation (ScriptHashObj hk) _dpool))) =
-  (Certifying $ DCertDeleg c, hk) : ans
-addOnlyCwitness !ans _ = ans

@@ -7,25 +7,29 @@
 
 module Test.Cardano.Ledger.Alonzo.Examples where
 
-import Data.ByteString.Short (ShortByteString, toShort)
+import Cardano.Ledger.Alonzo.Scripts (Script (..))
+import Data.ByteString.Short (ShortByteString)
 import Data.Maybe (fromMaybe)
-import Flat (flat)
 import qualified Plutus.V1.Ledger.Api as P
   ( EvaluationError (..),
     ExBudget (..),
     ExCPU (..),
     ExMemory (..),
     VerboseMode (..),
-    defaultCekCostModelParams,
+    defaultCostModelParams,
     evaluateScriptRestricting,
   )
 import Plutus.V1.Ledger.Examples
   ( alwaysFailingNAryFunction,
     alwaysSucceedingNAryFunction,
   )
-import qualified Plutus.V1.Ledger.Scripts as P
 import qualified PlutusTx as P
-import qualified PlutusTx.Prelude as P
+import qualified Test.Cardano.Ledger.Alonzo.PlutusScripts as Generated
+  ( evendata3,
+    guessTheNumber2,
+    guessTheNumber3,
+    odddata3,
+  )
 import Test.Tasty (TestTree, testGroup)
 import Test.Tasty.HUnit (Assertion, assertBool, testCase)
 
@@ -47,7 +51,7 @@ directPlutusTest expectation script ds =
     (ShouldFail, (_, Right _)) ->
       assertBool "This script should have failed" False
   where
-    costModel = fromMaybe (error "corrupt default cost model") P.defaultCekCostModelParams
+    costModel = fromMaybe (error "corrupt default cost model") P.defaultCostModelParams
     -- Evaluate a script with sufficient budget to run it.
     evalWithHugeBudget scr datums =
       P.evaluateScriptRestricting
@@ -57,13 +61,27 @@ directPlutusTest expectation script ds =
         scr
         datums
 
-guessTheNumber' :: P.Data -> P.Data -> ()
-guessTheNumber' d1 d2 = if d1 P.== d2 then () else (P.error ())
+-- | Expects 3 args (data, redeemer, context)
+guessTheNumber3 :: ShortByteString
+guessTheNumber3 = case Generated.guessTheNumber3 of
+  PlutusScript sbs -> sbs
+  _ -> error ("Should not happen 'guessTheNumber3' is a plutus script")
 
-guessTheNumber :: ShortByteString
-guessTheNumber =
-  toShort . flat . P.fromCompiledCode $
-    $$(P.compile [||guessTheNumber'||])
+-- | Expects 2 args (data, redeemer)
+guessTheNumber2 :: ShortByteString
+guessTheNumber2 = case Generated.guessTheNumber2 of
+  PlutusScript sbs -> sbs
+  _ -> error ("Should not happen 'guessTheNumber2' is a plutus script")
+
+even3 :: ShortByteString
+even3 = case Generated.evendata3 of
+  PlutusScript sbs -> sbs
+  _ -> error ("Should not happen 'evendata3' is a plutus script")
+
+odd3 :: ShortByteString
+odd3 = case Generated.odddata3 of
+  PlutusScript sbs -> sbs
+  _ -> error ("Should not happen 'odddata3' is a plutus script")
 
 plutusScriptExamples :: TestTree
 plutusScriptExamples =
@@ -82,11 +100,36 @@ plutusScriptExamples =
       testCase "guess the number, correct" $
         directPlutusTest
           ShouldSucceed
-          guessTheNumber
+          guessTheNumber2
           [P.I 3, P.I 3],
       testCase "guess the number, incorrect" $
         directPlutusTest
           ShouldFail
-          guessTheNumber
-          [P.I 3, P.I 4]
+          guessTheNumber2
+          [P.I 3, P.I 4],
+      testCase "guess the number with 3 args, correct" $
+        directPlutusTest
+          ShouldSucceed
+          guessTheNumber3
+          [P.I 3, P.I 3, P.I 9],
+      testCase "evendata with 3 args, correct" $
+        directPlutusTest
+          ShouldSucceed
+          even3
+          [P.I 4, P.I 3, P.I 9],
+      testCase "evendata with 3 args, incorrect" $
+        directPlutusTest
+          ShouldFail
+          even3
+          [P.I 3, P.I 3, P.I 9],
+      testCase "odd data with 3 args, correct" $
+        directPlutusTest
+          ShouldSucceed
+          odd3
+          [P.I 3, P.I 3, P.I 9],
+      testCase "odd data with 3 args, incorrect" $
+        directPlutusTest
+          ShouldFail
+          odd3
+          [P.I 4, P.I 3, P.I 9]
     ]

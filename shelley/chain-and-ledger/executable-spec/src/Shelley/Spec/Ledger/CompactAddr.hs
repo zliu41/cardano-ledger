@@ -19,10 +19,18 @@ import Cardano.Binary
     decodeFull',
   )
 import qualified Cardano.Crypto.Hash.Class as Hash
+import Cardano.Ledger.Address (Addr (..), BootstrapAddress (..), Word7 (..), byron, isEnterpriseAddr, notBaseAddr, payCredIsScript, serialiseAddr, stakeCredIsScript, toWord7, word7sToWord64)
 import Cardano.Ledger.BaseTypes (word8ToNetwork)
+import Cardano.Ledger.Credential
+  ( Credential (KeyHashObj, ScriptHashObj),
+    PaymentCredential,
+    Ptr (..),
+    StakeReference (..),
+  )
 import Cardano.Ledger.Crypto (ADDRHASH)
 import qualified Cardano.Ledger.Crypto as CC (Crypto)
 import Cardano.Ledger.Keys (KeyHash (..))
+import Cardano.Ledger.Slot (SlotNo (..))
 import Cardano.Prelude (Text, cborError, panic)
 import Control.Monad (ap)
 import qualified Control.Monad.Fail
@@ -32,17 +40,8 @@ import Data.ByteString.Short as SBS
 import Data.ByteString.Short.Internal (ShortByteString (SBS))
 import Data.Maybe (fromMaybe)
 import qualified Data.Primitive.ByteArray as BA
-import Data.Word (Word8)
-import Numeric.Natural (Natural)
-import Shelley.Spec.Ledger.Address (Addr (..), BootstrapAddress (..), Word7 (..), byron, isEnterpriseAddr, notBaseAddr, payCredIsScript, serialiseAddr, stakeCredIsScript, toWord7, word7sToNat)
-import Shelley.Spec.Ledger.Credential
-  ( Credential (KeyHashObj, ScriptHashObj),
-    PaymentCredential,
-    Ptr (..),
-    StakeReference (..),
-  )
+import Data.Word (Word64, Word8)
 import Shelley.Spec.Ledger.Scripts (ScriptHash (..))
-import Shelley.Spec.Ledger.Slot (SlotNo (..))
 
 newtype CompactAddr crypto = UnsafeCompactAddr ShortByteString
   deriving (Eq, Ord)
@@ -180,21 +179,21 @@ skip n = GetShort $ \i sbs ->
 getWord7s :: GetShort [Word7]
 getWord7s = do
   next <- getWord
-  case next .&. 0x80 of -- 0x80 ~ 0b10000000
   -- is the high bit set?
-  -- if so, grab more words
-    0x80 -> (:) (toWord7 next) <$> getWord7s
-    -- otherwise, this is the last one
-    _ -> pure [Word7 next]
+  if testBit next 7
+    then -- if so, grab more words
+      (:) (toWord7 next) <$> getWord7s
+    else -- otherwise, this is the last one
+      pure [Word7 next]
 
-getVariableLengthNat :: GetShort Natural
-getVariableLengthNat = word7sToNat <$> getWord7s
+getVariableLengthWord64 :: GetShort Word64
+getVariableLengthWord64 = word7sToWord64 <$> getWord7s
 
 getPtr :: GetShort Ptr
 getPtr =
-  Ptr <$> (SlotNo . fromIntegral <$> getVariableLengthNat)
-    <*> getVariableLengthNat
-    <*> getVariableLengthNat
+  Ptr <$> (SlotNo <$> getVariableLengthWord64)
+    <*> getVariableLengthWord64
+    <*> getVariableLengthWord64
 
 getKeyHash :: CC.Crypto crypto => GetShort (Credential kr crypto)
 getKeyHash = KeyHashObj . KeyHash <$> getHash

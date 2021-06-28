@@ -1,3 +1,4 @@
+{-# LANGUAGE ConstraintKinds #-}
 {-# LANGUAGE DataKinds #-}
 {-# LANGUAGE FlexibleContexts #-}
 {-# LANGUAGE NamedFieldPuns #-}
@@ -6,7 +7,6 @@
 {-# LANGUAGE TupleSections #-}
 {-# LANGUAGE TypeApplications #-}
 {-# LANGUAGE TypeFamilies #-}
-{-# LANGUAGE ConstraintKinds #-}
 
 module Test.Shelley.Spec.Ledger.Generator.Block
   ( genBlock,
@@ -17,9 +17,12 @@ module Test.Shelley.Spec.Ledger.Generator.Block
 where
 
 import qualified Cardano.Crypto.VRF as VRF
+import Cardano.Ledger.BaseTypes (UnitInterval)
 import qualified Cardano.Ledger.Core as Core
 import Cardano.Ledger.Crypto (VRF)
-import Cardano.Ledger.Era (Crypto)
+import Cardano.Ledger.Era (Crypto, SupportsSegWit (TxInBlock, TxSeq))
+import qualified Cardano.Ledger.Era as Era (TxInBlock)
+import Cardano.Ledger.Serialization (ToCBORGroup)
 import Cardano.Slotting.Slot (WithOrigin (..))
 import Control.SetAlgebra (dom, eval)
 import Control.State.Transition.Trace.Generator.QuickCheck (sigGen)
@@ -31,16 +34,16 @@ import qualified Data.Map.Strict as Map
 import Data.Maybe (catMaybes, fromMaybe)
 import Data.Sequence (Seq)
 import qualified Data.Set as Set
+import GHC.Records (HasField (getField))
 import Shelley.Spec.Ledger.API
 import Shelley.Spec.Ledger.BlockChain
   ( LastAppliedBlock (..),
-    checkLeaderValue,
     hashHeaderToNonce,
     mkSeed,
     seedL,
   )
 import Shelley.Spec.Ledger.OCert (currentIssueNo, kesPeriod)
-import Shelley.Spec.Ledger.Slot (SlotNo (..))
+import Cardano.Ledger.Slot (SlotNo (..))
 import Test.QuickCheck (Gen)
 import qualified Test.QuickCheck as QC (choose)
 import Test.Shelley.Spec.Ledger.ConcreteCryptoTypes
@@ -54,6 +57,7 @@ import Test.Shelley.Spec.Ledger.Generator.Core
     mkBlock,
     mkOCert,
   )
+import Test.Shelley.Spec.Ledger.Generator.EraGen (EraGen (..), MinLEDGER_STS)
 import Test.Shelley.Spec.Ledger.Generator.Trace.Ledger ()
 import Test.Shelley.Spec.Ledger.Utils
   ( epochFromSlotNo,
@@ -62,13 +66,6 @@ import Test.Shelley.Spec.Ledger.Utils
     slotFromEpoch,
     testGlobals,
   )
-import Cardano.Ledger.Era(SupportsSegWit(TxSeq,TxInBlock))
-import Test.Shelley.Spec.Ledger.Generator.EraGen(EraGen(..), MinLEDGER_STS)
-import Cardano.Ledger.BaseTypes(UnitInterval)
-import GHC.Records(HasField(getField))
-import Cardano.Ledger.Serialization(ToCBORGroup)
-import qualified Cardano.Ledger.Era as Era(TxInBlock)
-
 
 -- ======================================================
 
@@ -99,7 +96,8 @@ genBlock ge = genBlockWithTxGen genTxs ge
     genTxs :: TxGen era
     genTxs pp reserves ls s = do
       let ledgerEnv = LedgersEnv @era s pp reserves
-      sigGen @(Core.EraRule "LEDGERS" era) ge ledgerEnv ls
+      block <- sigGen @(Core.EraRule "LEDGERS" era) ge ledgerEnv ls
+      genEraTweakBlock @era pp block
 
 genBlockWithTxGen ::
   forall era.
@@ -115,7 +113,7 @@ genBlockWithTxGen ::
   Gen (Block era)
 genBlockWithTxGen
   genTxs
-  ge@(GenEnv KeySpace_ {ksStakePools, ksIndexedGenDelegates} _)
+  ge@(GenEnv KeySpace_ {ksStakePools, ksIndexedGenDelegates} _scriptspace  _)
   origChainState = do
     -- Firstly, we must choose a slot in which to lead.
     -- Caution: the number of slots we jump here will affect the number
@@ -183,14 +181,15 @@ selectNextSlotWithLeader ::
   SlotNo ->
   Maybe (SlotNo, ChainState era, AllIssuerKeys (Crypto era) 'BlockIssuer)
 selectNextSlotWithLeader
-  (GenEnv KeySpace_ {ksStakePools, ksIndexedGenDelegates} _)
+  (GenEnv KeySpace_ {ksStakePools, ksIndexedGenDelegates} _ _)
   origChainState
   startSlot =
     List.find (const True) . catMaybes $
       selectNextSlotWithLeaderThisEpoch
         <$> (startSlot : [slotFromEpoch x | x <- [startEpoch + 1 .. startEpoch + 4]])
-            -- If we can't find a leader in the next N Epochs, some thing is wrong, N=4 should be large enough.
     where
+      -- If we can't find a leader in the next N Epochs, some thing is wrong, N=4 should be large enough.
+
       startEpoch = epochFromSlotNo startSlot
       selectNextSlotWithLeaderThisEpoch ::
         -- Slot number whence we begin our search

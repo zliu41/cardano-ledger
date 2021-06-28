@@ -52,7 +52,7 @@ import Shelley.Spec.Ledger.STS.Delpl (DELPL, DelplEnv, DelplPredicateFailure)
 import Shelley.Spec.Ledger.STS.Ledger (LEDGER, LedgerEnv (..))
 import Shelley.Spec.Ledger.STS.Ledgers (LEDGERS, LedgersEnv (..))
 import Shelley.Spec.Ledger.STS.Utxo (UtxoEnv)
-import Shelley.Spec.Ledger.Slot (SlotNo (..))
+import Cardano.Ledger.Slot (SlotNo (..))
 import Shelley.Spec.Ledger.TxBody (DCert, Ix, TxIn)
 import Test.QuickCheck (Gen)
 import Test.Shelley.Spec.Ledger.ConcreteCryptoTypes (Mock)
@@ -154,7 +154,7 @@ instance
 
   -- a LEDGERS signal is a sequence of LEDGER signals
   sigGen
-    ge@(GenEnv _ Constants {maxTxsPerBlock})
+    ge@(GenEnv _ _ Constants {maxTxsPerBlock})
     (LedgersEnv slotNo pParams reserves)
     (LedgerState utxoSt dpSt) = do
       (_, _, txs') <-
@@ -202,7 +202,7 @@ mkGenesisLedgerState ::
   GenEnv era ->
   IRC (LEDGER era) ->
   Gen (Either a (UTxOState era, DPState (Crypto era)))
-mkGenesisLedgerState ge@(GenEnv _ c) _ = do
+mkGenesisLedgerState ge@(GenEnv _ _ c) _ = do
   utxo0 <- genUtxo0 ge
   let (LedgerState utxoSt dpSt) = genesisState (genesisDelegs0 c) utxo0
   pure $ Right (utxoSt, dpSt)

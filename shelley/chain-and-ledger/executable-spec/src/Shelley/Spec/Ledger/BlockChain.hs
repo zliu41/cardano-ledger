@@ -126,6 +126,7 @@ import Cardano.Ledger.Serialization
     listLenInt,
     runByteBuilder,
   )
+import Cardano.Ledger.Slot (BlockNo (..), SlotNo (..))
 import Cardano.Slotting.Slot (WithOrigin (..))
 import Control.DeepSeq (NFData)
 import Control.Monad (unless)
@@ -151,7 +152,6 @@ import Numeric.Natural (Natural)
 import Shelley.Spec.Ledger.EpochBoundary (BlocksMade (..))
 import Shelley.Spec.Ledger.OCert (OCert (..))
 import Shelley.Spec.Ledger.PParams (ProtVer (..))
-import Shelley.Spec.Ledger.Slot (BlockNo (..), SlotNo (..))
 import Shelley.Spec.Ledger.Tx (segwitTx)
 import Shelley.Spec.NonIntegral (CompareResult (..), taylorExpCmp)
 
@@ -786,20 +786,26 @@ mkSeed ucNonce (SlotNo slot) eNonce =
 -- | Check that the certified input natural is valid for being slot leader. This
 -- means we check that
 --
--- fromNat (certNat) < 1 - (1 - f)^σ
+-- p < 1 - (1 - f)^σ
 --
--- where fromNat creates an appropriate value in [0;1] from the certified
--- natural. The calculation is done using the following optimization:
+-- where p = certNat / certNatMax.
 --
--- let p = fromNat (certNat) and c = ln(1 - f)
+-- The calculation is done using the following optimization:
+--
+-- let q = 1 - p and c = ln(1 - f)
 --
 -- then           p < 1 - (1 - f)^σ
 -- <=>  1 / (1 - p) < exp(-σ * c)
+-- <=>  1 / q       < exp(-σ * c)
 --
--- this can be efficiently be computed by `taylorExpCmp` which returns `ABOVE`
+-- This can be efficiently be computed by `taylorExpCmp` which returns `ABOVE`
 -- in case the reference value `1 / (1 - p)` is above the exponential function
 -- at `-σ * c`, `BELOW` if it is below or `MaxReached` if it couldn't
 -- conclusively compute this within the given iteration bounds.
+--
+-- Note that  1       1               1                         certNatMax
+--           --- =  ----- = ---------------------------- = ----------------------
+--            q     1 - p    1 - (certNat / certNatMax)    (certNatMax - certNat)
 checkLeaderValue ::
   forall v.
   (VRF.VRFAlgorithm v) =>
