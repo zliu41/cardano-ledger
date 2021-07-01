@@ -16,6 +16,7 @@ module Shelley.Spec.Ledger.STS.Bbody
     BbodyState (..),
     BbodyEnv (..),
     BbodyPredicateFailure (..),
+    BbodyEvent (..),
     PredicateFailure,
     State,
   )
@@ -93,6 +94,9 @@ data BbodyPredicateFailure era
   | LedgersFailure (PredicateFailure (Core.EraRule "LEDGERS" era)) -- Subtransition Failures
   deriving (Generic)
 
+data BbodyEvent era = 
+  LedgersEvent (Event (Core.EraRule "LEDGERS" era))
+
 deriving stock instance
   ( Era era,
     Show (PredicateFailure (Core.EraRule "LEDGERS" era))
@@ -137,7 +141,8 @@ instance
   type BaseM (BBODY era) = ShelleyBase
 
   type PredicateFailure (BBODY era) = BbodyPredicateFailure era
-    = LedgersEvent (Event (Core.EraRule "LEDGERS" era)) -- Subtransition Failures
+
+  type Event (BBODY era) = BbodyEvent era
 
   initialRules = []
   transitionRules = [bbodyTransition]
@@ -193,7 +198,7 @@ bbodyTransition =
                 b
             )
 
-instance
+instance forall era ledgers.
   ( Era era,
     BaseM ledgers ~ ShelleyBase,
     ledgers ~ Core.EraRule "LEDGERS" era,
@@ -204,3 +209,4 @@ instance
   Embed ledgers (BBODY era)
   where
   wrapFailed = LedgersFailure
+  wrapEvent = LedgersEvent

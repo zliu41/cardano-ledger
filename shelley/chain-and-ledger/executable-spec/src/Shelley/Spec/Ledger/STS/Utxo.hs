@@ -439,3 +439,4 @@ instance
   Embed (PPUP era) (UTXO era)
   where
   wrapFailed = UpdateFailure
+  wrapEvent = id

@@ -451,6 +451,7 @@ instance STS SDELEGS where
 
 instance Embed SDELEG SDELEGS where
   wrapFailed = SDelegFailure
+  wrapEvent = id
 
 -- | Delegation rules sequencing
 data ADELEGS deriving (Data, Typeable)
@@ -484,6 +485,7 @@ instance STS ADELEGS where
 
 instance Embed ADELEG ADELEGS where
   wrapFailed = ADelegFailure
+  wrapEvent = id
 
 -- | Delegation interface
 data DELEG deriving (Data, Typeable)
@@ -499,8 +501,6 @@ instance STS DELEG where
   type Environment DELEG = DIEnv
 
   type PredicateFailure DELEG = DelegPredicateFailure
-    = SDelegSEvent (Event SDELEGS)
-    | ADelegSEvent (Event ADELEGS)
 
   initialRules = [ do
                      IRC env <- judgmentContext
@@ -530,9 +530,11 @@ instance STS DELEG where
 
 instance Embed SDELEGS DELEG where
   wrapFailed = SDelegSFailure
+  wrapEvent = id
 
 instance Embed ADELEGS DELEG where
   wrapFailed = ADelegSFailure
+  wrapEvent = id
 
 --------------------------------------------------------------------------------
 -- Generators
@@ -625,6 +627,7 @@ instance STS MSDELEG where
 
 instance Embed SDELEG MSDELEG where
   wrapFailed = SDELEGFailure
+  wrapEvent = id
 
 instance HasTrace MSDELEG where
 

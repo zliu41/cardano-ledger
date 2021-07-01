@@ -18,7 +18,7 @@ module Shelley.Spec.Ledger.STS.Chain
   ( CHAIN,
     ChainState (..),
     ChainPredicateFailure (..),
-    Event (..),
+    Event,
     PredicateFailure,
     AdaPots (..),
     initialShelleyState,
@@ -118,6 +118,7 @@ import Shelley.Spec.Ledger.STS.Prtcl
 import Shelley.Spec.Ledger.STS.Tick (TICK, TickPredicateFailure)
 import Shelley.Spec.Ledger.STS.Tickn
 import Shelley.Spec.Ledger.UTxO (UTxO (..), balance)
+import Data.Void (Void)
 
 data CHAIN era
 
@@ -158,6 +159,12 @@ data ChainPredicateFailure era
   | PrtclFailure !(PredicateFailure (PRTCL (Crypto era))) -- Subtransition Failures
   | PrtclSeqFailure !(PrtlSeqFailure (Crypto era)) -- Subtransition Failures
   deriving (Generic)
+
+data ChainEvent era
+  = BbodyEvent !(Event (Core.EraRule "BBODY" era))
+  | TickEvent !(Event (Core.EraRule "TICK" era))
+  | TicknEvent !(Event (Core.EraRule "TICKN" era))
+  | PrtclEvent !(Event (PRTCL (Crypto era)))
 
 deriving stock instance
   ( Era era,
@@ -270,11 +277,7 @@ instance
   type BaseM (CHAIN era) = ShelleyBase
 
   type PredicateFailure (CHAIN era) = ChainPredicateFailure era
-
-    = BbodyEvent (Event (Core.EraRule "BBODY" era))
-    | TicknEvent (Event TICKN)
-    | TickEvent (Event (TICK era))
-    | PrtclEvent (Event (PRTCL (Crypto era)))
+  type Event (CHAIN era) = ChainEvent era
 
   initialRules = []
   transitionRules = [chainTransition]
@@ -424,25 +427,30 @@ instance
   Embed (BBODY era) (CHAIN era)
   where
   wrapFailed = BbodyFailure
+  wrapEvent = BbodyEvent
 
 instance
   ( Era era,
     Era era,
-    PredicateFailure (Core.EraRule "TICKN" era) ~ TicknPredicateFailure
+    PredicateFailure (Core.EraRule "TICKN" era) ~ TicknPredicateFailure,
+    Event (Core.EraRule "TICKN" era) ~ Void
   ) =>
   Embed TICKN (CHAIN era)
   where
   wrapFailed = TicknFailure
+  wrapEvent = TicknEvent
 
 instance
   ( Era era,
     Era era,
     STS (TICK era),
-    PredicateFailure (Core.EraRule "TICK" era) ~ TickPredicateFailure era
+    PredicateFailure (Core.EraRule "TICK" era) ~ TickPredicateFailure era,
+    Event (Core.EraRule "TICK" era) ~ Void
   ) =>
   Embed (TICK era) (CHAIN era)
   where
   wrapFailed = TickFailure
+  wrapEvent = TickEvent
 
 instance
   ( Era era,
@@ -453,6 +461,7 @@ instance
   Embed (PRTCL c) (CHAIN era)
   where
   wrapFailed = PrtclFailure
+  wrapEvent = PrtclEvent
 
 data AdaPots = AdaPots
   { treasuryAdaPot :: Coin,

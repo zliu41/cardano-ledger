@@ -241,3 +241,4 @@ instance
   Embed ledgers (AlonzoBBODY era)
   where
   wrapFailed = ShelleyInAlonzoPredFail . LedgersFailure
+  wrapEvent = id

@@ -172,6 +172,7 @@ instance
   Embed (DELEGS era) (AlonzoLEDGER era)
   where
   wrapFailed = DelegsFailure
+  wrapEvent = id
 
 instance
   ( Era era,
@@ -181,6 +182,7 @@ instance
   Embed (AlonzoUTXOW era) (AlonzoLEDGER era)
   where
   wrapFailed = UtxowFailure
+  wrapEvent = id
 
 instance
   ( Era era,
@@ -190,3 +192,4 @@ instance
   Embed (AlonzoLEDGER era) (Shelley.LEDGERS era)
   where
   wrapFailed = Shelley.LedgerFailure
+  wrapEvent = id

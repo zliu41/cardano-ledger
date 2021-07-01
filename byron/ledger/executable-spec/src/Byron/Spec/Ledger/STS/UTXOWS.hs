@@ -57,6 +57,7 @@ instance STS UTXOWS where
 
 instance Embed UTXOW UTXOWS where
   wrapFailed = UtxowFailure
+  wrapEvent = id
 
 instance HasTrace UTXOWS where
   envGen = envGen @UTXOW

@@ -97,9 +97,12 @@ instance STS BBODY where
 
 instance Embed BUPI BBODY where
   wrapFailed = BUPIFailure
+  wrapEvent = id
 
 instance Embed DELEG BBODY where
   wrapFailed = DelegationFailure
+  wrapEvent = id
 
 instance Embed UTXOWS BBODY where
   wrapFailed = UTXOWSFailure
+  wrapEvent = id

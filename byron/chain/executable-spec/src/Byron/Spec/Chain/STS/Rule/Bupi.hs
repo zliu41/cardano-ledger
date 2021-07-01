@@ -71,9 +71,12 @@ instance STS BUPI where
 
 instance Embed UPIREG BUPI where
   wrapFailed = UPIREGFailure
+  wrapEvent = id
 
 instance Embed UPIVOTES BUPI where
   wrapFailed = UPIVOTESFailure
+  wrapEvent = id
 
 instance Embed UPIEND BUPI where
   wrapFailed = UPIENDFailure
+  wrapEvent = id

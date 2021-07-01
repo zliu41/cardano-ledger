@@ -67,6 +67,9 @@ data LedgersPredicateFailure era
   = LedgerFailure (PredicateFailure (Core.EraRule "LEDGER" era)) -- Subtransition Failures
   deriving (Generic)
 
+data LedgersEvent era
+  = LedgerEvent (Event (LEDGER era))
+
 deriving stock instance
   ( ShelleyBased era,
     Show (PredicateFailure (Core.EraRule "LEDGER" era))
@@ -118,6 +121,7 @@ instance
   type Environment (LEDGERS era) = LedgersEnv era
   type BaseM (LEDGERS era) = ShelleyBase
   type PredicateFailure (LEDGERS era) = LedgersPredicateFailure era
+  type Event (LEDGERS era) = LedgersEvent era
 
   transitionRules = [ledgersTransition]
 
@@ -152,3 +156,4 @@ instance
   Embed (LEDGER era) (LEDGERS era)
   where
   wrapFailed = LedgerFailure
+  wrapEvent = LedgerEvent

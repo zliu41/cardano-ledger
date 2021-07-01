@@ -108,6 +108,9 @@ data DelegsPredicateFailure era
   | DelplFailure (PredicateFailure (Core.EraRule "DELPL" era)) -- Subtransition Failures
   deriving (Generic)
 
+data DelegsEvent era
+  = DelplEvent (Event (DELPL era))
+
 deriving stock instance
   ( Show (PredicateFailure (Core.EraRule "DELPL" era))
   ) =>
@@ -136,6 +139,7 @@ instance
   type
     PredicateFailure (DELEGS era) =
       DelegsPredicateFailure era
+  type Event _ = DelegsEvent era
 
   transitionRules = [delegsTransition]
 
@@ -262,3 +266,4 @@ instance
   Embed (DELPL era) (DELEGS era)
   where
   wrapFailed = DelplFailure
+  wrapEvent = DelplEvent

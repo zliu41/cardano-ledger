@@ -133,6 +133,7 @@ instance STS DBLOCK where
 
 instance Embed DELEG DBLOCK where
   wrapFailed = DPF
+  wrapEvent = id
 
 -- | Check that all the delegation certificates in the trace were correctly
 -- applied.

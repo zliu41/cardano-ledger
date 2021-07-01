@@ -58,3 +58,4 @@ instance STS EPOCH where
 
 instance Embed UPIEC EPOCH where
   wrapFailed = UPIECFailure
+  wrapEvent = id

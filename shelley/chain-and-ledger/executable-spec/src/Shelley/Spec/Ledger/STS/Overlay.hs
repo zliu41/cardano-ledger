@@ -142,9 +142,6 @@ instance
   type BaseM (OVERLAY crypto) = ShelleyBase
   type PredicateFailure (OVERLAY crypto) = OverlayPredicateFailure crypto
 
-  data Event (OVERLAY crypto)
-    = OcertEvent (Event (OCERT crypto))
-
   initialRules = []
 
   transitionRules = [overlayTransition]
@@ -296,3 +293,4 @@ instance
   Embed (OCERT crypto) (OVERLAY crypto)
   where
   wrapFailed = OcertFailure
+  wrapEvent = id

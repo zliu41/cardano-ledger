@@ -70,6 +70,10 @@ data DelplPredicateFailure era
   | DelegFailure (PredicateFailure (Core.EraRule "DELEG" era)) -- Subtransition Failures
   deriving (Generic)
 
+data DelplEvent era
+  = PoolEvent (Event (POOL era))
+  | DelegEvent (Event (DELEG era))
+
 deriving stock instance
   ( Eq (PredicateFailure (Core.EraRule "DELEG" era)),
     Eq (PredicateFailure (Core.EraRule "POOL" era))
@@ -106,9 +110,7 @@ instance
   type Environment (DELPL era) = DelplEnv era
   type BaseM (DELPL era) = ShelleyBase
   type PredicateFailure (DELPL era) = DelplPredicateFailure era
-  data Event (DELPL era)
-    = DelegEvent (Event (DELEG era))
-    | PoolEvent (Event (POOL era))
+  type Event (DELPL era) = DelplEvent era
 
   transitionRules = [delplTransition]
 
@@ -200,6 +202,7 @@ instance
   Embed (POOL era) (DELPL era)
   where
   wrapFailed = PoolFailure
+  wrapEvent = PoolEvent
 
 instance
   ( Era era,
@@ -209,3 +212,4 @@ instance
   Embed (DELEG era) (DELPL era)
   where
   wrapFailed = DelegFailure
+  wrapEvent = DelegEvent

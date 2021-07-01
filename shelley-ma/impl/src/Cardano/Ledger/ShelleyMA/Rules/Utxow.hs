@@ -81,6 +81,7 @@ instance
   Embed (UTXO era) (UTXOW era)
   where
   wrapFailed = UtxoFailure
+  wrapEvent = id
 
 instance
   ( Era era,
@@ -91,3 +92,4 @@ instance
   Embed (UTXOW era) (Shelley.LEDGER era)
   where
   wrapFailed = Shelley.UtxowFailure
+  wrapEvent = id

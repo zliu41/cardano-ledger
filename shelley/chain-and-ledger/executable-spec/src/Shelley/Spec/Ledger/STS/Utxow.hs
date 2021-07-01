@@ -388,6 +388,7 @@ instance
   Embed (UTXO era) (UTXOW era)
   where
   wrapFailed = UtxoFailure
+  wrapEvent = id
 
 instance
   ( -- Fix Core.Witnesses to the Shelley Era

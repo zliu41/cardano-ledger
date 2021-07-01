@@ -153,6 +153,7 @@ instance
   Embed (DELPL era) (CERTS era)
   where
   wrapFailed = CertsFailure
+  wrapEvent = id
 
 instance
   ( EraGen era,

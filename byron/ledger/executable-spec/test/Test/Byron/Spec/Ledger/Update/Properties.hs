@@ -355,12 +355,15 @@ instance STS UBLOCK where
 
 instance Embed UPIREG UBLOCK where
   wrapFailed = UPIREGFailure
+  wrapEvent = id
 
 instance Embed UPIVOTES UBLOCK where
   wrapFailed = UPIVOTESFailure
+  wrapEvent = id
 
 instance Embed UPIEND UBLOCK where
   wrapFailed = UPIENDFailure
+  wrapEvent = id
 
 instance HasTrace UBLOCK where
   envGen _ =
