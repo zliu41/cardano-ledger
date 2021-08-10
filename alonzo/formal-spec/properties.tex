@@ -613,14 +613,17 @@ of a transaction --- see Figure \ref{fig:zipped-types}.
   %
   \begin{equation*}
     \begin{array}{r@{~~}l@{~~}l@{\qquad}l}
-      \TxIn_{zip} ~=~
-       & (\TxIn \times \TxOut \times \VKey \times \Sig)  \uniondistinct
-       (\TxIn \times \TxOut \times \Script \times \Data^? \times \Data^? \times \CostMod^? \times \ExUnits^?)\\
-      \Value_{zip} ~=~
-      (\Coin \times ((\PolicyID \times \Script \times \Data^? \times \CostMod^? \times \ExUnits^?) \mapsto_0 (\AssetName \mapsto_0 \Quantity))) \\
-      \Wdrl_{zip} ~=~ ((\AddrRWD \times \VKey \times \Sig) \mapsto \Coin)  \uniondistinct ((\AddrRWD \times \Script \times \Data^? \times \CostMod^? \times \ExUnits^?) \mapsto \Coin) \\
-      \TxOut_{zip}~=~\TxOut \times \Data^? \\
-      \DCert_{zip}~=~(\DCert \times \VKey \times \Sig)  \uniondistinct  (\DCert \times \Script \times \Data^? \times \CostMod^? \times \ExUnits^?)
+      \TxIn_{zip} ~=~&
+       (\TxIn \times \TxOut \times \VKey \times \Sig)  ~\uniondistinct \\
+       & (\TxIn \times \TxOut \times \Script \times \Data^? \times \Data^? \times \CostMod^? \times \ExUnits^?)\\
+      \Value_{zip} ~=~&
+      (\Coin \times ((\PolicyID \times \Script \times \Data^? \times \CostMod^? \times \ExUnits^?) \\
+      & \mapsto_0 (\AssetName \mapsto_0 \Quantity))) \\
+      \Wdrl_{zip} ~=~& ((\AddrRWD \times \VKey \times \Sig) \mapsto \Coin) ~ \uniondistinct \\
+      & ((\AddrRWD \times \Script \times \Data^? \times \CostMod^? \times \ExUnits^?) \mapsto \Coin) \\
+      \TxOut_{zip}~=~& \TxOut \times \Data^? \\
+      \DCert_{zip}~=~& (\DCert \times \VKey \times \Sig) ~ \uniondistinct \\
+      & (\DCert \times \Script \times \Data^? \times \CostMod^? \times \ExUnits^?)
     \end{array}
   \end{equation*}
   %
@@ -628,18 +631,18 @@ of a transaction --- see Figure \ref{fig:zipped-types}.
   %
   \begin{equation*}
     \begin{array}{r@{~~}l@{~~}l@{\qquad}l}
-      \var{txbody} ~\in~ \TxBody_{zip}
-      & \powerset{\TxIn_{zip}} & \fun{txinputs}& \text{Inputs}\\
-      & \times ~\hldiff{\powerset{\TxIn}_{zip}} & \hldiff{\fun{collateral}} & \text{Collateral inputs}\\
-      & \times ~(\Ix \mapsto \TxOut_{zip}) & \fun{txouts}& \text{Outputs}\\
-      & \times~ \seqof{\DCert_{zip}} & \fun{txcerts}& \text{Certificates}\\
-       & \times ~\Value_{zip}  & \fun{mint} &\text{A minted value}\\
+      \var{txbody} ~\in~ \TxBody_{zip}~=~
+      & \hldiff{\powerset{\TxIn_{zip}}} & \fun{txinputs}& \text{Inputs}\\
+      & \times ~\hldiff{\powerset{\TxIn}_{zip}} & \fun{collateral} & \text{Collateral inputs}\\
+      & \times ~(\Ix \mapsto \hldiff{\TxOut_{zip}}) & \fun{txouts}& \text{Outputs}\\
+      & \times~ \hldiff{\seqof{\DCert_{zip}}} & \fun{txcerts}& \text{Certificates}\\
+       & \times ~\hldiff{\Value_{zip}}  & \fun{mint} &\text{A minted value}\\
        & \times ~\Coin & \fun{txfee} &\text{Total fee}\\
        & \times ~\ValidityInterval & \fun{txvldt} & \text{Validity interval}\\
-       & \times~ \Wdrl_{zip}  & \fun{txwdrls} &\text{Reward withdrawals}\\
+       & \times~ \hldiff{\Wdrl_{zip}}  & \fun{txwdrls} &\text{Reward withdrawals}\\
        & \times ~\Update^?  & \fun{txUpdates} & \text{Update proposals}\\
-       & \times ~\hldiff{\powerset{\KeyHash}} & \hldiff{\fun{reqSignerHashes}} & \text{Hashes of VKeys passed to scripts}\\
-       & \times ~\hldiff{\Network^?} & \hldiff{\fun{txnetworkid}} & \text{Tx network ID}\\
+       & \times ~\powerset{\KeyHash} & \fun{reqSignerHashes} & \text{Hashes of VKeys passed to scripts}\\
+       & \times ~\Network^? & \fun{txnetworkid} & \text{Tx network ID}\\
     \end{array}
   \end{equation*}
   %
@@ -647,7 +650,7 @@ of a transaction --- see Figure \ref{fig:zipped-types}.
     \begin{array}{r@{~~}l@{~~}l@{\qquad}l}
       \var{tx} ~\in~ \Tx_{zip} ~=~
       & \TxBody_{zip} & \fun{txbody} & \text{Body}\\
-      & \times ~\hldiff{\IsValid} & \hldiff{\fun{isValid}}&\text{Validation tag}\\
+      & \times ~\IsValid & \fun{isValid} & \text{Validation tag}\\
       & \times ~\AuxiliaryData^? & \fun{auxiliaryData}&\text{Auxiliary data}\\
     \end{array}
   \end{equation*}
@@ -666,35 +669,42 @@ of a transaction --- see Figure \ref{fig:zipped-types}.
   \emph{Zipping and Unzipping Functions}
   %
   \begin{align*}
-    \fun{zip}~\in~(\Tx \times \UTxO \times \PParams)~ \to~ (\Tx_{zip} \times \UTxO \times \PParams) \\
-    \fun{zip}~(\var{tx},~\var{utxo},~\var{pp})=~(\fun{ziptx}~({tx},~{utxo},~{pp}),~\var{utxo},~\var{pp}) \\
-    \where \\
-    \fun{field}~(\fun{ziptx}~({tx},~{utxo},~{pp}))~=~\\
-      \begin{cases}
-        \fun{field}~\var{tx} & \fun{field} \notin \{\fun{txinputs},~\fun{collateral},~\fun{txouts},~\fun{txcerts},~\fun{mint},~\fun{txwdrls},~\fun{scriptIntegrityHash}\} \\
-        \fun{txinputs}_{zip}~{tx}~({txins},~{utxo},~{pp}) & \fun{field}~=~\fun{txinputs} ~~\vee~~\fun{field}~=~ \fun{collateral}\\
+    & \fun{zip}~\in~(\Tx \times \UTxO \times \PParams)~ \to~ (\Tx_{zip} \times \UTxO \times \PParams) \\
+    & \fun{zip}~(\var{tx},~\var{utxo},~\var{pp})=~(\fun{ziptx}~({tx},~{utxo},~{pp}),~\var{utxo},~\var{pp}) \\
+    & \where \\
+    &~~~~\fun{field}~(\fun{ziptx}~({tx},~{utxo},~{pp}))~=~\\
+    &~~~~~~~  \begin{cases}
+        \fun{field}~\var{tx} & \fun{field} \notin \{\fun{txinputs},~\fun{collateral},~\fun{txouts},~\fun{txcerts},~\fun{mint},~\fun{txwdrls},\\
+        & \fun{scriptIntegrityHash}\} \\
+        \fun{txinputs}_{zip}~{tx}~({txins},~{utxo},~{pp}) & \fun{field}~\in~\{~\fun{txinputs},~\fun{collateral} ~\}\\
         \fun{field}_{zip}~{tx}~(\fun{field}~{tx}) & \text{otherwise} \\
       \end{cases}
     \nextdef
-    \fun{txinputs}_{zip}~ \in~ \Tx \to (\powerset{\TxIn} \times \UTxO \times \PParams) \to \powerset{\TxIn_{zip}} \\
-    \fun{txinputs}_{zip}~{tx}~{txins},~{utxo},~{pp} ~=~ \{ (txin,~txout,~vk,~sg)~\vert~{txin}\mapsto {txout}\in utxo
+    &\fun{txinputs}_{zip}~ \in~ \Tx \to (\powerset{\TxIn} \times \UTxO \times \PParams) \to \powerset{\TxIn_{zip}} \\
+    &\fun{txinputs}_{zip}~{tx}~({txins},~{utxo},~{pp}) ~=~ \{ (txin,~txout,~\fun{paymentHK}~a,~sg)~\vert~\\
+    & ~~~~{txin}\mapsto {(a, v, \wcard)}\in utxo,~(\fun{paymentHK}~a)\mapsto sg~\in~\fun{txwitsVKey}~tx \} \\
+    & ~~~~\uniondistinct~ \{ (txin,~txout,~s,~d,~r,~exu,~cm)~\vert~\\
+    & ~~~~{txin}\mapsto {(a, v, dh)}\in utxo,~(\fun{validatorHash}~a)\mapsto s~\in~\fun{txscripts}~tx, \\
+    & ~~~~(s~\in~\ScriptPhTwo~\Rightarrow~(dh\mapsto d~\in~\fun{txdats}~tx,~(r, exu)~=~\fun{indexedRdmrs}~tx~txin), \\
+    & ~~~~cm = (\fun{costmdls}~pp)~(\fun{language}~s)), \\
+    & ~~~~(s~\notin~\ScriptPhTwo~\Rightarrow~(d=\Nothing,~r=\Nothing,~exu=\Nothing,~cm=\Nothing)\} \\
     \nextdef
-    \fun{collateral}_{zip}~ \in~ \Tx \to \powerset{\TxIn} \to \powerset{\TxIn_{zip}}\\
-    \fun{collateral}_{zip} ~=~ \fun{txinputs}_{zip}
+    &\fun{collateral}_{zip}~ \in~ \Tx \to \powerset{\TxIn} \to \powerset{\TxIn_{zip}}\\
+    &\fun{collateral}_{zip} ~=~ \fun{txinputs}_{zip}
     \nextdef
-    \fun{txouts}_{zip}~ \in~ \Tx \to (\Ix \mapsto \TxOut) \to (\Ix \mapsto \TxOut_{zip}) \\
-    \fun{txouts}_{zip}~{tx}~{txouts} ~=~
+    &\fun{txouts}_{zip}~ \in~ \Tx \to (\Ix \mapsto \TxOut) \to (\Ix \mapsto \TxOut_{zip}) \\
+    &\fun{txouts}_{zip}~{tx}~{txouts} ~=~
     \nextdef
-    \fun{txcerts}_{zip}~ \in~ \Tx \to \seqof{\DCert} \to \seqof{\DCert_{zip}} \\
-    \fun{txcerts}_{zip}~{tx}~{crts} ~=~
+    &\fun{txcerts}_{zip}~ \in~ \Tx \to \seqof{\DCert} \to \seqof{\DCert_{zip}} \\
+    &\fun{txcerts}_{zip}~{tx}~{crts} ~=~
     \nextdef
-    \fun{mint}_{zip}~ \in~ \Tx \to \Value \to \Value_{zip} \\
-    \fun{mint}_{zip}~{tx}~{v} ~=~
+    &\fun{mint}_{zip}~ \in~ \Tx \to \Value \to \Value_{zip} \\
+    &\fun{mint}_{zip}~{tx}~{v} ~=~
     \nextdef
-    \fun{txwdrls}_{zip}~ \in~ \Tx \to \Wdrl \to \Wdrl_{zip} \\
-    \fun{txwdrls}_{zip}~{tx}~{wdrls} ~=~
+    &\fun{txwdrls}_{zip}~ \in~ \Tx \to \Wdrl \to \Wdrl_{zip} \\
+    &\fun{txwdrls}_{zip}~{tx}~{wdrls} ~=~
     \nextdef
-    \fun{unzip}~\in~(\Tx_{zip} \times \UTxO \times \PParams)~ \to~ (\Tx \times \UTxO \times \PParams)
+    &\fun{unzip}~\in~(\Tx_{zip} \times \UTxO \times \PParams)~ \to~ (\Tx \times \UTxO \times \PParams)
   \end{align*}
   %
   \emph{Zipping and Unzipping Function Composition}
