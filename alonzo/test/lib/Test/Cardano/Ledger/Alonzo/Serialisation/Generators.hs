@@ -40,11 +40,10 @@ import Cardano.Ledger.Hashes (ScriptHash)
 import Cardano.Ledger.Shelley.Constraints (UsesScript, UsesValue)
 import Data.Map (Map)
 import qualified Data.Map as Map
-import Data.Maybe (fromMaybe)
 import qualified Data.Set as Set
 import Data.Text (pack)
+import qualified Data.Text as T (pack)
 import Numeric.Natural (Natural)
-import Plutus.V1.Ledger.Api (defaultCostModelParams)
 import qualified PlutusTx as Plutus
 import Test.Cardano.Ledger.ShelleyMA.Serialisation.Generators (genMintValues)
 import Test.QuickCheck
@@ -191,10 +190,14 @@ instance Arbitrary Language where
 instance Arbitrary Prices where
   arbitrary = Prices <$> arbitrary <*> arbitrary
 
+newtype AlphaString = AlphaString {unAlphaString :: String}
+  deriving (Show, Eq, Ord)
+
+instance Arbitrary AlphaString where
+  arbitrary = AlphaString <$> listOf (elements ['a' .. 'z'])
+
 instance Arbitrary CostModel where
-  arbitrary = CostModel <$> traverse (const arbitrary) dcmp
-    where
-      dcmp = fromMaybe (error "Corrupt default cost model") defaultCostModelParams
+  arbitrary = (CostModel . (Map.mapKeys (T.pack . unAlphaString))) <$> arbitrary
 
 instance Arbitrary (PParams era) where
   arbitrary =
