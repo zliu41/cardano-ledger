@@ -13,6 +13,9 @@
 
 module Cardano.Ledger.Alonzo.Rules.Utxow where
 
+import Data.ByteString.Short (fromShort)
+import qualified Data.ByteString.Base64 as B64
+import Cardano.Ledger.SafeHash (extractHash)
 import Cardano.Binary (FromCBOR (..), ToCBOR (..))
 import Cardano.Ledger.Address (Addr (..), bootstrapKeyHash, getRwdCred)
 import Cardano.Ledger.Alonzo.Data (DataHash)
@@ -30,6 +33,7 @@ import Cardano.Ledger.Alonzo.Tx
     rdptr,
   )
 import Cardano.Ledger.Alonzo.TxBody (ScriptIntegrityHash)
+import Shelley.Spec.Ledger.TxBody (TxId (_unTxId))
 import Cardano.Ledger.Alonzo.TxWitness
   ( RdmrPtr,
     TxWitness (..),
@@ -88,7 +92,7 @@ import Shelley.Spec.Ledger.TxBody
     Wdrl,
     unWdrl,
   )
-import Shelley.Spec.Ledger.UTxO (UTxO (..), txinLookup)
+import Shelley.Spec.Ledger.UTxO (UTxO (..), txinLookup, txid)
 
 -- =================================================
 
@@ -252,13 +256,29 @@ alonzoStyleWitness ::
   ) =>
   TransitionRule (utxow era)
 alonzoStyleWitness = do
-  (TRC (UtxoEnv _slot pp _stakepools _genDelegs, u', tx)) <- judgmentContext
+  (TRC (UtxoEnv slot pp _stakepools _genDelegs, u', tx)) <- judgmentContext
+
+  let beholdTheScripts = getField @"scriptWits" tx
+      lookUponThemWithScrutiny (TimelockScript _) = False
+      lookUponThemWithScrutiny (PlutusScript _) = True
+      gazeUponThemWithWontder (TimelockScript _) = Nothing
+      gazeUponThemWithWontder (PlutusScript s) = Just . B64.encode . fromShort $ s
+      stuckInTheMiddleWithYou =
+        if any lookUponThemWithScrutiny beholdTheScripts
+          then error $
+                 "\nFound the first Plutus scripts" <>
+                 "\nTransaction ID: " <> show (extractHash . _unTxId . txid $ getField @"body" tx) <>
+                 "\n" <> show slot <>
+                 "\n" <> show (txrdmrs $ wits tx) <>
+                 "\n" <> show (fmap gazeUponThemWithWontder beholdTheScripts) <>
+                 "\n---\n"
+          else _utxo u'
 
   {-  (utxo,_,_,_ ) := utxoSt  -}
   {-  txb := txbody tx  -}
   {-  txw := txwits tx  -}
   {-  witsKeyHashes := { hashKey vk | vk ∈ dom(txwitsVKey txw) }  -}
-  let utxo = _utxo u'
+  let utxo = stuckInTheMiddleWithYou
       txbody = getField @"body" (tx :: Core.Tx era)
       witsKeyHashes = unWitHashes $ witsFromTxWitnesses @era tx
 
