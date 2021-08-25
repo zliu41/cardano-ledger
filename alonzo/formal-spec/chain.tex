@@ -116,15 +116,19 @@ block (specified in a protocol parameter).
   \label{fig:rules:bbody}
 \end{figure}
 
-We have also defined a function that transforms the Shelley ledger state into
-the corresponding Goguen one, see Figure~\ref{fig:functions:to-shelley}. We
-refer to the Shelley-era protocol parameter type as $\ShelleyPParams$, and the corresponding Goguen
-type as $\PParams$. We use the notation $\var{chainstate}_{x}$ to represent
+Mary transaction are translated to Alonzo as part of decoding. We give the
+specification of how the fields are filled in, see Figure~\ref{fig:functions:to-alonzo}.
+The fields that are unchanged are not listed, as we give only the new Alonzo fields
+that must be filled in.
+
+We have also defined a function that transforms the Mary ledger state into
+the corresponding Alonzo one Figure~\ref{fig:functions:to-alonzo}.
+We use the notation $\var{chainstate}_{x}$ to represent
 variable $x$ in the chain state. We do not specify the variables that
 remain unchanged during the transition.
 
 %%
-%% Figure - Shelley to Goguen Transition
+%% Figure - Mary to Alonzo Transition and Transaction Translation
 %%
 \begin{figure}[htb]
   \emph{Types and Constants}
@@ -132,20 +136,34 @@ remain unchanged during the transition.
   \begin{align*}
       & \NewParams ~=~ (\Language \mapsto \CostMod) \times \Prices \times \ExUnits \times \ExUnits \\
       & ~~~~~~~~ \times \N \times \Coin \times \N \times \N \\
-      & \text{the type of new parameters to add for Goguen}
+      & \text{the type of new parameters to add for Alonzo}
       \nextdef
       & \var{ivPP} ~\in~ \NewParams \\
-      & \text{the initial values for new Goguen parameters}
+      & \text{the initial values for new Alonzo parameters}
   \end{align*}
-  \emph{Shelley to Goguen Transition Functions}
+  \emph{Mary to Alonzo Transaction Translation}
   %
   \begin{align*}
-      & \fun{toGoguen} \in \ShelleyChainState \to \ChainState \\
-      & \fun{toGoguen}~\var{chainstate} =~\var{chainstate'} \\
+      & \fun{toAlonzoTx} \in \MaryTx \to \Tx \\
+      & \fun{toAlonzoTx}~\var{tx} =~\var{tx'} \\
+      &~~\where \\
+      &~~~~\fun{collateral}~\var{tx'}~=~\emptyset\\
+      &~~~~\fun{reqSignerHashes}~\var{tx'}~=~\emptyset\\
+      &~~~~\fun{scriptIntegrityHash}~\var{tx}~=~\Nothing\\
+      &~~~~\fun{txdats}~\var{tx'}~=~\Nothing\\
+      &~~~~\fun{txrdmrs}~\var{tx'}~=~\Nothing\\
+      &~~~~\fun{isValid}~\var{tx'}~=~\True\\
+      & \text{transform a Mary transaction to an Alonzo transaction}
+  \end{align*}
+  \emph{Mary to Alonzo Transition Functions}
+  %
+  \begin{align*}
+      & \fun{toAlonzo} \in \MaryChainState \to \ChainState \\
+      & \fun{toAlonzo}~\var{chainstate} =~\var{chainstate'} \\
       &~~\where \\
       &~~~~\var{chainstate'}_{pparams}~=~(\var{pp}\cup \var{ivPP})~ - ~\var{minUTxOValue}\\
-      & \text{transform Shelley chain state to Goguen state}
+      & \text{transform Mary chain state to Alonzo state}
   \end{align*}
-  \caption{Shelley to Goguen State Transtition}
-  \label{fig:functions:to-shelley}
+  \caption{Mary to Alonzo State Transtition and Transaction Translation}
+  \label{fig:functions:to-alonzo}
 \end{figure}

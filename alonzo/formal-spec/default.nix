@@ -6,7 +6,7 @@ latex.buildLatex {
   name = "alonzo-spec";
   texFiles = [ "alonzo-changes" ];
   meta = with lib; {
-    description = "Goguen ledger specification";
+    description = "Alonzo ledger specification";
     license = licenses.asl20;
     platforms = platforms.linux;
   };

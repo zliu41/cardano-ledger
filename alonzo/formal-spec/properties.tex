@@ -614,7 +614,7 @@ of a transaction --- see Figure \ref{fig:zipped-types}.
   \begin{equation*}
     \begin{array}{r@{~~}l@{~~}l@{\qquad}l}
       \TxIn_{zip} ~=~&
-       (\TxIn \times \TxOut \times \VKey \times \Sig)  ~\uniondistinct \\
+       (\TxIn \times \TxOut)  ~\uniondistinct \\
        & (\TxIn \times \TxOut \times \Script \times \Data^? \times \Data^? \times \CostMod^? \times \ExUnits^?)\\
       \Value_{zip} ~=~&
       (\Coin \times ((\PolicyID \times \Script \times \Data^? \times \CostMod^? \times \ExUnits^?) \\
@@ -650,8 +650,9 @@ of a transaction --- see Figure \ref{fig:zipped-types}.
     \begin{array}{r@{~~}l@{~~}l@{\qquad}l}
       \var{tx} ~\in~ \Tx_{zip} ~=~
       & \TxBody_{zip} & \fun{txbody} & \text{Body}\\
-      & \times ~\IsValid & \fun{isValid} & \text{Validation tag}\\
+      & (\VKey \mapsto \Sig) & \fun{txwitsVKey} & \text{VKey signatures}\\
       & \times ~\AuxiliaryData^? & \fun{auxiliaryData}&\text{Auxiliary data}\\
+      & \times ~\IsValid & \fun{isValid} & \text{Validation tag}\\
     \end{array}
   \end{equation*}
   \caption{Zipped transaction types}
@@ -663,7 +664,7 @@ of a transaction --- see Figure \ref{fig:zipped-types}.
   \begin{equation*}
     e\vdash s\trans{utxow}{tx}s',
   \end{equation*}
-  The functions in Figure \ref{fig:zip} are inverses of each other.
+  The zipping and unzipping functions compose as in Figure \ref{fig:zip}.
 
 \begin{figure*}[htb]
   \emph{Zipping and Unzipping Functions}
@@ -728,19 +729,78 @@ of a transaction --- see Figure \ref{fig:zipped-types}.
 \end{proof}
 \end{property}
 
+\begin{property}[Commutativity of Translation]
+  \label{prop:translation-commutativity}
+  Applying a Mary-era transaction to a Mary ledger, then translating the ledger into
+  an Alonzo ledger, yields the same ledger as first applying the Mary transaction,
+  followed by the ledger translation. Formally,
+
+  \begin{lemma}
+    Suppose $\var{chainstate}~\in~\MaryChainState$ is a Mary chain state, and
+    $tx$ is a Mary/Alonzo transaction. Suppose also that
+    \begin{equation*}
+      (slot, txIx, \var{chainstate}_{pp}, acnt)\vdash \var{s}\trans{ledger}{tx}\var{s'}, \\
+      \fun{toAlonzo}~\var{chainstate} =~\var{chainstate'}, \\
+      s~=~\var{chainstate}_{ledgerState} , \\
+      s'~=~\var{chainstate}_{ledgerState'}
+    \end{equation*}
+    Then, the following is a valid Alonzo transition.
+    \begin{equation*}
+      (slot, txIx, \var{chainstate'}_{pp}, acnt)\vdash s \trans{ledger}{tx} s'
+    \end{equation*}
+  \end{lemma}
+
+  \begin{proof}
+    The $\fun{isValid}$ field for a Mary transaction is set to $\True$ when decoding it
+    as an Alonzo transaction (see Figure~\ref{fig:functions:to-alonzo}), so the
+    $\mathsf{LEDGER}$ transition necessarily calls the rule that is almost identical to
+    the Mary $\mathsf{LEDGER}$, but with additionally the $\fun{isValid} = \True$ precondition.
+    We observe that all the transition down the tree from $\mathsf{LEDGER}$ (that
+    it calls) also have the same outcomes in both eras.
+
+    The Alonzo $\mathsf{UTXOW}$ transition state change is identical, and the
+    additional Alonzo checks all pass:
+    \begin{itemize}
+      \item The scripts needed do not change
+      \item The validation outcomes of phase-1 scripts do not change
+      \item The redeember map is empty, as required. It must be empty whenever
+      there are no Plutus scripts to run in the transaction. A Mary transaction cannot
+      reference outputs locked by Plutus scripts on a Mary ledger, applying it to which
+      is valid by assumption, therefore it must not contain redeemers.
+      \item The datum map is empty, as required (the transaction cannot
+      reference outputs with datum objects on a Mary ledger, applying it to which
+      is valid by assumption). A Mary transaction also cannot carry datum objects for
+      communication, by construction.
+      \item The script integrity hash of the transaction is $\Nothing$, as required
+    \end{itemize}
+
+    The Alonzo $\mathsf{UTXO}$ transition state change is defined via the $\mathsf{UTXOS}$
+    transition (see below), and the additional Alonzo-specific checks all pass:
+    \begin{itemize}
+      \item Since the $\fun{txrdmrs}$ map is empty, the slot to time conversion check
+      is not performed.
+      \item The additional Alonzo requirements on fees in the $\fun{feesOK}$ check
+      only apply for transactions carrying Plutus scripts.
+      \item Without datum hashes in outputs, the $\fun{utxoEntrySize}$ returns the
+      memory estimate calculated according to the Mary formula in Alonzo as well.
+      \item With an empty redeemer map, total execution units must be zero.
+      \item The Mary transaction provides no collateral inputs.
+    \end{itemize}
+
+    The Alonzo $\mathsf{UTXO}$ transition validates via the rule with the
+    $\fun{isValid} = \True$ precondition. Without Plutus scripts, the precondition
+    that they validate is trivially satisfied. The resulting state change
+    is consistent with the Mary state change in the $\mathsf{UTXO}$ transition.
+    Therefore, the $\mathsf{UTXO}$ state change is also the same in both the Alonzo
+    and Mary eras.
+  \end{proof}
+\end{property}
+
 \begin{enumerate}
-\item
-  \emph{Commutativity of Translation.} Translate, then apply to Alonzo ledger is
-  the same as apply to MA ledger, then translate the ledger.
-\item
-  \emph{Zero ExUnits.} If a script is run (there’s a redeemer/exunits) , it will fail with 0 units
 \item
   \emph{Cost Increase.} if a transaction is valid, it will remain valid if you increase the execution units
 \item
   \emph{Cost Lower Bound.} if a transaction contains at least one valid script, it must have at least one execution unit
-\item
-  \emph{Tx backwards Compatibility.} Any transaction that was accepted in a previous version of the ledger rules
-    has exactly the same cost and effect, except that the transaction output is extended.
 \item \emph{Run all scripts.} All scripts attached to a transaction are run
 \item
   ... \todo{Anything else?}
