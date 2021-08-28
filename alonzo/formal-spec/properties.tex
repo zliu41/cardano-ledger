@@ -737,16 +737,17 @@ of a transaction --- see Figure \ref{fig:zipped-types}.
 
   \begin{lemma}
     Suppose $\var{chainstate}~\in~\MaryChainState$ is a Mary chain state, and
-    $tx$ is a Mary/Alonzo transaction. Suppose also that
+    $tx$ is a Mary transaction. Suppose also that
     \begin{equation*}
-      (slot, txIx, \var{chainstate}_{pp}, acnt)\vdash \var{s}\trans{ledger}{tx}\var{s'}, \\
-      \fun{toAlonzo}~\var{chainstate} =~\var{chainstate'}, \\
-      s~=~\var{chainstate}_{ledgerState} , \\
-      s'~=~\var{chainstate}_{ledgerState'}
+      (slot, txIx, \var{chainstate}_{pp}, acnt)\vdash \var{s}\trans{ledger}{tx}\var{s'},
     \end{equation*}
+    \[      \fun{toAlonzo}~\var{chainstate} =~\var{chainstate'} \]
+    such that
+    \[      s~=~\var{chainstate}_{ledgerState} ~\wedge~
+          s'~=~\var{chainstate}_{ledgerState'} \]
     Then, the following is a valid Alonzo transition.
     \begin{equation*}
-      (slot, txIx, \var{chainstate'}_{pp}, acnt)\vdash s \trans{ledger}{tx} s'
+      (slot, txIx, \var{chainstate'}_{pp}, acnt)\vdash s \trans{ledger}{\fun{toAlonzoTx}~{tx}} s'
     \end{equation*}
   \end{lemma}
 
@@ -759,7 +760,7 @@ of a transaction --- see Figure \ref{fig:zipped-types}.
     it calls) also have the same outcomes in both eras.
 
     The Alonzo $\mathsf{UTXOW}$ transition state change is identical, and the
-    additional Alonzo checks all pass:
+    additional Alonzo checks all pass for the Mary transaction translated to an Alonzo one:
     \begin{itemize}
       \item The scripts needed do not change
       \item The validation outcomes of phase-1 scripts do not change
@@ -775,7 +776,8 @@ of a transaction --- see Figure \ref{fig:zipped-types}.
     \end{itemize}
 
     The Alonzo $\mathsf{UTXO}$ transition state change is defined via the $\mathsf{UTXOS}$
-    transition (see below), and the additional Alonzo-specific checks all pass:
+    transition (see below), and the additional Alonzo-specific checks all pass (so
+    do all the checks inherited from Mary):
     \begin{itemize}
       \item Since the $\fun{txrdmrs}$ map is empty, the slot to time conversion check
       is not performed.
@@ -783,7 +785,7 @@ of a transaction --- see Figure \ref{fig:zipped-types}.
       only apply for transactions carrying Plutus scripts.
       \item Without datum hashes in outputs, the $\fun{utxoEntrySize}$ returns the
       memory estimate calculated according to the Mary formula in Alonzo as well.
-      \item With an empty redeemer map, total execution units must be zero.
+      \item With an empty redeemer map, total execution units add up to be zero.
       \item The Mary transaction provides no collateral inputs.
     \end{itemize}
 
