@@ -71,9 +71,9 @@ Run all scripts AND check signatures in UTXOS rule. No changes to UTXO rule.
     \\
     ~
     \\
-    \hldiff{\fun{isValid}~\var{tx} \wedge \fun{evalScripts}~\var{tx}~\var{sLst} \wedge }\\
-    \hldiff{\forall \var{vk} \mapsto \sigma \in \txwitsVKey{txw},~}
-    \hldiff{\mathcal{V}_{\var{vk}}{\serialised{txbodyHash}}_{\sigma} }\\
+    \hldiff{\fun{isValid}~\var{tx} \wedge \fun{evalScripts}~\var{tx}~\var{sLst}~ \wedge }\\
+    \hldiff{(\forall \var{vk} \mapsto \sigma \in \txwitsVKey{txw},~}
+    \hldiff{\mathcal{V}_{\var{vk}}{\serialised{txbodyHash}}_{\sigma}) }\\
     \\~\\
     {
       \begin{array}{r}
@@ -125,7 +125,7 @@ Run all scripts AND check signatures in UTXOS rule. No changes to UTXO rule.
     ~
     \\
     \hldiff{\fun{isValid}~\var{tx} = \False} \\
-    \hldiff{((\fun{evalScripts}~\var{tx}~\var{sLst} \wedge) }
+    \hldiff{((\fun{evalScripts}~\var{tx}~\var{sLst} )~\wedge~ }
     \hldiff{(\forall \var{vk} \mapsto \sigma \in \txwitsVKey{txw},}
     \hldiff{\mathcal{V}_{\var{vk}}{\serialised{txbodyHash}}_{\sigma}))~=~\False }\\
     }
