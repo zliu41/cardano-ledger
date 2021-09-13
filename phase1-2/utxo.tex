@@ -35,7 +35,7 @@ just always check collateral, since its rare that it isnt required.
     &~~~~~~((\forall (a, \wcard, \_) \in \fun{range}~(\fun{collateral}~{txb} \restrictdom \var{utxo}), \fun{paymentHK}~a \in \AddrVKey) \\
     &~~~~~~\wedge~ \fun{adaOnly}~\var{balance} \\
     &~~~~~~\wedge~ \var{balance} \geq \fun{quot}~(\txfee~{txb} * (\fun{collateralPercent}~pp))~100)) \\
-    &~~~~~~\fun{collateral}~{tx}~ \neq~\{\} \\
+    &~~~~~~\wedge \fun{collateral}~{tx}~ \neq~\{\} \\
     &~~      \where \\
     & ~~~~~~~ \var{txb}~=~\txbody{tx} \\
     & ~~~~~~~ \var{balance}~=~\fun{ubalance}~(\fun{collateral}~{txb} \restrictdom \var{utxo})
