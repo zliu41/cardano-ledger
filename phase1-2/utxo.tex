@@ -7,22 +7,26 @@ In $\TxBody$, replace
 
 with
 
-\[ \fun{reqSignerHash} \in \type{Hash}^? \]
+\[ \fun{reqSignerHash} \in \type{Hash} \]
 
-Also, in $\fun{txwits}$, add the field
-
-\[\fun{collateralSigs} \in (\VKey \mapsto \Sig)\]
-
-An optional hash of the set of keys in the map of keys to their signatures.
-Optional because we may not require any signatures other than the collateral ones.
-
+Which is a hash of the set of keys in the map of keys to their signatures.
 For old style Alonzo transactions,
 $\fun{reqSignerHash}$ can be constructed from the wire-transmitted $\fun{reqSignerHashes}$
 are deserialization time (all keys must be listed in $\fun{reqSignerHashes}$, and all
 added to both the regular sigs and collateral sigs).
 
-Check collateral is correct whenever there are any scripts or required signatures. Could also
-just always check collateral, since its rare that it isnt required.
+Also, in $\fun{txwits}$, add the field
+
+\[\fun{collateralSigs} \in (\VKey \mapsto \Sig)\]
+
+Note that there may be duplicate key-signature pairs in $\txwitsVKey{tx}$
+and $\fun{collateralSigs}~{tx}$. We could potentially optimize here at the
+encoding level to avoid duplication.
+
+We change $\fun{feesOK}$, in Figure \ref{fig:functions:utxo}.
+Check collateral is correct whenever there are either any scripts or there are more
+required signatures than the limit on the number of max allowed collateral sigs.
+Collateral only required whenever there are lots of sigs to check.
 
 \begin{figure*}[htb]
   \emph{Functions}
@@ -31,7 +35,7 @@ just always check collateral, since its rare that it isnt required.
     & \fun{feesOK} \in \PParams \to \Tx \to \UTxO \to \Bool  \\
     & \fun{feesOK}~\var{pp}~tx~utxo~= \\
     &~~      \minfee{pp}~{tx} \leq \txfee{txb} \wedge \\
-    &~~ \hldiff{((\fun{txscripts}~tx \neq \Nothing \vee \fun{reqSignerHash} \neq \Nothing)} \Rightarrow \\
+    &~~ \hldiff{((\fun{txscripts}~tx \neq \Nothing \vee \vert\fun{txwitsVKey}~{tx}\vert ~>~ \fun{maxCollInputs}~{pp})} \Rightarrow \\
     &~~~~~~((\forall (a, \wcard, \_) \in \fun{range}~(\fun{collateral}~{txb} \restrictdom \var{utxo}), \fun{paymentHK}~a \in \AddrVKey) \\
     &~~~~~~\wedge~ \fun{adaOnly}~\var{balance} \\
     &~~~~~~\wedge~ \var{balance} \geq \fun{quot}~(\txfee~{txb} * (\fun{collateralPercent}~pp))~100)) \\
@@ -44,7 +48,8 @@ just always check collateral, since its rare that it isnt required.
   \label{fig:functions:utxo}
 \end{figure*}
 
-$\fun{evalScripts}$ already validates both (what used to be) phase-1 and phase-2 scripts.
+$\fun{evalScripts}$ already validates both (what used to be) phase-1 and phase-2 scripts, so
+no changes needed (Figure \ref{fig:functions:script2}).
 
 \begin{figure}[htb]
   \begin{align*}
@@ -60,7 +65,8 @@ $\fun{evalScripts}$ already validates both (what used to be) phase-1 and phase-2
 \end{figure}
 
 
-Run all scripts AND check signatures in UTXOS rule. No changes to UTXO rule.
+Run all scripts AND check signatures in UTXOS rule
+(see \ref{fig:rules:utxo-state-upd}). No changes to UTXO rule.
 
 \begin{figure}[htb]
   \begin{equation}
@@ -161,7 +167,8 @@ Run all scripts AND check signatures in UTXOS rule. No changes to UTXO rule.
 \end{figure}
 
 Dont need a separate check for $\fun{reqSignerHashes}$ because now all signatures
-are fixed and required.
+are fixed and required (Figure \ref{fig:functions-witnesses}). Don't need to
+include key hashes of keys collateral inputs either.
 
 \begin{figure}[htb]
   \begin{align*}
@@ -176,8 +183,7 @@ are fixed and required.
     \cup & ~~(\AddrVKey \cap \fun{certWitsNeeded}~{tx}) \\
     \cup & ~~\fun{propWits}~(\fun{txup}~\var{tx})~\var{genDelegs} \\
     \cup & ~~\bigcup_{\substack{c \in \txcerts{tx} \\ ~c \in\DCertRegPool}} \fun{poolOwners}~{c} \\
-    \cup & ~~{\{ \fun{paymentHK}~a \mid i \mapsto (a, \wcard) \in \var{utxo},~i\in\fun{collateral}~{tx} \}} \\
-    & ~~\hldiff{\text{no checking of reqSignerHashes!}}
+    & ~~\hldiff{\text{not including reqSignerHashes or collateral input keys!}}
   \end{align*}
   \caption{UTXOW helper functions}
   \label{fig:functions-witnesses}
@@ -190,8 +196,8 @@ must be the same as the computed hash of the keys of the key-signature map.
 Replace checking signatures for all keys (in $\fun{txwitsVKey}$) with checking
 signatures only in $\fun{collateralSigs}$. The rest of the sigs are checked in UTXOS.
 
-Add collateral signatures to the $\var{witsKeyHashes}$ set to get the complete
-set of signatures on the transaction (without duplication).
+Make sure $\fun{collateralSigs}$ contains exactly the keys with which the
+inputs in $\fun{collateral}$ are locked.
 
 \begin{figure}
   \begin{equation}
@@ -202,7 +208,7 @@ set of signatures on the transaction (without duplication).
       \var{txw}\leteq\fun{txwits}~{tx} \\
       (utxo, \wcard, \wcard, \wcard) \leteq \var{utxoSt} \\
       \var{witsKeyHashes} \leteq \{\fun{hashKey}~\var{vk} \vert \var{vk} \in
-      \hldiff{(\dom (\txwitsVKey{txw}) \cup \dom (\fun{collateralSigs}~{txw}))\} }\\
+      {\dom (\txwitsVKey{txw})\} }\\
       {\var{inputHashes}\leteq \{ h \mid (\_ \mapsto (a, \_, h)) \in \txins{txb} \restrictdom \var{utxo}, \fun{isTwoPhaseScriptAddress}~{tx}~{a}\}}   \\~\\
       \hldiff{\text{do not check phase-1 scripts here, theyre checked in UTXOS}}\\~\\
       {\{ h \mid (\_, h) \in \fun{scriptsNeeded}~\var{utxo}~\var{tx}\} = \dom (\fun{txscripts}~{txw})} \\~\\
@@ -216,6 +222,9 @@ set of signatures on the transaction (without duplication).
       \hldiff{\forall \var{vk} \mapsto \sigma \in \fun{collateralSigs}~{txw},~}
       \hldiff{\mathcal{V}_{\var{vk}}{\serialised{txbodyHash}}_{\sigma} }\\
       \fun{witsVKeyNeeded}~{utxo}~{tx}~{genDelegs} \subseteq \var{witsKeyHashes}
+      \\~\\
+      \hldiff{\{~ \fun{hash}~{k}~\mid~k\mapsto\wcard~\in~\fun{collateralSigs}~{tx}~\}}~\\
+      \hldiff{=~\{ \fun{paymentHK}~a \mid i \mapsto (a, \wcard) \in \var{utxo},~i\in\fun{collateral}~{tx} \}}
       \\~\\
       genSig \leteq
       \left\{
@@ -265,20 +274,4 @@ set of signatures on the transaction (without duplication).
   \end{equation}
   \caption{UTxO with witnesses inference rules for Tx}
   \label{fig:rules:utxow-alonzo}
-\end{figure}
-
-Timelock script validation needs to have access to the full set of signatures too.
-
-\begin{figure}[htb]
-  \begin{align*}
-    \fun{validateScript} & \in\Script\to\Tx\to\Bool \\
-    \fun{validateScript} ~s~\var{tx}~& =~
-                             \fun{evalTimelock}~\var{vhks} ~\var{itr}~\var{s} \\
-                         & ~~~~\where \\
-                         & ~~~~~~~~\var{vhks}\leteq \{\fun{hashKey}~vk \vert
-                           vk \in \hldiff{\dom(\fun{txwitsVKey}~\var{tx} ~\cup~ \fun{collateralSigs}~{tx})}\} \\
-                         & ~~~~~~~~\var{itr} \leteq \fun{txvldt}~ (\txbody~ \var{tx})
-  \end{align*}
-  \caption{Script Validation}
-  \label{fig:functions-validate}
 \end{figure}
