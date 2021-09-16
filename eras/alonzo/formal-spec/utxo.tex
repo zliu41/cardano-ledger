@@ -16,18 +16,19 @@
     & \fun{totExUnits}~\var{tx} = \sum_{r \in \fun{txrdmrs}~tx} \fun{exunits}~r
     \nextdef
     & \fun{feesOK} \in \PParams \to \Tx \to \UTxO \to \Bool  \\
-    & \fun{feesOK}~\var{pp}~tx~utxo~= \\
-    &~~      \minfee{pp}~{tx} \leq \txfee{txb} \wedge (\fun{txrdmrs}~tx \neq \Nothing \Rightarrow \\
-    &~~~~~~((\forall (a, \wcard, \_) \in \fun{range}~(\fun{collateral}~{txb} \restrictdom \var{utxo}), a \in \AddrVKey) \\
+    & \fun{feesOK}~\var{pp}~tx~utxo = \\
+    &~~      \minfee{pp}{tx} \leq \txfee{txb} \wedge (\fun{txrdmrs}~tx \neq \Nothing \Rightarrow \\
+    &~~~~~~((\forall (a, \wcard, \_) \in \fun{range}~(\fun{collateral}~{txb} \restrictdom \var{utxo}), \fun{paymentHK}~a \in \AddrVKey) \\
     &~~~~~~\wedge~ \fun{adaOnly}~\var{balance} \\
-    &~~~~~~\wedge~ \var{balance}~*~100 \geq \txfee~{txb} * (\fun{collateralPercent}~pp))) \\
-    &~~~~~~\wedge~ \fun{collateral}~{tx}~ \neq~\{\}) \\
+    &~~~~~~\wedge~ \var{balance} * 100 \geq \txfee{txb} * \fun{collateralPercent}~pp
+    \\
+    &~~~~~~\wedge~ \fun{collateral}~{tx} \neq \emptyset) \\
     &~~      \where \\
-    & ~~~~~~~ \var{txb}~=~\txbody{tx} \\
     & ~~~~~~~ \var{balance}~=~\fun{ubalance}~(\fun{collateral}~{txb} \restrictdom \var{utxo})
     \nextdef
     & \fun{cbalance} \in \UTxO \to \Coin \\
     & \fun{cbalance}~\var{utxo}~=~ \fun{valueToCoin}~(\fun{ubalance}~\var{utxo})
+    & ~~~~~~~ \var{txb}=\txbody{tx} \\
     \nextdef
     & \fun{txscriptfee} \in \Prices \to \ExUnits \to \Coin \\
     & \fun{txscriptfee}~(pr_{mem}, pr_{steps})~ (\var{mem, steps})
@@ -397,7 +398,7 @@ are caught during the application of the UTXOW rule (before these functions are 
 \begin{figure}[htb]
   \begin{align*}
     & \fun{getDatum} \in \Tx \to \UTxO \to \ScriptPurpose \to \seqof{\Datum} \\
-    & \fun{getDatum}~{tx}~{utxo}~{sp}~=~
+    & \fun{getDatum}~{tx}~{utxo}~{sp}=
       \begin{cases}
         [\var{d}] & \var{sp} \mapsto (\_, \_, h_d) \in \var{utxo}, \var{h_d}\mapsto \var{d} \in \fun{txdats}~(\fun{txwits}~tx) \\
         \epsilon  & \text{otherwise}
@@ -405,7 +406,7 @@ are caught during the application of the UTXOW rule (before these functions are 
     \nextdef
     & \fun{collectTwoPhaseScriptInputs} \in \PParams \to \Tx \to \UTxO \to \\
     & ~~~~ \seqof{(\Script \times \seqof{\Data} \times \ExUnits \times \CostMod)} \\
-    & \fun{collectTwoPhaseScriptInputs} ~\var{pp}~\var{tx}~ \var{utxo} ~=~ \\
+    & \fun{collectTwoPhaseScriptInputs} ~\var{pp}~\var{tx}~ \var{utxo} = \\
     & ~~\fun{toList} \{ (\var{script}, (\fun{getDatum}~tx~utxo~sp~++~[~\var{rdmr};~\fun{valContext}~\var{txinfo}~\var{sp}~]), \var{eu}, \var{cm}) \mid \\
     & ~~~~(\var{sp}, \var{scriptHash}) \in \fun{scriptsNeeded}~{utxo}~{(\txbody{tx})}, \\
     & ~~~~\var{scriptHash}\mapsto \var{script}\in \fun{txscripts}~(\fun{txwits}~tx), \\
@@ -413,7 +414,7 @@ are caught during the application of the UTXOW rule (before these functions are 
     & ~~~~\fun{language}~{script} \mapsto \var{cm} \in \fun{costmdls}~{pp}, \\
     & ~~~~\var{script} \in \ScriptPhTwo \} \\
     & \where \\
-    & ~~~~~~~ \var{txinfo}~=~\fun{txInfo}~(\fun{language}~{script})~\var{utxo}~\var{tx} \\
+    & ~~~~~~~ \var{txinfo}=\fun{txInfo}~(\fun{language}~{script})~\var{utxo}~\var{tx}
     \nextdef
     & \fun{evalScripts} \in \Tx \times \seqof{(\Script \times \seqof{\Data} \times \ExUnits \times \CostMod)} \to \IsValid \\
     & \fun{evalScripts}~\var{tx}~\epsilon = \True \\
@@ -570,7 +571,7 @@ In this case, the states of the UTxO, fee
       \trans{utxos}{tx}
       \left(
       \begin{array}{r}
-        \varUpdate{\var{(\txins{txb} \subtractdom \var{utxo}) \cup \outs~{txb}}}  \\
+        \varUpdate{\var{(\txins{txb} \subtractdom \var{utxo}) \cup \outs{txb}}}  \\
         \varUpdate{\var{deposits} + \var{depositChange}} \\
         \varUpdate{\var{fees} + \txfee{txb}} \\
         \varUpdate{\var{pup'}} \\
@@ -681,7 +682,7 @@ UTXOS rule.
       \forall (\wcard\mapsto (a,~\wcard)) \in \txouts{txb}, \fun{netId}~a = \NetworkId
       \\
       \forall (a\mapsto\wcard) \in \txwdrls{txb}, \fun{netId}~a = \NetworkId \\
-      \hldiff{(\fun{txnetworkid}~\var{txb}~=~\NetworkId) ~\vee~(\fun{txnetworkid}~\var{txb}~=~\Nothing)}
+      \hldiff{(\fun{txnetworkid}~\var{txb}=\NetworkId) ~\vee~(\fun{txnetworkid}~\var{txb}=\Nothing)}
       \\~\\
       \fun{txsize}~{tx}\leq\fun{maxTxSize}~\var{pp} \\~\\
       \hldiff{\fun{totExunits}~{tx} \leq \fun{maxTxExUnits}~{pp}} &  \hldiff{\| \fun{collateral}~{tx} \| \leq \fun{maxCollateralInputs}~{pp}}
@@ -799,7 +800,7 @@ We construct the following helper functions :
       \cup & ~~\{ (\var{pid}, \var{pid}) \mid \var{pid} \in \supp~(\fun{mint}~\var{txb}) \}
     \nextdef
     & \hspace{-1cm}\fun{languages} \in \TxWitness \to \powerset{\Language} \\
-    & \hspace{-1cm}\fun{languages}~\var{txw}~=~
+    & \hspace{-1cm}\fun{languages}~\var{txw}=
       \{\fun{language}~s \mid s \in \range (\fun{txscripts}~{txw}) \cap \ScriptPhTwo\}
   \end{align*}
   \caption{UTXOW helper functions}
@@ -882,7 +883,7 @@ by the UTXO transition (the application of which is also part of the conditions)
       \hldiff{\var{inputHashes} \subseteq \dom (\fun{txdats}~{txw})} \\~\\
       \hldiff{\dom (\fun{txdats}~{txw}) \subseteq \var{inputHashes} \cup \{h~\mid~ (\wcard, \wcard, h)\in\fun{txouts}~{tx}\}}
       \\~\\
-      \hldiff{\ \dom (\fun{txrdmrs}~tx) ~=~\{~\fun{rdptr}~txb~sp~
+      \hldiff{\ \dom (\fun{txrdmrs}~tx) =\{~\fun{rdptr}~txb~sp~
        \vert~ (sp,h)~\in~\fun{scriptsNeeded}~\var{utxo}~(\txbody{tx}), } \\
       \hldiff{h\mapsto s~\in~\fun{txscripts}~{txw}, s~\in~\ScriptPhTwo \}}
       \\~\\
@@ -911,7 +912,7 @@ by the UTXO transition (the application of which is also part of the conditions)
       (\var{adh}=\fun{hashAD}~\var{ad})
       \\~\\
       \hldiff{\fun{languages}~{txw} \subseteq \dom(\fun{costmdls}~tx)} \\
-      \hldiff{\fun{scriptIntegrityHash}~{txb}~=~
+      \hldiff{\fun{scriptIntegrityHash}~{txb}=
         \fun{hashScriptIntegrity}~\var{pp}~(\fun{languages}~{txw})~(\fun{txrdmrs}~{txw})~(\fun{txdats}~{txw})}
       \\~\\
       {
