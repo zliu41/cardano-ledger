@@ -35,7 +35,7 @@ Collateral only required whenever there are lots of sigs to check.
     & \fun{feesOK} \in \PParams \to \Tx \to \UTxO \to \Bool  \\
     & \fun{feesOK}~\var{pp}~tx~utxo~= \\
     &~~      \minfee{pp}~{tx} \leq \txfee{txb} \wedge \\
-    &~~ \hldiff{((\fun{txscripts}~tx \neq \Nothing \vee \vert\fun{txwitsVKey}~{tx}\vert ~>~ \fun{maxCollInputs}~{pp})} \Rightarrow \\
+    &~~ \hldiff{((\fun{txscripts}~tx \neq \Nothing \vee \|\fun{txwitsVKey}~{tx}\| ~>~ \fun{maxCollInputs}~{pp})} \Rightarrow \\
     &~~~~~~((\forall (a, \wcard, \_) \in \fun{range}~(\fun{collateral}~{txb} \restrictdom \var{utxo}), \fun{paymentHK}~a \in \AddrVKey) \\
     &~~~~~~\wedge~ \fun{adaOnly}~\var{balance} \\
     &~~~~~~\wedge~ \var{balance} \geq \fun{quot}~(\txfee~{txb} * (\fun{collateralPercent}~pp))~100)) \\
@@ -220,7 +220,9 @@ inputs in $\fun{collateral}$ are locked.
       {h\mapsto s~\in~\fun{txscripts}~{txw}, s~\in~\ScriptPhTwo \}}
       \\~\\
       \hldiff{\forall \var{vk} \mapsto \sigma \in \fun{collateralSigs}~{txw},~}
-      \hldiff{\mathcal{V}_{\var{vk}}{\serialised{txbodyHash}}_{\sigma} }\\
+      \hldiff{\mathcal{V}_{\var{vk}}{\serialised{txbodyHash}}_{\sigma} }\\~\\
+      \hldiff{\fun{isValid}~{tx}~=~\False~\Rightarrow~}\\
+      \hldiff{\|\fun{txwitsVKey}~{tx}\| ~>~ \fun{maxCollInputs}~{pp}~\vee~\fun{txscripts}~{tx}~\neq~\Nothing}\\~\\
       \fun{witsVKeyNeeded}~{utxo}~{tx}~{genDelegs} \subseteq \var{witsKeyHashes}
       \\~\\
       \hldiff{\{~ \fun{hash}~{k}~\mid~k\mapsto\wcard~\in~\fun{collateralSigs}~{tx}~\}}~\\
