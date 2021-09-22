@@ -1,6 +1,8 @@
 \section{UTxO}
 \label{sec:utxo}
 
+\subsection{Transaction Body Changes}
+
 In $\TxBody$, replace
 
 \[\fun{reqSignerHashes} \in \powerset{\KeyHash} \]
@@ -10,18 +12,20 @@ with
 \[ \fun{reqSignerHash} \in \type{Hash} \]
 
 Which is a hash of the set of keys in the map of keys to their signatures.
-For old style Alonzo transactions,
+For old style Alonzo transactions submitted in this this new era,
 $\fun{reqSignerHash}$ can be constructed from the wire-transmitted $\fun{reqSignerHashes}$
-are deserialization time (all keys must be listed in $\fun{reqSignerHashes}$, and all
-added to both the regular sigs and collateral sigs).
+at deserialization time. For an Alonzo-style transaction to be valid in this new era,
+all the non-collateral keys that sign must be listed in $\fun{reqSignerHashes}$.
 
 Also, in $\fun{txwits}$, add the field
 
 \[\fun{collateralSigs} \in (\VKey \mapsto \Sig)\]
 
 Note that there may be duplicate key-signature pairs in $\txwitsVKey{tx}$
-and $\fun{collateralSigs}~{tx}$. We could potentially optimize here at the
+and $\fun{collateralSigs}~{tx}$. We could potentially optimize here at the CBOR
 encoding level to avoid duplication.
+
+\subsection{Changes to Functions}
 
 We change $\fun{feesOK}$, in Figure \ref{fig:functions:utxo}.
 Check collateral is correct whenever there are either any scripts or there are more
@@ -63,6 +67,8 @@ no changes needed (Figure \ref{fig:functions:script2}).
   \caption{Scripts and their arguments}
   \label{fig:functions:script2}
 \end{figure}
+
+\subsection{UTXOS}
 
 
 Run all scripts AND check signatures in UTXOS rule
@@ -165,6 +171,30 @@ Run all scripts AND check signatures in UTXOS rule
   \caption{State update rules}
   \label{fig:rules:utxo-state-upd}
 \end{figure}
+
+\subsection{Burn Address}
+
+Adding a burn address, sending tokens to which allows users to burn any tokens other
+than Ada, requires the following changes:
+
+\begin{itemize}
+  \item in the UTXOS transition, the $\type{Scripts-Yes}$ rule, replace the UTxO update with
+
+  \[\var{utxo}~\mapsto~(\txins{txb} \subtractdom \var{utxo}) \cup \fun{outs}'~{txb})\]
+
+  where
+  \[\fun{outs}'~{txb}~=~(\fun{outs}~{txb})~\restrictrange~\{~(a,\wcard,\wcard)~\mid~\fun{validatorHash}~a~\neq~\type{BurnAddress}~\}\]
+
+  where $\type{BurnAddress}$ is a script address to which tokens are sent to be burned (and
+  not actually re-enter into the UTxO upon being spent).
+
+  \item in the UTXO transition, we must add the following check to make sure no Ada is burned:
+
+  \[ \forall \wcard\mapsto (a,v,\wcard)\in (\fun{txouts}~{txb}),\]
+  \[\fun{validatorHash}~a~=~\type{BurnAddress}~\Rightarrow~\fun{coin}~v~=~0  \]
+\end{itemize}
+
+\subsection{UTXOW}
 
 Dont need a separate check for $\fun{reqSignerHashes}$ because now all signatures
 are fixed and required (Figure \ref{fig:functions-witnesses}). Don't need to
