@@ -1,0 +1,132 @@
+\section{UTxO}
+\label{sec:utxo}
+
+\begin{figure*}[htb]
+  \emph{Functions}
+  %
+  \begin{align*}
+    & \fun{minCollateral} \in \TxBody \to \PParams \to \Coin \\
+    & \fun{minCollateral}~txb~pp = \lceil \txfee{txb} * \fun{collateralPercent}~pp / 100 \rceil
+    \nextdef
+    & \fun{collBalance} \in \TxBody \to \UTxO \to \Value \\
+    & \fun{collBalance}~txb~utxo = \fun{ubalance}~(\fun{collateral}~{txb} \restrictdom \var{utxo}) -
+      \begin{cases}
+         0                 & \fun{collRet}~txb = \Nothing \\
+         \fun{collRet}~txb & \text{otherwise}
+      \end{cases}
+    \nextdef
+    & \fun{collOuts} \in \TxBody \to \UTxO \\
+    & \fun{collOuts}~txb =
+      \begin{cases}
+        \emptyset                                                      & \fun{collRet}~txb = \Nothing \\
+        \{ (\txid{txb}, | \txouts{txb} |) \mapsto \fun{collRet}~txb \} & \text{otherwise}
+      \end{cases}
+    \nextdef
+    & \fun{feesOK} \in \PParams \to \Tx \to \UTxO \to \Bool  \\
+    & \fun{feesOK}~\var{pp}~tx~utxo = \\
+    &~~      \minfee{pp}{tx} \leq \txfee{txb} \wedge (\fun{txrdmrs}~tx \neq \Nothing \Rightarrow \\
+    &~~~~~~((\forall (a, \wcard, \_) \in \fun{range}~(\fun{collateral}~{txb} \restrictdom \var{utxo}), \fun{paymentHK}~a \in \AddrVKey) \\
+    &~~~~~~\wedge \fun{adaOnly}~\var{balance} \\
+    &~~~~~~\wedge \var{balance} \geq \hldiff{\fun{minCollateral}~txb~pp} \\
+    &~~~~~~\wedge \hldiff{(\fun{txcoll}~txb \neq \Nothing) \Rightarrow \var{balance} = \fun{txcoll}~txb} \\
+    &~~~~~~\wedge \fun{collateral}~{tx} \neq \emptyset) \\
+    &~~      \where \\
+    & ~~~~~~~ \var{txb}=\txbody{tx} \\
+    & ~~~~~~~ \var{balance}=\hldiff{\fun{collBalance}~txb~utxo}
+  \end{align*}
+  \caption{Functions related to fees and collateral}
+  \label{fig:functions:utxo}
+\end{figure*}
+\begin{figure}[htb]
+  \begin{equation}
+    \inference[Scripts-Yes]
+    {
+    \var{txb}\leteq\txbody{tx} &
+    \var{sLst} := \fun{collectTwoPhaseScriptInputs}~\var{pp}~\var{tx}~\var{utxo}
+    \\
+    ~
+    \\
+    \fun{isValid}~\var{tx} = \fun{evalScripts}~\var{tx}~\var{sLst} = \True
+    \\~\\
+    {
+      \begin{array}{r}
+        \var{slot} \\
+        \var{pp} \\
+        \var{genDelegs} \\
+      \end{array}
+    }
+    \vdash \var{pup} \trans{\hyperref[fig:rules:update]{ppup}}{\fun{txup}~\var{tx}} \var{pup'}
+    \\~\\
+    \var{refunded} \leteq \keyRefunds{pp}{txb}
+    \\
+    \var{depositChange} \leteq
+      (\fun{totalDeposits}~{pp}~\var{poolParams}~\txcerts{txb})~-~\var{refunded}
+    }
+    {
+    \begin{array}{l}
+      \var{slot}\\
+      \var{pp}\\
+      \var{poolParams}\\
+      \var{genDelegs}\\
+    \end{array}
+      \vdash
+      \left(
+      \begin{array}{r}
+        \var{utxo} \\
+        \var{deposits} \\
+        \var{fees} \\
+        \var{pup} \\
+      \end{array}
+      \right)
+      \trans{utxos}{tx}
+      \left(
+      \begin{array}{r}
+        \varUpdate{\var{(\txins{txb} \subtractdom \var{utxo}) \cup \outs{txb}}}  \\
+        \varUpdate{\var{deposits} + \var{depositChange}} \\
+        \varUpdate{\var{fees} + \txfee{txb}} \\
+        \varUpdate{\var{pup'}} \\
+      \end{array}
+      \right) \\
+    }
+  \end{equation}
+  \begin{equation}
+    \inference[Scripts-No]
+    {
+    \var{txb}\leteq\txbody{tx} &
+    \var{sLst} := \fun{collectTwoPhaseScriptInputs}~\var{pp}~\var{tx}~\var{utxo} \\
+    \hldiff{\var{collateralFees} := \fun{valueToCoin}~(\fun{collBalance}~txb~utxo)}
+    \\
+    ~
+    \\
+    \fun{isValid}~\var{tx} = \fun{evalScripts}~\var{tx}~\var{sLst} = \False
+    }
+    {
+    \begin{array}{l}
+      \var{slot}\\
+      \var{pp}\\
+      \var{poolParams}\\
+      \var{genDelegs}\\
+    \end{array}
+      \vdash
+      \left(
+      \begin{array}{r}
+        \var{utxo} \\
+        \var{deposits} \\
+        \var{fees} \\
+        \var{pup} \\
+      \end{array}
+      \right)
+      \trans{utxos}{tx}
+      \left(
+      \begin{array}{r}
+        \varUpdate{\var{(\fun{collateral}~{txb} \subtractdom \var{utxo})} \cup \hldiff{\fun{collOuts}~txb}}  \\
+        \var{deposits} \\
+        \varUpdate{\var{fees} + \hldiff{\var{collateralFees}}} \\
+        \var{pup} \\
+      \end{array}
+      \right)
+    }
+  \end{equation}
+  \caption{State update rules}
+  \label{fig:rules:utxo-state-upd}
+\end{figure}

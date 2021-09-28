@@ -1,0 +1,28 @@
+\section{Transactions}
+\label{sec:transactions}
+\begin{figure*}[htb]
+  \emph{Transaction Types}
+  %
+  \begin{equation*}
+    \begin{array}{r@{~~}l@{~~}l@{\qquad}l}
+      \var{txbody} ~\in~ \TxBody ~=~
+      & \powerset{\TxIn} & \fun{txinputs}& \text{Inputs}\\
+      & \times ~\powerset{\TxIn} & \fun{collateral} & \text{Collateral inputs}\\
+      & \times ~(\Ix \mapsto \TxOut) & \fun{txouts}& \text{Outputs}\\
+      & \times ~\hldiff{\TxOut^?} & \hldiff{\fun{collRet}} & \text{Collateral return output}\\
+      & \times ~\hldiff{\Coin^?} & \hldiff{\fun{txcoll}} & \text{Total collateral}\\
+      & \times~ \seqof{\DCert} & \fun{txcerts}& \text{Certificates}\\
+       & \times ~\Value  & \fun{mint} &\text{A minted value}\\
+       & \times ~\Coin & \fun{txfee} &\text{Total fee}\\
+       & \times ~\ValidityInterval & \fun{txvldt} & \text{Validity interval}\\
+       & \times~ \Wdrl  & \fun{txwdrls} &\text{Reward withdrawals}\\
+       & \times ~\Update^?  & \fun{txUpdates} & \text{Update proposals}\\
+       & \times ~\powerset{\KeyHash} & \fun{reqSignerHashes} & \text{Hashes of VKeys passed to scripts}\\
+       & \times ~\ScriptIntegrityHash^? & \fun{scriptIntegrityHash} & \text{Hash of script-related data}\\
+       & \times ~\AuxiliaryDataHash^? & \fun{txADhash} & \text{Auxiliary data hash}\\
+       & \times ~\Network^? & \fun{txnetworkid} & \text{Tx network ID}\\
+    \end{array}
+  \end{equation*}
+  \caption{Definitions for transactions}
+  \label{fig:defs:utxo-shelley-2}
+\end{figure*}
