@@ -11,6 +11,7 @@
 
 module Cardano.Ledger.Pretty where
 
+import qualified Data.ReverseIxMap as RM
 import Cardano.Chain.Common
   ( AddrAttributes (..),
     Address (..),
@@ -88,6 +89,8 @@ import Cardano.Ledger.Shelley.LedgerState
     PPUPState (..),
     PState (..),
     UTxOState (..),
+    getRewards,
+    getDelegations,
   )
 import Cardano.Ledger.Shelley.Metadata (Metadata (..), Metadatum (..))
 import Cardano.Ledger.Shelley.PParams
@@ -587,16 +590,20 @@ ppDPState :: DPState crypto -> PDoc
 ppDPState (DPState d p) = ppRecord "DPState" [("dstate", ppDState d), ("pstate", ppPState p)]
 
 ppDState :: DState crypto -> PDoc
-ppDState (DState r1 ds ptrs future gen irwd) =
+ppDState (DState sm _ _ _ future gen irwd) =
   ppRecord
     "DState"
     [ ("rewards", ppRewardAccounts r1),
       ("delegations", ppMap' mempty ppCredential ppKeyHash ds),
-      ("ptrs", ppMap ppPtr ppCredential (forwards ptrs)),
+      ("ptrs", ppMap ppPtr ppCredential ptrs),
       ("futuregendelegs", ppMap ppFutureGenDeleg ppGenDelegPair future),
       ("gendelegs", ppGenDelegs gen),
       ("instantaeousrewards", ppInstantaneousRewards irwd)
     ]
+  where
+    r1 = getRewards sm
+    ds = getDelegations sm
+    ptrs = RM.getBackward sm
 
 ppFutureGenDeleg :: FutureGenDeleg crypto -> PDoc
 ppFutureGenDeleg (FutureGenDeleg sl kh) =

@@ -1,5 +1,6 @@
 {-# LANGUAGE MultiParamTypeClasses #-}
 {-# LANGUAGE ScopedTypeVariables #-}
+{-# LANGUAGE DeriveGeneric #-}
 {-# LANGUAGE FunctionalDependencies #-}
 
 module Data.ReverseIxMap
@@ -24,9 +25,16 @@ import qualified Data.Map.Strict as Map
 import qualified Data.Set as Set
 import Data.Map.Strict (Map)
 import qualified Control.Monad.Writer.Lazy as W
+import GHC.Generics (Generic)
+import NoThunks.Class (NoThunks (..))
+import Control.DeepSeq (NFData)
 
 data ReverseIxMap i {- index -} k {- key -} v {- value -} =
   ReverseIxMap !(Map k v) !(Map i k)
+  deriving (Show, Eq, Generic)
+
+instance (NoThunks i, NoThunks k, NoThunks v) => NoThunks (ReverseIxMap i k v)
+instance (NFData i, NFData k, NFData v) => NFData (ReverseIxMap i k v)
 
 empty :: ReverseIxMap i k v
 empty = ReverseIxMap Map.empty Map.empty
@@ -87,11 +95,11 @@ delete k rm@ (ReverseIxMap forward backward) =
         (Map.delete k forward)
         (Map.delete (viewIx v) backward)
 
-mapMaybe :: (Ord i, Ord k, IsPair v i a) =>
+mapMaybe :: (Ord i, IsPair v i a) =>
   (v -> Maybe a) -> ReverseIxMap i k v -> ReverseIxMap i k v
 mapMaybe f = mapMaybeWithKey (const f)
 
-mapMaybeWithKey :: (Ord i, Ord k, IsPair v i a) =>
+mapMaybeWithKey :: (Ord i, IsPair v i a) =>
   (k -> v -> Maybe a) -> ReverseIxMap i k v -> ReverseIxMap i k v
 mapMaybeWithKey f (ReverseIxMap forward backward) =
   ReverseIxMap forward' backward'

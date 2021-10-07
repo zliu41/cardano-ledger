@@ -92,6 +92,10 @@ module Cardano.Ledger.Shelley.LedgerState
     -- *
     TransUTxOState,
     TransLedgerState,
+
+    -- Stake Map Helper functions
+    getRewards,
+    getDelegations,
   )
 where
 
@@ -246,6 +250,9 @@ import qualified Data.Sequence.Strict as StrictSeq
 import Data.Set (Set)
 import qualified Data.Set as Set
 import Data.Typeable
+
+import Data.ReverseIxMap (ReverseIxMap)
+import qualified Data.ReverseIxMap as RM
 import Data.Word (Word64)
 import GHC.Generics (Generic)
 import GHC.Records (HasField (..))
@@ -320,9 +327,82 @@ instance CC.Crypto crypto => FromCBOR (InstantaneousRewards crypto) where
       dT <- fromCBOR
       pure $ InstantaneousRewards irR irT dR dT
 
+type StakeMap crypto = ReverseIxMap
+  Ptr
+  (Credential 'Staking crypto)
+  (StakeMapPair crypto)
+
+getRewards :: StakeMap crypto -> Map (Credential 'Staking crypto) Coin
+getRewards sm = f <$> (RM.getForward sm)
+  where
+  f (StakeMapPair _ x) = coinValue x
+
+getDelegations :: StakeMap crypto
+  -> Map (Credential 'Staking crypto) (KeyHash 'StakePool crypto)
+getDelegations sm = Map.mapMaybe f (RM.getForward sm)
+  where
+  f (StakeMapPair _ x) = getPool x
+
+data StakeMapPair crypto = StakeMapPair !Ptr !(StakeMapVal crypto)
+  deriving (Eq, Show, Generic)
+
+instance NoThunks (StakeMapPair crypto)
+instance NFData (StakeMapPair crypto)
+
+data StakeMapVal crypto =
+    Bare
+  | Pool !(KeyHash 'StakePool crypto)
+  | Reward !Coin
+  | Full !Coin !(KeyHash 'StakePool crypto)
+  deriving (Eq, Show, Generic)
+
+instance NoThunks (StakeMapVal crypto)
+instance NFData (StakeMapVal crypto)
+
+instance RM.IsPair (StakeMapPair crypto) Ptr (StakeMapVal crypto) where
+  toPair (StakeMapPair i x) = (i,x)
+  fromPair (i,x) = StakeMapPair i x
+
+addCoin :: Coin -> StakeMapVal crypto -> StakeMapVal crypto
+addCoin c Bare = Reward c
+addCoin c (Pool k) = Full c k
+addCoin c (Reward r) = Reward (r <> c)
+addCoin c (Full r k) = Full (r <> c) k
+
+clearCoin :: StakeMapVal crypto -> StakeMapVal crypto
+clearCoin (Full r k) = Pool k
+clearCoin (Reward r) = Bare
+clearCoin x = x
+
+coinValue :: StakeMapVal crypto -> Coin
+coinValue (Reward r) = r
+coinValue (Full r _) = r
+coinValue _ = mempty
+
+setPool :: KeyHash 'StakePool crypto -> StakeMapVal crypto -> StakeMapVal crypto
+setPool k' (Bare) = Pool k'
+setPool k' (Pool k) = Pool k'
+setPool k' (Reward r) = Full r k'
+setPool k' (Full r k) = Full r k'
+
+unsetPool :: StakeMapVal crypto -> StakeMapVal crypto
+unsetPool (Pool k) = Bare
+unsetPool (Full r k) = Reward r
+unsetPool x = x
+
+getPool :: StakeMapVal crypto -> Maybe (KeyHash 'StakePool crypto)
+getPool (Pool k) = Just k
+getPool (Full _r k) = Just k
+getPool _ = Nothing
+
 -- | State of staking pool delegations and rewards
 data DState crypto = DState
-  { -- | The active reward accounts.
+  { -- | Contains:
+    --   - the active reward accounts
+    --   - the current delegationsk
+    --   - stake cred pointers
+    stakeMap :: !(StakeMap crypto),
+    -- | The active reward accounts.
     _rewards :: !(RewardAccounts crypto),
     -- | The current delegations.
     _delegations :: !(Map (Credential 'Staking crypto) (KeyHash 'StakePool crypto)),
@@ -336,23 +416,26 @@ data DState crypto = DState
     _irwd :: !(InstantaneousRewards crypto)
   }
   deriving (Show, Eq, Generic)
+{-# LANGUAGE Deprecated _rewards "Use stakeMap" #-}
+{-# LANGUAGE Deprecated _delegations "Use stakeMap" #-}
+{-# LANGUAGE Deprecated _ptrs "Use stakeMap" #-}
 
 instance NoThunks (DState crypto)
 
 instance NFData (DState crypto)
 
 instance CC.Crypto crypto => ToCBOR (DState crypto) where
-  toCBOR (DState rw dlg p fgs gs ir) =
+  toCBOR = undefined {-
     encodeListLen 6
       <> toCBOR rw
       <> toCBOR dlg
       <> toCBOR p
       <> toCBOR fgs
       <> toCBOR gs
-      <> toCBOR ir
+      <> toCBOR ir -}
 
 instance CC.Crypto crypto => FromCBOR (DState crypto) where
-  fromCBOR = do
+  fromCBOR = undefined {-do
     decodeRecordNamed "DState" (const 6) $ do
       rw <- fromCBOR
       dlg <- fromCBOR
@@ -361,6 +444,7 @@ instance CC.Crypto crypto => FromCBOR (DState crypto) where
       gs <- fromCBOR
       ir <- fromCBOR
       pure $ DState rw dlg p fgs gs ir
+    -}
 
 -- | Current state of staking pools and their certificate counters.
 data PState crypto = PState
@@ -649,7 +733,7 @@ getGKeys nes = Map.keysSet genDelegs
   where
     NewEpochState _ _ _ es _ _ = nes
     EpochState _ _ ls _ _ _ = es
-    LedgerState _ (DPState (DState _ _ _ _ (GenDelegs genDelegs) _) _) = ls
+    genDelegs = unGenDelegs (_genDelegs (_dstate (_delegationState ls)))
 
 -- | The state associated with a 'Ledger'.
 data LedgerState era = LedgerState
@@ -1002,10 +1086,13 @@ stakeDistr u ds ps =
     delegs
     poolParams
   where
-    DState rewards' delegs ptrs' _ _ _ = ds
+    stk = stakeMap ds
+    rewards' = getRewards stk
+    delegs = getDelegations stk
+    ptrs' = RM.getBackward stk
     PState poolParams _ _ = ps
     stakeRelation :: Map (Credential 'Staking (Crypto era)) Coin
-    stakeRelation = aggregateUtxoCoinByCredential (forwards ptrs') u rewards'
+    stakeRelation = aggregateUtxoCoinByCredential ptrs' u rewards'
     activeDelegs :: Map (Credential 'Staking (Crypto era)) (KeyHash 'StakePool (Crypto era))
     activeDelegs = eval ((dom rewards' ◁ delegs) ▷ dom poolParams)
 
@@ -1377,6 +1464,7 @@ instance Default (InstantaneousRewards crypto) where
 instance Default (DState crypto) where
   def =
     DState
+      RM.empty
       Map.empty
       Map.empty
       biMapEmpty
