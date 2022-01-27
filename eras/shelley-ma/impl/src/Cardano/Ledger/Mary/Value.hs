@@ -334,7 +334,9 @@ instance CC.Crypto crypto => Compactible (Value crypto) where
   newtype CompactForm (Value crypto) = CompactValue (CompactValue crypto)
     deriving (Eq, Typeable, Show, NoThunks, ToCBOR, FromCBOR, NFData)
   toCompact x = CompactValue <$> to x
+  {-# INLINE toCompact #-}
   fromCompact (CompactValue x) = from x
+  {-# INLINE fromCompact #-}
 
 instance CC.Crypto crypto => ToCBOR (CompactValue crypto) where
   toCBOR = toCBOR . from

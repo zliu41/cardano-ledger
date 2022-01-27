@@ -198,6 +198,7 @@ decodeAddress28 stakeRef (Addr28Extra a b c d) = do
         hashFromPackedBytes $
           PackedBytes28 a b c (fromIntegral (d `shiftR` 32))
   pure $ Addr network paymentCred (StakeRefBase stakeRef)
+{-# INLINE decodeAddress28 #-}
 
 encodeAddress28 ::
   forall crypto.
@@ -229,6 +230,7 @@ encodeAddress28 network paymentCred = do
   case paymentCred of
     KeyHashObj (KeyHash addrHash) -> encodeAddr addrHash
     ScriptHashObj (ScriptHash addrHash) -> encodeAddr addrHash
+{-# INLINE encodeAddress28 #-}
 
 decodeDataHash32 ::
   forall crypto.
@@ -868,6 +870,7 @@ instance (Era era, CC.Crypto c, Crypto era ~ c) => HasField "address" (TxOut era
     case getAlonzoTxOutEitherAddr t of
       Left a -> a
       Right ca -> decompactAddr ca
+  {-# INLINE getField #-}
 
 instance (Era era, Core.Value era ~ val, Compactible val) => HasField "value" (TxOut era) val where
   getField (TxOutCompact _ v) = fromCompact v
@@ -890,3 +893,4 @@ getAlonzoTxOutEitherAddr = \case
   TxOut_AddrHash28_AdaOnly_DataHash32 stakeRef addr28Extra _ _ _ _ _
     | Just addr <- decodeAddress28 stakeRef addr28Extra -> Left addr
     | otherwise -> error "Impossible: Compacted an address or a hash of non-standard size"
+{-# INLINE getAlonzoTxOutEitherAddr #-}

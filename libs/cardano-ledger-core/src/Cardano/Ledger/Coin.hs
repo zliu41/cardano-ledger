@@ -81,7 +81,10 @@ instance Compactible Coin where
     deriving (Eq, Show, NoThunks, NFData, Typeable, HeapWords, Prim)
 
   toCompact (Coin c) = CompactCoin <$> integerToWord64 c
+  {-# INLINE toCompact #-}
   fromCompact (CompactCoin c) = word64ToCoin c
+  {-# INLINE fromCompact #-}
+
 
 -- It's odd for this to live here. Where should it go?
 integerToWord64 :: Integer -> Maybe Word64

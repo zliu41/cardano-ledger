@@ -65,6 +65,8 @@ instance CC.Crypto c => Show (CompactAddr c) where
 
 compactAddr :: Addr crypto -> CompactAddr crypto
 compactAddr = UnsafeCompactAddr . SBS.toShort . serialiseAddr
+{-# INLINE compactAddr #-}
+
 
 decompactAddr :: forall crypto. CC.Crypto crypto => CompactAddr crypto -> Addr crypto
 decompactAddr (UnsafeCompactAddr bytes) =
@@ -92,6 +94,8 @@ decompactAddr (UnsafeCompactAddr bytes) =
     stakecred = run "staking credential" 1 bytes $ do
       skipHash ([] @(ADDRHASH crypto))
       getStakeReference header
+{-# INLINE decompactAddr #-}
+
 
 instance CC.Crypto crypto => ToCBOR (CompactAddr crypto) where
   toCBOR (UnsafeCompactAddr bytes) = toCBOR bytes

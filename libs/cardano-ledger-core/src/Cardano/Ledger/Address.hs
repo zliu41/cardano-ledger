@@ -135,6 +135,7 @@ toCred k = KeyHashObj . hashKey $ vKey k
 -- | Serialise an address to the external format.
 serialiseAddr :: Addr crypto -> ByteString
 serialiseAddr = BSL.toStrict . B.runPut . putAddr
+{-# INLINE serialiseAddr #-}
 
 -- | Deserialise an address from the external format. This will fail if the
 -- input data is not in the right format (or if there is trailing data).
@@ -273,6 +274,7 @@ putAddr (Addr network pc sr) =
           let header = setPayCredBit $ netId `setBit` isEnterpriseAddr `setBit` notBaseAddr
           B.putWord8 header
           putCredential pc
+{-# INLINE putAddr #-}
 
 getAddr :: CC.Crypto crypto => Get (Addr crypto)
 getAddr = do
@@ -335,20 +337,25 @@ getHash = do
   case Hash.hashFromBytes bytes of
     Nothing -> fail "getHash: implausible hash length mismatch"
     Just h -> pure h
+{-# INLINE getHash #-}
 
 putHash :: Hash.Hash h a -> Put
 putHash = B.putByteString . Hash.hashToBytes
+{-# INLINE putHash #-}
 
 getPayCred :: CC.Crypto crypto => Word8 -> Get (PaymentCredential crypto)
 getPayCred header = case testBit header payCredIsScript of
   True -> getScriptHash
   False -> getKeyHash
+{-# INLINE getPayCred #-}
 
 getScriptHash :: CC.Crypto crypto => Get (Credential kr crypto)
 getScriptHash = ScriptHashObj . ScriptHash <$> getHash
+{-# INLINE getScriptHash #-}
 
 getKeyHash :: CC.Crypto crypto => Get (Credential kr crypto)
 getKeyHash = KeyHashObj . KeyHash <$> getHash
+{-# INLINE getKeyHash #-}
 
 getStakeReference :: CC.Crypto crypto => Word8 -> Get (StakeReference crypto)
 getStakeReference header = case testBit header notBaseAddr of
@@ -358,10 +365,12 @@ getStakeReference header = case testBit header notBaseAddr of
   False -> case testBit header stakeCredIsScript of
     True -> StakeRefBase <$> getScriptHash
     False -> StakeRefBase <$> getKeyHash
+{-# INLINE getStakeReference #-}
 
 putCredential :: Credential kr crypto -> Put
 putCredential (ScriptHashObj (ScriptHash h)) = putHash h
 putCredential (KeyHashObj (KeyHash h)) = putHash h
+{-# INLINE putCredential #-}
 
 getByron :: Get (Addr crypto)
 getByron =
