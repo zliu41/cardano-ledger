@@ -85,7 +85,6 @@ instance Compactible Coin where
   fromCompact (CompactCoin c) = word64ToCoin c
   {-# INLINE fromCompact #-}
 
-
 -- It's odd for this to live here. Where should it go?
 integerToWord64 :: Integer -> Maybe Word64
 integerToWord64 c

@@ -67,7 +67,6 @@ compactAddr :: Addr crypto -> CompactAddr crypto
 compactAddr = UnsafeCompactAddr . SBS.toShort . serialiseAddr
 {-# INLINE compactAddr #-}
 
-
 decompactAddr :: forall crypto. CC.Crypto crypto => CompactAddr crypto -> Addr crypto
 decompactAddr (UnsafeCompactAddr bytes) =
   if testBit header byron
@@ -95,7 +94,6 @@ decompactAddr (UnsafeCompactAddr bytes) =
       skipHash ([] @(ADDRHASH crypto))
       getStakeReference header
 {-# INLINE decompactAddr #-}
-
 
 instance CC.Crypto crypto => ToCBOR (CompactAddr crypto) where
   toCBOR (UnsafeCompactAddr bytes) = toCBOR bytes
