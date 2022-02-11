@@ -73,19 +73,22 @@ class
   getTxOutEitherAddr ::
     TxOut era ->
     Either (Addr (Crypto era)) (CompactAddr (Crypto era))
-  getTxOutEitherAddr = Left . getField @"address"
+  getTxOutEitherAddr txOut = Left $! getField @"address" txOut
+  {-# INLINE getTxOutEitherAddr #-}
 
   getTxOutAddr :: TxOut era -> Addr (Crypto era)
   getTxOutAddr t =
     case getTxOutEitherAddr t of
       Left a -> a
       Right ca -> decompactAddr ca
+  {-# INLINE getTxOutAddr #-}
 
   getTxOutCompactAddr :: TxOut era -> CompactAddr (Crypto era)
   getTxOutCompactAddr t =
     case getTxOutEitherAddr t of
       Left a -> compactAddr a
       Right ca -> ca
+  {-# INLINE getTxOutCompactAddr #-}
 
 type UsesScript era =
   ( Era era,

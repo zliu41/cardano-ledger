@@ -895,7 +895,7 @@ instance (Era era, c ~ Crypto era) => HasField "datahash" (TxOut era) (StrictMay
     TxOut_AddrHash28_AdaOnly_DataHash32 _ _ _ _ _ _ a b c d ->
       maybeToStrictMaybe $ do
         Refl <- sameNat (Proxy @(SizeHash (CC.HASH c))) (Proxy @32)
-        Just $ decodeDataHash32 a b c d
+        Just $! decodeDataHash32 a b c d
     _ -> SNothing
 
 getAlonzoTxOutEitherAddr ::
@@ -914,3 +914,4 @@ getAlonzoTxOutEitherAddr = \case
     | Just Refl <- sameNat (Proxy @(SizeHash (CC.ADDRHASH (Crypto era)))) (Proxy @28) ->
       Left $! decodeAddress28 stakeRef a b c d
     | otherwise -> error "Impossible: Compacted an address or a hash of non-standard size"
+{-# INLINE getAlonzoTxOutEitherAddr #-}

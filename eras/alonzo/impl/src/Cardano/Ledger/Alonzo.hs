@@ -181,6 +181,7 @@ instance (CC.Crypto c) => UsesTxOut (AlonzoEra c) where
   makeTxOut _proxy addr val = TxOut addr val SNothing
 
   getTxOutEitherAddr = getAlonzoTxOutEitherAddr
+  {-# INLINE getTxOutEitherAddr #-}
 
 instance CC.Crypto c => API.CLI (AlonzoEra c) where
   evaluateMinFee = minfee

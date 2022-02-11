@@ -69,7 +69,11 @@ instance CryptoClass.Crypto c => UsesValue (ShelleyEra c)
 instance CryptoClass.Crypto c => UsesTxOut (ShelleyEra c) where
   makeTxOut _ a v = STx.TxOut a v
 
+  getTxOutCompactAddr (STx.TxOutCompact a _) = a
+  {-# INLINE getTxOutCompactAddr #-}
+
   getTxOutEitherAddr (STx.TxOutCompact a _) = Right a
+  {-# INLINE getTxOutEitherAddr #-}
 
 instance CryptoClass.Crypto c => UsesPParams (ShelleyEra c) where
   mergePPUpdates _ = updatePParams

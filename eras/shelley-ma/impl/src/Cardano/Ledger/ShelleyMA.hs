@@ -114,7 +114,11 @@ instance CryptoClass.Crypto c => UsesValue (ShelleyMAEra 'Allegra c)
 instance CryptoClass.Crypto c => UsesTxOut (ShelleyMAEra 'Mary c) where
   makeTxOut _ a v = TxOut a v
 
+  getTxOutCompactAddr (TxOutCompact a _) = a
+  {-# INLINE getTxOutCompactAddr #-}
+
   getTxOutEitherAddr (TxOutCompact a _) = Right a
+  {-# INLINE getTxOutEitherAddr #-}
 
 instance CryptoClass.Crypto c => UsesTxOut (ShelleyMAEra 'Allegra c) where
   makeTxOut _ a v = TxOut a v
