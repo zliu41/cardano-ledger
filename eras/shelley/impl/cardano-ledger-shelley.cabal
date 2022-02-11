@@ -109,7 +109,7 @@ library
     mtl,
     microlens,
     nothunks,
-    primitive,
+    primitive >= 0.7.1.0,
     quiet,
     set-algebra,
     small-steps,

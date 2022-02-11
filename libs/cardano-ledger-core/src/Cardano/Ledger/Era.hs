@@ -6,11 +6,13 @@
 {-# LANGUAGE MultiParamTypeClasses #-}
 {-# LANGUAGE ScopedTypeVariables #-}
 {-# LANGUAGE TypeApplications #-}
+{-# LANGUAGE TypeFamilies #-}
 {-# LANGUAGE TypeFamilyDependencies #-}
 
 -- | Support for multiple (Shelley-based) eras in the ledger.
 module Cardano.Ledger.Era
-  ( Era (..),
+  ( Era,
+    Crypto,
     PreviousEra,
     TranslationContext,
     TranslateEra (..),

@@ -30,7 +30,7 @@ import Cardano.Ledger.Shelley.CompactAddr (CompactAddr, compactAddr, decompactAd
 import Cardano.Ledger.Val (DecodeMint, DecodeNonNegative, EncodeMint, Val)
 import Data.Kind (Constraint, Type)
 import Data.Proxy (Proxy)
-import GHC.Records
+import GHC.Records (HasField (getField))
 
 --------------------------------------------------------------------------------
 -- Shelley Era
@@ -59,7 +59,10 @@ class
   ( Era era,
     ChainData (TxOut era),
     ToCBOR (TxOut era),
-    FromCBOR (TxOut era)
+    FromCBOR (TxOut era),
+    HasField "address" (TxOut era) (Addr (Crypto era)),
+    HasField "compactAddress" (TxOut era) (CompactAddr (Crypto era)),
+    HasField "value" (TxOut era) (Value era)
   ) =>
   UsesTxOut era
   where

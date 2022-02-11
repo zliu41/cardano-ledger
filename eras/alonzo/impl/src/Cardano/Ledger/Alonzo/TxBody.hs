@@ -18,6 +18,7 @@
 {-# LANGUAGE TypeOperators #-}
 {-# LANGUAGE UndecidableInstances #-}
 {-# LANGUAGE ViewPatterns #-}
+{-# OPTIONS_GHC -Wno-redundant-constraints #-}
 
 module Cardano.Ledger.Alonzo.TxBody
   ( TxOut (.., TxOut, TxOutCompact, TxOutCompactDH),
@@ -80,7 +81,7 @@ import Cardano.Ledger.Core (PParamsDelta)
 import qualified Cardano.Ledger.Core as Core
 import Cardano.Ledger.Credential (Credential (..), PaymentCredential, StakeReference (..))
 import qualified Cardano.Ledger.Crypto as CC
-import Cardano.Ledger.Era (Era (Crypto))
+import Cardano.Ledger.Era (Crypto, Era)
 import Cardano.Ledger.Hashes
   ( EraIndependentScriptIntegrity,
     EraIndependentTxBody,
@@ -180,7 +181,9 @@ getAdaOnly _ v = do
 
 decodeAddress28 ::
   forall crypto.
-  SizeHash (CC.ADDRHASH crypto) ~ 28 =>
+  ( SizeHash (CC.ADDRHASH crypto) ~ 28,
+    HashAlgorithm (CC.ADDRHASH crypto)
+  ) =>
   Credential 'Staking crypto ->
   Word64 ->
   Word64 ->
@@ -232,7 +235,9 @@ encodeAddress28 network paymentCred = do
 
 decodeDataHash32 ::
   forall crypto.
-  SizeHash (CC.HASH crypto) ~ 32 =>
+  ( SizeHash (CC.HASH crypto) ~ 32,
+    HashAlgorithm (CC.HASH crypto)
+  ) =>
   Word64 ->
   Word64 ->
   Word64 ->
@@ -424,7 +429,13 @@ newtype TxBody era = TxBodyConstr (MemoBytes (TxBodyRaw era))
   deriving (ToCBOR)
   deriving newtype (SafeToHash)
 
-deriving newtype instance CC.Crypto (Crypto era) => Eq (TxBody era)
+deriving newtype instance
+  ( Eq (Core.Value era),
+    Compactible (Core.Value era),
+    CC.Crypto (Crypto era),
+    Eq (PParamsDelta era)
+  ) =>
+  Eq (TxBody era)
 
 deriving instance
   ( Typeable era,
@@ -860,6 +871,10 @@ instance
 
 instance HasField "txnetworkid" (TxBody era) (StrictMaybe Network) where
   getField (TxBodyConstr (Memo m _)) = _txnetworkid m
+
+instance (Era era, Crypto era ~ c) => HasField "compactAddress" (TxOut era) (CompactAddr c) where
+  getField (TxOutCompact a _) = a
+  getField (TxOutCompactDH a _ _) = a
 
 instance (Era era, CC.Crypto c, Crypto era ~ c) => HasField "address" (TxOut era) (Addr c) where
   getField t =
