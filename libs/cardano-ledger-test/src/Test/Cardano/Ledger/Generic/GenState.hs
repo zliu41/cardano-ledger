@@ -105,6 +105,8 @@ import Test.Tasty.QuickCheck
     generate,
   )
 
+-- import Debug.Trace(trace)
+
 -- =================================================
 
 -- | Constants that determine how big a GenState is generated.

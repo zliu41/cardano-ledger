@@ -1,15 +1,23 @@
+{-# LANGUAGE BangPatterns #-}
 {-# LANGUAGE ConstraintKinds #-}
 {-# LANGUAGE DataKinds #-}
 {-# LANGUAGE FlexibleContexts #-}
 {-# LANGUAGE FlexibleInstances #-}
+{-# LANGUAGE InstanceSigs #-}
 {-# LANGUAGE LambdaCase #-}
 {-# LANGUAGE MultiParamTypeClasses #-}
+{-# LANGUAGE NamedFieldPuns #-}
 {-# LANGUAGE OverloadedStrings #-}
 {-# LANGUAGE RankNTypes #-}
+{-# LANGUAGE RecordWildCards #-}
 {-# LANGUAGE ScopedTypeVariables #-}
+{-# LANGUAGE StandaloneDeriving #-}
+{-# LANGUAGE TupleSections #-}
 {-# LANGUAGE TypeApplications #-}
 {-# LANGUAGE TypeFamilies #-}
 {-# LANGUAGE UndecidableInstances #-}
+{-# OPTIONS_GHC -Wno-orphans #-}
+{-# OPTIONS_GHC -Wno-unused-imports #-}
 
 module Test.Cardano.Ledger.Generic.Trace where
 
@@ -17,10 +25,13 @@ module Test.Cardano.Ledger.Generic.Trace where
 
 import Cardano.Ledger.Alonzo.PParams (PParams' (..))
 import qualified Cardano.Ledger.Babbage.PParams (PParams' (..))
+import qualified Cardano.Ledger.Babbage.PParams as Babbage (PParams' (..))
 import Cardano.Ledger.Babbage.Rules.Ledger ()
 import Cardano.Ledger.Babbage.Rules.Utxow ()
 import Cardano.Ledger.BaseTypes (BlocksMade (..), Globals)
+import Cardano.Ledger.Coin (Coin (..))
 import qualified Cardano.Ledger.Core as Core
+import Cardano.Ledger.Era (Era)
 import Cardano.Ledger.Keys (KeyHash, KeyRole (..))
 import Cardano.Ledger.PoolDistr (IndividualPoolStake (..), PoolDistr (..))
 import Cardano.Ledger.Pretty (PDoc, ppInt, ppList, ppMap, ppSafeHash, ppStrictSeq, ppString, ppWord64)
@@ -29,17 +40,23 @@ import Cardano.Ledger.Shelley.API.Wallet (totalAdaPotsES)
 import Cardano.Ledger.Shelley.Constraints (UsesValue)
 import Cardano.Ledger.Shelley.LedgerState
   ( AccountState (..),
+    DPState (..),
+    DState (_unified),
     EpochState (..),
     LedgerState (..),
     NewEpochState (..),
     StashedAVVMAddresses,
+    PState (..),
     UTxOState (..),
+    rewards,
+    smartUTxOState,
   )
 import qualified Cardano.Ledger.Shelley.PParams as Shelley (PParams' (..))
+import Cardano.Ledger.Shelley.Rules.Ledger (LedgerEnv)
 import Cardano.Ledger.Shelley.UTxO (UTxO (..))
 import Cardano.Slotting.Slot (EpochNo (..), SlotNo (..))
 import Control.Monad.Trans.Class (MonadTrans (lift))
-import Control.Monad.Trans.RWS.Strict (get)
+import Control.Monad.Trans.RWS.Strict (get, gets)
 import Control.Monad.Trans.Reader (ReaderT (..))
 import Control.State.Transition.Extended (STS (..), TRC (..))
 import Control.State.Transition.Trace (Trace (..), lastState)
@@ -52,16 +69,19 @@ import Data.Maybe.Strict (StrictMaybe (..))
 import Data.Sequence.Strict (StrictSeq)
 import qualified Data.Sequence.Strict as SS
 import qualified Data.Set as Set
+import Data.Sequence as Seq hiding (reverse)
+import qualified Data.UMap as UM
 import Data.Vector (Vector, (!))
 import qualified Data.Vector as Vector
+import Debug.Trace
 import GHC.Word (Word64)
 import Prettyprinter (vsep)
 import Test.Cardano.Ledger.Generic.ApplyTx (applyTx)
-import Test.Cardano.Ledger.Generic.Functions (allInputs, getBody, getTxOutCoin, isValid')
+import Test.Cardano.Ledger.Generic.Functions (allInputs, getBody, getTxOutCoin, isValid',  emptyPPUPstate, obligation')
 import Test.Cardano.Ledger.Generic.GenState
   ( GenEnv (..),
     GenRS,
-    GenSize,
+    GenSize (..),
     GenState (..),
     getBlocksizeMax,
     getReserves,
@@ -69,20 +89,26 @@ import Test.Cardano.Ledger.Generic.GenState
     getTreasury,
     initialLedgerState,
     modifyModel,
+    oldUtxoPercent,
     runGenRS,
+    small,
+    startslot,
   )
 import Test.Cardano.Ledger.Generic.MockChain
 import Test.Cardano.Ledger.Generic.ModelState
-  ( stashedAVVMAddressesZero,
-    toMUtxo,
+  ( MUtxo,
+    Model,
+    mNewEpochStateZero,
+    pcModelNewEpochState,
+    stashedAVVMAddressesZero,
   )
-import Test.Cardano.Ledger.Generic.PrettyCore (pcCoin, pcTx, pcTxBody, pcTxIn)
+import Test.Cardano.Ledger.Generic.PrettyCore (pcCoin, pcTx, pcTxBody, pcTxIn, pcLedgerState, txSummary, utxoSummary)
 import Test.Cardano.Ledger.Generic.Proof hiding (lift)
 import Test.Cardano.Ledger.Generic.TxGen (genValidatedTx)
 import Test.Cardano.Ledger.Shelley.Utils (applySTSTest, runShelleyBase, testGlobals)
 import Test.QuickCheck
 import Test.Tasty (TestTree, testGroup)
-import Test.Tasty.QuickCheck (testProperty)
+import Test.Tasty.QuickCheck (Gen, choose, frequency, generate, testProperty)
 
 -- ===========================================
 

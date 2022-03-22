@@ -57,7 +57,6 @@ import Cardano.Ledger.Shelley.UTxO (UTxO (..), balance, scriptsNeeded, totalDepo
 import Cardano.Ledger.TxIn (TxIn (..))
 import Cardano.Ledger.Val (Val (coin, inject, (<+>), (<->)))
 import Control.State.Transition.Extended (STS (State))
-import qualified Data.Compact.SplitMap as SplitMap
 import Data.Default.Class (Default (def))
 import Data.Foldable (toList)
 import qualified Data.Foldable as Fold

@@ -19,6 +19,15 @@ module Test.Cardano.Ledger.Generic.TxGen where
 import Cardano.Ledger.Alonzo.Data (Data, dataToBinaryData, hashData)
 import Cardano.Ledger.Alonzo.PParams (PParams' (..))
 import Cardano.Ledger.Alonzo.Scripts
+<<<<<<< HEAD
+=======
+-- ====================
+
+-- toMUtxo,
+
+-- pcTxOut,
+
+>>>>>>> c0d151a55 (Restructured Generic.Properties into mutiple files)
 import Cardano.Ledger.Alonzo.Tx (IsValid (..))
 import Cardano.Ledger.Alonzo.TxBody (TxOut (..))
 import Cardano.Ledger.Alonzo.TxWitness
@@ -79,6 +88,7 @@ import Data.Word (Word16)
 import GHC.Stack
 import Test.Cardano.Ledger.Alonzo.Serialisation.Generators ()
 import Test.Cardano.Ledger.Babbage.Serialisation.Generators ()
+import Test.Cardano.Ledger.Generic.ApplyTx (applyTx)
 import Test.Cardano.Ledger.Generic.Fields hiding (Mint)
 import qualified Test.Cardano.Ledger.Generic.Fields as Generic (TxBodyField (Mint))
 import Test.Cardano.Ledger.Generic.Functions
@@ -822,46 +832,32 @@ genValidatedTxAndInfo proof = do
   let bogusCollateralTxIns =
         Set.fromList
           [ TxIn bogusCollateralTxId (mkTxIxPartial (fromIntegral i))
-            | i <- [maxBound, maxBound - 1 .. maxBound - fromIntegral maxCollateralCount - 1] :: [Word16]
+            | i <- [1 .. 10 :: Int] -- [maxBound, maxBound - 1 .. maxBound - maxCollateralCount - 1]
           ]
   collateralAddresses <- replicateM maxCollateralCount genNoScriptRecipient
-  bogusCollateralKeyWitsMakers <- forM collateralAddresses $ \a ->
-    genTxOutKeyWitness proof Nothing (coreTxOut proof [Address a, Amount (inject maxCoin)])
+  bogusCollateralKeyWitsMakers <-
+    mapM (\a -> genTxOutKeyWitness proof Nothing (coreTxOut proof [Address a, Amount (inject maxCoin)])) collateralAddresses
   networkId <- lift $ elements [SNothing, SJust Testnet]
 
-  -- 6. Generate bogus collateral fields, and functions for updating them when we know their real values
-  -- Add a stub for the TotalCol field
-  bogusTotalCol <- frequencyT [(1, pure SNothing), (9, pure (SJust (Coin 0)))] -- generate a bogus Coin, fill it in later
-  let updateTotalColl SNothing _ = SNothing
-      updateTotalColl (SJust (Coin n)) (Coin m) = SJust (Coin (n + m))
-  -- If Babbage era, or greater, add a stub for a CollateralReturn TxOut
-  bogusCollReturn <-
-    if Some proof >= Some (Babbage Mock)
-      then frequencyT [(1, pure SNothing), (9, (SJust . coreTxOut proof) <$> genTxOut proof (inject (Coin 0)))]
-      else pure SNothing
-  let updateCollReturn SNothing _ = SNothing
-      updateCollReturn (SJust txout) v = SJust (injectFee proof v txout)
-
-  -- 7. Estimate the fee
-  let redeemerDatumWits = redeemerWitsList ++ datumWitsList
+  -- 6. Estimate the fee
+  let redeemerDatumWits = (redeemerWitsList ++ datumWitsList)
       bogusIntegrityHash = hashScriptIntegrity' proof gePParams mempty (Redeemers mempty) mempty
       inputSet = Map.keysSet toSpendNoCollateral
-      outputList = maybe recipients (: recipients) rewardsWithdrawalTxOut
+      outputList = (rewardsWithdrawalTxOut : recipients)
       txBodyNoFee =
         coreTxBody
           proof
           [ Inputs inputSet,
             Collateral bogusCollateralTxIns,
             RefInputs (Map.keysSet refInputsUtxo),
-            TotalCol bogusTotalCol,
+            TotalCol (SJust (Coin 0)), -- Add a bogus Coin, fill it in later
             Outputs' outputList,
-            CollateralReturn bogusCollReturn,
             Certs' dcerts,
             Wdrls wdrls,
             Txfee maxCoin,
-            if Some proof >= Some (Allegra Mock)
-              then Vldt geValidityInterval
-              else TTL (timeToLive geValidityInterval),
+            if (Some proof) >= (Some (Allegra Mock))
+              then (Vldt geValidityInterval)
+              else (TTL (timeToLive geValidityInterval)),
             Update' [],
             ReqSignerHashes' [],
             Generic.Mint mempty,
@@ -889,17 +885,17 @@ genValidatedTxAndInfo proof = do
       fee = minfee' proof gePParams bogusTxForFeeCalc
       deposits = depositsAndRefunds proof gePParams dcerts
 
-  -- 8. Crank up the amount in one of outputs to account for the fee and deposits. Note
+  -- 7. Crank up the amount in one of outputs to account for the fee and deposits. Note
   -- this is a hack that is not possible in a real life, but in the end it does produce
   -- real life like setup. We use the entry with TxIn feeKey, which we can safely overwrite.
   let utxoFeeAdjusted = Map.adjust (injectFee proof (fee <+> deposits)) feeKey utxoNoCollateral
 
-  -- 9. Generate utxos that will be used as collateral
-  (utxo, collMap, excessColCoin) <- genCollateralUTxO collateralAddresses fee utxoFeeAdjusted
+  -- 8. Generate utxos that will be used as collateral
+  (utxo, collMap) <- genCollateralUTxO collateralAddresses fee utxoFeeAdjusted
   collateralKeyWitsMakers <-
     mapM (genTxOutKeyWitness proof Nothing) $ Map.elems collMap
 
-  -- 10. Construct the correct Tx with valid fee and collaterals
+  -- 9. Construct the correct Tx with valid fee and collaterals
   allPlutusScripts <- gsPlutusScripts <$> get
   let mIntegrityHash =
         hashScriptIntegrity'
@@ -908,18 +904,13 @@ genValidatedTxAndInfo proof = do
           (languagesUsed proof bogusTxForFeeCalc (UTxO utxoNoCollateral) allPlutusScripts)
           (mkTxrdmrs redeemerDatumWits)
           (mkTxdats redeemerDatumWits)
-      balance =
-        case bogusCollReturn of
-          SNothing -> txInBalance (Map.keysSet collMap) utxo
-          SJust _ -> txInBalance (Map.keysSet collMap) utxo <-> excessColCoin
       txBody =
         overrideTxBody
           proof
           txBodyNoFee
           [ Txfee fee,
             Collateral (Map.keysSet collMap),
-            CollateralReturn (updateCollReturn bogusCollReturn excessColCoin),
-            TotalCol (updateTotalColl bogusTotalCol balance),
+            TotalCol (SJust (txInBalance (Map.keysSet collMap) utxo)),
             WppHash mIntegrityHash
           ]
       txBodyHash = hashAnnotated txBody
@@ -941,7 +932,7 @@ genValidatedTxAndInfo proof = do
   modify
     ( \st ->
         st
-          { gsInitialUtxo = Map.union (gsInitialUtxo st) (minus utxo maybeoldpair),
+          { gsInitialUtxo = Map.union (gsInitialUtxo st) utxo,
             gsInitialRewards = Map.unions [gsInitialRewards st, newRewards]
           }
     )

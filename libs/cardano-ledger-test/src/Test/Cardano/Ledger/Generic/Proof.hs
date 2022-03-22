@@ -205,7 +205,7 @@ runSTS (MOCKCHAIN _proof) x cont = cont (runShelleyBase (applySTSTest x))
 
 -- | Like runSTS, but makes the components of the TRC triple explicit.
 --   in case you can't remember, in ghci type
--- @@@
+--
 --   :t goSTS (UTXOW (Babbage Mock))
 --   goSTS (LEDGER (Babbage Mock))
 --     :: LedgerEnv (BabbageEra C_Crypto)
@@ -216,7 +216,7 @@ runSTS (MOCKCHAIN _proof) x cont = cont (runShelleyBase (applySTSTest x))
 --              (UTxOState (BabbageEra C_Crypto), DPState C_Crypto)
 --        -> ans)
 --        -> ans
--- @@@
+--
 --   it will tell you what type 'env' 'state' and 'sig' are for Babbage
 goSTS ::
   forall s e ans env state sig.

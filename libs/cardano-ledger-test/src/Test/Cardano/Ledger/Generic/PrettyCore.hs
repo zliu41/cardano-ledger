@@ -13,8 +13,24 @@
 
 module Test.Cardano.Ledger.Generic.PrettyCore where
 
+-- ------------------------------
+-- Predicatefailures
+
+-- import qualified  Cardano.Ledger.Shelley.Rules.Utxo as Shelley(UtxoPredicateFailure(..))
+
+-- -------------
+-- Specific types
+
+-- import Cardano.Ledger.Alonzo.TxWitness(TxWitness (..))
+
 import Cardano.Ledger.Address (Addr (..), RewardAcnt (..))
 import Cardano.Ledger.Alonzo.Data (Data (..), binaryDataToData, hashData)
+-- import Cardano.Ledger.Shelley.Rules.Snap(SnapPredicateFailure)
+-- import Cardano.Ledger.Shelley.Rules.PoolReap(PoolreapPredicateFailure)
+
+-- import Cardano.Ledger.Shelley.Rules.Rupd(RupdPredicateFailure)
+-- import Cardano.Ledger.Shelley.Rules.Mir(MirPredicateFailure)
+
 import qualified Cardano.Ledger.Alonzo.Data as Alonzo
 import Cardano.Ledger.Alonzo.PlutusScriptApi (CollectError (..))
 import Cardano.Ledger.Alonzo.Rules.Bbody (AlonzoBbodyPredFail (..))
@@ -40,15 +56,11 @@ import Cardano.Ledger.Pretty
 import Cardano.Ledger.Pretty.Alonzo
 import qualified Cardano.Ledger.Pretty.Babbage as Babbage
 import Cardano.Ledger.Pretty.Mary
-import Cardano.Ledger.SafeHash (hashAnnotated)
 import Cardano.Ledger.Shelley.LedgerState
-  ( AccountState (..),
-    DPState (..),
+  ( DPState (..),
     DState (..),
-    EpochState (..),
     InstantaneousRewards (..),
     LedgerState (..),
-    NewEpochState (..),
     PState (..),
     UTxOState (..),
     WitHashes (..),
@@ -417,6 +429,8 @@ instance PrettyA TagMismatchDescription where
   prettyA = ppTagMismatchDescription
 
 ppFailureDescription :: FailureDescription -> PDoc
+ppFailureDescription (OnePhaseFailure txt) =
+  ppSexp "OnePhaseFailure" [text txt]
 ppFailureDescription (PlutusFailure txt bytes) =
   ppRecord "PlutusFailure" [("reason", text txt), ("script", ppLong bytes)]
 
@@ -1043,14 +1057,7 @@ pcStakeReference (StakeRefPtr _) = ppString "Ptr"
 instance c ~ Crypto era => PrettyC (StakeReference c) era where prettyC _ = pcStakeReference
 
 pcAddr :: Addr c -> PDoc
-pcAddr (Addr nw pay stk) =
-  parens $
-    hsep
-      [ ppString "Addr",
-        pcNetwork nw,
-        pcCredential pay,
-        pcStakeReference stk
-      ]
+pcAddr (Addr nw pay stk) = parens $ hsep [ppString "Addr", pcNetwork nw, pcCredential pay, pcStakeReference stk]
 pcAddr (AddrBootstrap _) = ppString "Bootstrap"
 
 instance c ~ Crypto era => PrettyC (Addr c) era where prettyC _ = pcAddr
@@ -1224,7 +1231,7 @@ pcTxBodyField proof x = case x of
 
 pcTxField :: Reflect era => Proof era -> TxField era -> [(Text, PDoc)]
 pcTxField proof x = case x of
-  Body b -> [("txbody hash", ppSafeHash (hashAnnotated b)), ("body", pcTxBody proof b)]
+  Body b -> [("body", pcTxBody proof b)]
   BodyI xs -> [("body", ppRecord "TxBody" (concat (map (pcTxBodyField proof) xs)))]
   Witnesses w -> [("witnesses", pcWitnesses proof w)]
   WitnessesI ws -> [("witnesses", ppRecord "Witnesses" (concat (map (pcWitnessesField proof) ws)))]
@@ -1301,29 +1308,3 @@ pcLedgerState proof (LedgerState utstate dpstate) =
     ]
 
 instance Reflect era => PrettyC (LedgerState era) era where prettyC = pcLedgerState
-
-pcNewEpochState :: Reflect era => Proof era -> NewEpochState era -> PDoc
-pcNewEpochState proof (NewEpochState en (BlocksMade pbm) (BlocksMade cbm) es _ pd _) =
-  ppRecord
-    "NewEpochState"
-    [ ("EpochNo", ppEpochNo en),
-      ("EpochState", pcEpochState proof es),
-      ("PoolDistr", ppPoolDistr pd),
-      ("Prev Blocks", ppMap pcKeyHash ppNatural pbm),
-      ("Current Blocks", ppMap pcKeyHash ppNatural cbm)
-    ]
-
-instance Reflect era => PrettyC (NewEpochState era) era where prettyC = pcNewEpochState
-
-pcEpochState :: Reflect era => Proof era -> EpochState era -> PDoc
-pcEpochState proof (EpochState (AccountState tre res) _ ls _ _ _) =
-  ppRecord
-    "EpochState"
-    [ ("AccountState", ppRecord' "" [("treasury", pcCoin tre), ("reserves", pcCoin res)]),
-      ("LedgerState", pcLedgerState proof ls)
-    ]
-
-instance Reflect era => PrettyC (EpochState era) era where prettyC = pcEpochState
-
-pc :: PrettyC t era => Proof era -> t -> IO ()
-pc proof x = putStrLn (show (prettyC proof x))

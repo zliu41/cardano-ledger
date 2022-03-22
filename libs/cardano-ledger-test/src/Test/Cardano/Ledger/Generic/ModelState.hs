@@ -138,9 +138,6 @@ toMUtxo (UTxO m) = SplitMap.toMap m
 fromMUtxo :: MUtxo era -> UTxO era
 fromMUtxo m = UTxO (SplitMap.fromMap m)
 
-pcMUtxo :: Reflect era => Proof era -> MUtxo era -> PDoc
-pcMUtxo proof m = ppMap pcTxIn (pcTxOut proof) m
-
 -- ===========================================================
 
 data ModelNewEpochState era = ModelNewEpochState
@@ -167,8 +164,8 @@ data ModelNewEpochState era = ModelNewEpochState
     -- Model NewEpochState fields
     mPoolDistr :: !(Map (KeyHash 'StakePool (Crypto era)) (IndividualPoolStake (Crypto era))),
     mPParams :: !(Core.PParams era),
-    mDeposited :: !Coin,
-    mFees :: !Coin,
+    mdeposited :: !Coin,
+    mfees :: !Coin,
     mCount :: !Int,
     mIndex :: !(Map Int (TxId (Crypto era))),
     -- below here NO EFFECT until we model EpochBoundary
@@ -185,6 +182,17 @@ data ModelNewEpochState era = ModelNewEpochState
 type UtxoEntry era = (TxIn (Crypto era), Core.TxOut era)
 
 type Model era = ModelNewEpochState era
+
+{-
+-- | One of the crucial operations of the Model is the ability to adjust (back-patch) the
+--   Coin part of the MutFee part of the Model. The MutFee UtxoEntry's are used to "tag"
+--   which UTxOEntry's are mutable, but the entries also appear in the mUTxO and mInitUTxO fields
+--   so all three need to be adjusted. Note that Map.adjust is the identity if the key is not in the map.
+adjustForFee :: Proof era -> UtxoEntry era -> Coin -> Model era -> Model era
+adjustForFee proof (txin,_) coin model =
+  model{ mMutFee = Map.adjust (injectFee proof coin) txin (mMutFee model),
+         mUTxO = Map.adjust (injectFee proof coin) txin (mUTxO model) }
+-}
 
 -- ======================================================================
 -- Empty or default values, these are usefull for many things, not the
@@ -293,8 +301,8 @@ mNewEpochStateZero =
       mAccountState = accountStateZero,
       mPoolDistr = Map.empty,
       mPParams = pParamsZero,
-      mDeposited = Coin 0,
-      mFees = Coin 0,
+      mdeposited = Coin 0,
+      mfees = Coin 0,
       mCount = 0,
       mIndex = Map.empty,
       -- below here NO EFFECT until we model EpochBoundary
@@ -333,12 +341,7 @@ instance Crypto era ~ c => Extract (DPState c) era where
   extract x = DPState (extract x) (extract x)
 
 instance Reflect era => Extract (UTxOState era) era where
-  extract x =
-    smartUTxOState
-      (UTxO (SplitMap.fromMap (mUTxO x)))
-      (mDeposited x)
-      (mFees x)
-      (pPUPStateZero @era)
+  extract x = smartUTxOState (UTxO (SplitMap.fromMap (mUTxO x))) (mdeposited x) (mfees x) (pPUPStateZero @era)
 
 instance Reflect era => Extract (LedgerState era) era where
   extract x = LedgerState (extract x) (extract x)
@@ -375,8 +378,8 @@ abstract x =
       mAccountState = (esAccountState . nesEs) x,
       mPoolDistr = (unPoolDistr . nesPd) x,
       mPParams = (esPp . nesEs) x,
-      mDeposited = (_deposited . lsUTxOState . esLState . nesEs) x,
-      mFees = (_fees . lsUTxOState . esLState . nesEs) x,
+      mdeposited = (_deposited . lsUTxOState . esLState . nesEs) x,
+      mfees = (_fees . lsUTxOState . esLState . nesEs) x,
       mCount = 0,
       mIndex = Map.empty,
       -- below here NO EFFECT until we model EpochBoundary
@@ -409,8 +412,8 @@ pcModelNewEpochState proof x =
       ("account", ppAccountState (mAccountState x)),
       ("pool distr", ppMap pcKeyHash pcIndividualPoolStake (mPoolDistr x)),
       ("protocol params", ppString "PParams ..."),
-      ("deposited", ppCoin (mDeposited x)),
-      ("fees", ppCoin (mFees x)),
+      ("deposited", ppCoin (mdeposited x)),
+      ("fees", ppCoin (mfees x)),
       ("count", ppInt (mCount x)),
       ("index", ppMap ppInt pcTxId (mIndex x))
       -- Add additional EpochBoundary fields here

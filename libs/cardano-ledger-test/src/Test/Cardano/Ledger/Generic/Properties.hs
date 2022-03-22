@@ -29,6 +29,7 @@ import Cardano.Ledger.Shelley.LedgerState
     EpochState (..),
     LedgerState (..),
     NewEpochState (..),
+    DPState (..),
     UTxOState (..),
     updateStakeDistribution,
   )
