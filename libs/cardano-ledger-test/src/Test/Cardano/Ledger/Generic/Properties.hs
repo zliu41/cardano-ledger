@@ -80,19 +80,19 @@ import Test.Tasty.QuickCheck (testProperty)
 
 genTxAndUTXOState :: Reflect era => Proof era -> GenSize -> Gen (TRC (Core.EraRule "UTXOW" era), GenState era)
 genTxAndUTXOState proof@(Babbage _) gsize = do
-  (Box _ (TRC (LedgerEnv slotNo _ pp _, ledgerState, vtx)) genState) <- genTxAndLEDGERState proof gsize
+  (Box _ (TRC (LedgerEnv slotNo _ pp _, ledgerState, vtx)) genState _ _) <- genTxAndLEDGERState proof gsize
   pure (TRC (UtxoEnv slotNo pp mempty (GenDelegs mempty), lsUTxOState ledgerState, vtx), genState)
 genTxAndUTXOState proof@(Alonzo _) gsize = do
-  (Box _ (TRC (LedgerEnv slotNo _ pp _, ledgerState, vtx)) genState) <- genTxAndLEDGERState proof gsize
+  (Box _ (TRC (LedgerEnv slotNo _ pp _, ledgerState, vtx)) genState _ _) <- genTxAndLEDGERState proof gsize
   pure (TRC (UtxoEnv slotNo pp mempty (GenDelegs mempty), lsUTxOState ledgerState, vtx), genState)
 genTxAndUTXOState proof@(Mary _) gsize = do
-  (Box _ (TRC (LedgerEnv slotNo _ pp _, ledgerState, vtx)) genState) <- genTxAndLEDGERState proof gsize
+  (Box _ (TRC (LedgerEnv slotNo _ pp _, ledgerState, vtx)) genState _ _) <- genTxAndLEDGERState proof gsize
   pure (TRC (UtxoEnv slotNo pp mempty (GenDelegs mempty), lsUTxOState ledgerState, vtx), genState)
 genTxAndUTXOState proof@(Allegra _) gsize = do
-  (Box _ (TRC (LedgerEnv slotNo _ pp _, ledgerState, vtx)) genState) <- genTxAndLEDGERState proof gsize
+  (Box _ (TRC (LedgerEnv slotNo _ pp _, ledgerState, vtx)) genState _ _) <- genTxAndLEDGERState proof gsize
   pure (TRC (UtxoEnv slotNo pp mempty (GenDelegs mempty), lsUTxOState ledgerState, vtx), genState)
 genTxAndUTXOState proof@(Shelley _) gsize = do
-  (Box _ (TRC (LedgerEnv slotNo _ pp _, ledgerState, vtx)) genState) <- genTxAndLEDGERState proof gsize
+  (Box _ (TRC (LedgerEnv slotNo _ pp _, ledgerState, vtx)) genState _ _) <- genTxAndLEDGERState proof gsize
   pure (TRC (UtxoEnv slotNo pp mempty (GenDelegs mempty), lsUTxOState ledgerState, vtx), genState)
 
 genTxAndLEDGERState ::
@@ -111,14 +111,14 @@ genTxAndLEDGERState proof sizes = do
   let genT = do
         (initial, _) <- genUTxO -- Generate a random UTxO, so mUTxO is not empty
         modifyModel (\m -> m {mUTxO = initial})
-        (_utxo, tx) <- genValidatedTx proof
+        (_utxo, tx, old, new) <- genValidatedTx proof
         model <- gets gsModel
         pp <- gets (gePParams . gsGenEnv)
         let ledgerState = extract @(LedgerState era) model
             ledgerEnv = LedgerEnv slotNo txIx pp (AccountState (Coin 0) (Coin 0))
-        pure $ TRC (ledgerEnv, ledgerState, tx)
-  (trc, genstate) <- runGenRS proof def genT
-  pure (Box proof trc genstate)
+        pure (TRC (ledgerEnv, ledgerState, tx), old, new)
+  ((trc, old, new), genstate) <- runGenRS proof def genT
+  pure (Box proof trc genstate old new)
 
 -- =============================================
 -- Now a test
@@ -132,7 +132,7 @@ testTxValidForLEDGER ::
   Proof era ->
   Box era ->
   Property
-testTxValidForLEDGER proof (Box _ (trc@(TRC (_, ledgerState, vtx))) _genstate) =
+testTxValidForLEDGER proof (Box _ (trc@(TRC (_, ledgerState, vtx))) _genstate _ _) =
   ( if False
       then trace (show (txSummary proof vtx))
       else id
