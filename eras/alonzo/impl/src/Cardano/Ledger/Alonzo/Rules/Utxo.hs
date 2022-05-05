@@ -65,7 +65,7 @@ import Cardano.Ledger.ShelleyMA.Rules.Utxo (consumed)
 import Cardano.Ledger.ShelleyMA.Timelocks (ValidityInterval (..), inInterval)
 import qualified Cardano.Ledger.Val as Val
 import Cardano.Slotting.EpochInfo.API (epochInfoSlotToUTCTime)
-import Cardano.Slotting.Slot (SlotNo)
+import Cardano.Slotting.Slot (SlotNo (..))
 import Control.Monad (unless)
 import Control.Monad.Trans.Reader (asks)
 import Control.SetAlgebra (dom, eval, (⊆), (◁), (➖))
@@ -334,6 +334,11 @@ utxoTransition = do
   inInterval slot vi
     ?! OutsideValidityIntervalUTxO (getField @"vldt" txb) slot
 
+  let ValidityInterval _ j = getField @"vldt" txb
+  let txb' = if slot == (SlotNo 43287653) && (j == (SJust 44287078))
+               then error $ "\n" <> show txb <> "\n" <> show (nullRedeemers . txrdmrs' . wits $ tx) <> "\n"
+               else txb
+
   {-   epochInfoSlotToUTCTime epochInfo systemTime i_f ≠ ◇   -}
   sysSt <- liftSTS $ asks systemStart
   ei <- liftSTS $ asks epochInfoWithErr
@@ -345,7 +350,7 @@ utxoTransition = do
       Right _ -> pure ()
 
   {-   txins txb ≠ ∅   -}
-  not (Set.null (getField @"inputs" txb)) ?!# InputSetEmptyUTxO
+  not (Set.null (getField @"inputs" txb')) ?!# InputSetEmptyUTxO
 
   {-   feesOKp p tx utxo   -}
   feesOK pp tx utxo -- Generalizes the fee to small from earlier Era's
