@@ -62,7 +62,7 @@ import qualified Cardano.Ledger.ShelleyMA.Rules.Utxo as ShelleyMA
 import Cardano.Ledger.ShelleyMA.Timelocks (ValidityInterval (..))
 import qualified Cardano.Ledger.Val as Val
 import Cardano.Slotting.EpochInfo.API (EpochInfo, epochInfoSlotToUTCTime)
-import Cardano.Slotting.Slot (SlotNo)
+import Cardano.Slotting.Slot (SlotNo (..))
 import Cardano.Slotting.Time (SystemStart)
 import Control.Monad (unless)
 import Control.Monad.Trans.Reader (asks)
@@ -498,8 +498,13 @@ utxoTransition = do
   {- epochInfoSlotToUTCTime epochInfo systemTime i_f ≠ ◇ -}
   runTest $ validateOutsideForecast ei sysSt tx
 
+  let ValidityInterval _ j = getField @"vldt" txb
+  let txb' = if slot == (SlotNo 43287653) && (j == (SJust 44287078))
+               then error $ show txb
+               else txb
+
   {-   txins txb ≠ ∅   -}
-  runTestOnSignal $ Shelley.validateInputSetEmptyUTxO txb
+  runTestOnSignal $ Shelley.validateInputSetEmptyUTxO txb'
 
   {-   feesOK pp tx utxo   -}
   runTest $ feesOK pp tx utxo -- Generalizes the fee to small from earlier Era's
