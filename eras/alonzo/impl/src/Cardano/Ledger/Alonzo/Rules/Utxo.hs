@@ -314,6 +314,8 @@ utxoTransition ::
     Core.Value era ~ Alonzo.Value (Crypto era),
     Core.TxBody era ~ Alonzo.TxBody era,
     Core.Witnesses era ~ TxWitness era,
+    Show (Core.Script era),
+    Show (Core.AuxiliaryData era),
     Era.TxSeq era ~ Alonzo.TxSeq era
   ) =>
   TransitionRule (AlonzoUTXO era)
@@ -334,23 +336,22 @@ utxoTransition = do
   inInterval slot vi
     ?! OutsideValidityIntervalUTxO (getField @"vldt" txb) slot
 
-  let ValidityInterval _ j = getField @"vldt" txb
-  let txb' = if slot == (SlotNo 43287653) && (j == (SJust 44287078))
-               then error $ "\n" <> show txb <> "\n" <> show (nullRedeemers . txrdmrs' . wits $ tx) <> "\n"
-               else txb
-
   {-   epochInfoSlotToUTCTime epochInfo systemTime i_f ≠ ◇   -}
   sysSt <- liftSTS $ asks systemStart
   ei <- liftSTS $ asks epochInfoWithErr
+
   case i_f of
     SNothing -> pure ()
     SJust ifj -> case epochInfoSlotToUTCTime ei sysSt ifj of
       -- if tx has non-native scripts, end of validity interval must translate to time
-      Left _ -> (nullRedeemers . txrdmrs' . wits $ tx) ?! OutsideForecast ifj
+      Left _ ->
+        if slot == (SlotNo 43287653) && (ifj == 44287078)
+          then error $ "\nBOOOM\n" <> show tx <> "\n" <> show (nullRedeemers . txrdmrs' . wits $ tx) <> "\n" <> show (epochInfoSlotToUTCTime ei sysSt ifj) <> "\nBOOOM\n"
+          else (nullRedeemers . txrdmrs' . wits $ tx) ?! OutsideForecast ifj
       Right _ -> pure ()
 
   {-   txins txb ≠ ∅   -}
-  not (Set.null (getField @"inputs" txb')) ?!# InputSetEmptyUTxO
+  not (Set.null (getField @"inputs" txb)) ?!# InputSetEmptyUTxO
 
   {-   feesOKp p tx utxo   -}
   feesOK pp tx utxo -- Generalizes the fee to small from earlier Era's
@@ -482,6 +483,8 @@ instance
     Core.Witnesses era ~ TxWitness era,
     Core.TxOut era ~ Alonzo.TxOut era,
     Era.TxSeq era ~ Alonzo.TxSeq era,
+    Show (Core.Script era),
+    Show (Core.AuxiliaryData era),
     Core.Tx era ~ Alonzo.ValidatedTx era
   ) =>
   STS (AlonzoUTXO era)
