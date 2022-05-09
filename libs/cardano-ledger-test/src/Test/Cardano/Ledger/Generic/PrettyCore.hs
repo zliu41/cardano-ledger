@@ -1308,3 +1308,4 @@ pcLedgerState proof (LedgerState utstate dpstate) =
     ]
 
 instance Reflect era => PrettyC (LedgerState era) era where prettyC = pcLedgerState
+

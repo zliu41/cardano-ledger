@@ -15,19 +15,22 @@ module Test.Cardano.Ledger.Generic.GenericWitnesses
     neededRedeemers,
     txOutLookupDatum,
     rdptrInv',
+    neededInlineScripts,
   )
 where
 
 import Cardano.Ledger.Alonzo.PlutusScriptApi (scriptsNeededFromBody)
 import qualified Cardano.Ledger.Alonzo.Rules.Utxow as Alonzo
-import Cardano.Ledger.Alonzo.Tx ( rdptr, ScriptPurpose )
+import qualified Cardano.Ledger.Alonzo.Scripts as AlonzoScript
+import Cardano.Ledger.Alonzo.Tx (ScriptPurpose, alonzoInputHashes, rdptr)
+import qualified Cardano.Ledger.Alonzo.Tx as AlonzoTx
 import qualified Cardano.Ledger.Alonzo.TxBody as Alonzo
-import Cardano.Ledger.Alonzo.TxInfo (ExtendedUTxO (inputDataHashes))
 import Cardano.Ledger.Alonzo.TxWitness (RdmrPtr)
-import Cardano.Ledger.Babbage.Tx (ValidatedTx (..))
+import Cardano.Ledger.Babbage.Tx (ValidatedTx (..), babbageInputHashes)
+import qualified Cardano.Ledger.Babbage.Tx as BabbageTx
 import Cardano.Ledger.Babbage.TxBody (Datum)
 import qualified Cardano.Ledger.Babbage.TxBody as Babbage
-import Cardano.Ledger.Core (TxBody, TxOut)
+import Cardano.Ledger.Core (Script, TxBody, TxOut)
 import qualified Cardano.Ledger.Core as Core
 import Cardano.Ledger.Era (Era (..))
 import Cardano.Ledger.Hashes (DataHash, ScriptHash)
@@ -37,17 +40,17 @@ import Cardano.Ledger.Shelley.LedgerState
   ( WitHashes (..),
   )
 import qualified Cardano.Ledger.Shelley.Rules.Utxow as Shelley
-import Cardano.Ledger.Shelley.UTxO (UTxO)
+import Cardano.Ledger.Shelley.UTxO (UTxO (UTxO), txins)
 import qualified Data.Map as Map
 import Data.Maybe (catMaybes)
 import Data.Maybe.Strict
-    ( strictMaybeToMaybe, StrictMaybe(SNothing), StrictMaybe(SJust) )
+  ( StrictMaybe (SJust, SNothing),
+    strictMaybeToMaybe,
+  )
 import Data.Set (Set)
 import Test.Cardano.Ledger.Generic.Fields (TxField (Body), initialTx)
 import Test.Cardano.Ledger.Generic.Proof (Proof (..))
 import Test.Cardano.Ledger.Generic.Updaters (updateTx)
-import qualified Cardano.Ledger.Babbage.Tx as BabbageTx
-import qualified Cardano.Ledger.Alonzo.Tx as AlonzoTx
 
 witsVKeyNeeded' ::
   forall era.
@@ -75,8 +78,8 @@ neededDataHashes ::
 neededDataHashes proof m txbody utxo =
   let tx = updateTx proof (initialTx proof) $ Body txbody
    in case proof of
-        (Babbage _) -> fst $ inputDataHashes m tx utxo
-        (Alonzo _) -> fst $ inputDataHashes m tx utxo
+        (Babbage _) -> fst $ babbageInputHashes m tx utxo
+        (Alonzo _) -> fst $ alonzoInputHashes m tx utxo
         _ -> mempty
 
 neededRedeemers ::
@@ -92,6 +95,23 @@ neededRedeemers proof utxo txbody = case proof of
     where
       tryGetRdmrPtr = strictMaybeToMaybe . rdptr txbody . fst
   _ -> []
+
+neededInlineScripts ::
+  Proof era ->
+  UTxO era ->
+  Core.TxBody era ->
+  [Script era]
+neededInlineScripts (Babbage _) (UTxO utxom) txbody =
+  do
+    (Babbage.TxOut _ _ _ (SJust script@(AlonzoScript.TimelockScript _))) <-
+      Map.elems $ Map.restrictKeys utxom (txins txbody)
+    return script
+neededInlineScripts _ _ _ = []
+
+neededRewardScripts ::
+  Proof era ->
+  [Script era]
+neededRewardScripts = undefined
 
 txOutLookupDatum :: Proof era -> TxOut era -> Datum era
 txOutLookupDatum (Babbage _) (Babbage.TxOut _ _ d _) = d
@@ -110,4 +130,3 @@ rdptrInv' ::
 rdptrInv' (Babbage _) txbody ptr = BabbageTx.rdptrInv txbody ptr
 rdptrInv' (Alonzo _) txbody ptr = AlonzoTx.rdptrInv txbody ptr
 rdptrInv' _ _ _ = SNothing
-

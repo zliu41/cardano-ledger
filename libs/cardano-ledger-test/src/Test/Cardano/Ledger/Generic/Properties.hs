@@ -57,7 +57,7 @@ import Test.Cardano.Ledger.Generic.GenState
   )
 import Test.Cardano.Ledger.Generic.MockChain (MOCKCHAIN, MockChainState (..))
 import Test.Cardano.Ledger.Generic.ModelState
-import Test.Cardano.Ledger.Generic.PrettyCore (PrettyC (..), pcLedgerState, pcTx, txSummary)
+import Test.Cardano.Ledger.Generic.PrettyCore (PrettyC (..), PrettyCore, pcLedgerState, prettyTx, txSummary)
 import Test.Cardano.Ledger.Generic.Proof hiding (lift)
 import Test.Cardano.Ledger.Generic.Trace (Gen1, testTraces, traceProp)
 import Test.Cardano.Ledger.Generic.TxGen
@@ -80,19 +80,19 @@ import Test.Tasty.QuickCheck (testProperty)
 
 genTxAndUTXOState :: Reflect era => Proof era -> GenSize -> Gen (TRC (Core.EraRule "UTXOW" era), GenState era)
 genTxAndUTXOState proof@(Babbage _) gsize = do
-  (Box _ (TRC (LedgerEnv slotNo _ pp _, ledgerState, vtx)) genState _ _) <- genTxAndLEDGERState proof gsize
+  (Box _ (TRC (LedgerEnv slotNo _ pp _, ledgerState, vtx)) genState _) <- genTxAndLEDGERState proof gsize
   pure (TRC (UtxoEnv slotNo pp mempty (GenDelegs mempty), lsUTxOState ledgerState, vtx), genState)
 genTxAndUTXOState proof@(Alonzo _) gsize = do
-  (Box _ (TRC (LedgerEnv slotNo _ pp _, ledgerState, vtx)) genState _ _) <- genTxAndLEDGERState proof gsize
+  (Box _ (TRC (LedgerEnv slotNo _ pp _, ledgerState, vtx)) genState _) <- genTxAndLEDGERState proof gsize
   pure (TRC (UtxoEnv slotNo pp mempty (GenDelegs mempty), lsUTxOState ledgerState, vtx), genState)
 genTxAndUTXOState proof@(Mary _) gsize = do
-  (Box _ (TRC (LedgerEnv slotNo _ pp _, ledgerState, vtx)) genState _ _) <- genTxAndLEDGERState proof gsize
+  (Box _ (TRC (LedgerEnv slotNo _ pp _, ledgerState, vtx)) genState _) <- genTxAndLEDGERState proof gsize
   pure (TRC (UtxoEnv slotNo pp mempty (GenDelegs mempty), lsUTxOState ledgerState, vtx), genState)
 genTxAndUTXOState proof@(Allegra _) gsize = do
-  (Box _ (TRC (LedgerEnv slotNo _ pp _, ledgerState, vtx)) genState _ _) <- genTxAndLEDGERState proof gsize
+  (Box _ (TRC (LedgerEnv slotNo _ pp _, ledgerState, vtx)) genState _) <- genTxAndLEDGERState proof gsize
   pure (TRC (UtxoEnv slotNo pp mempty (GenDelegs mempty), lsUTxOState ledgerState, vtx), genState)
 genTxAndUTXOState proof@(Shelley _) gsize = do
-  (Box _ (TRC (LedgerEnv slotNo _ pp _, ledgerState, vtx)) genState _ _) <- genTxAndLEDGERState proof gsize
+  (Box _ (TRC (LedgerEnv slotNo _ pp _, ledgerState, vtx)) genState _) <- genTxAndLEDGERState proof gsize
   pure (TRC (UtxoEnv slotNo pp mempty (GenDelegs mempty), lsUTxOState ledgerState, vtx), genState)
 
 genTxAndLEDGERState ::
@@ -111,14 +111,14 @@ genTxAndLEDGERState proof sizes = do
   let genT = do
         (initial, _) <- genUTxO -- Generate a random UTxO, so mUTxO is not empty
         modifyModel (\m -> m {mUTxO = initial})
-        (_utxo, tx, old, new) <- genValidatedTx proof
+        (_utxo, tx, new) <- genValidatedTx proof
         model <- gets gsModel
         pp <- gets (gePParams . gsGenEnv)
         let ledgerState = extract @(LedgerState era) model
             ledgerEnv = LedgerEnv slotNo txIx pp (AccountState (Coin 0) (Coin 0))
-        pure (TRC (ledgerEnv, ledgerState, tx), old, new)
-  ((trc, old, new), genstate) <- runGenRS proof def genT
-  pure (Box proof trc genstate old new)
+        pure (TRC (ledgerEnv, ledgerState, tx), new)
+  ((trc, new), genstate) <- runGenRS proof def genT
+  pure (Box proof trc genstate new)
 
 -- =============================================
 -- Now a test
@@ -127,12 +127,13 @@ testTxValidForLEDGER ::
   ( Reflect era,
     Signal (Core.EraRule "LEDGER" era) ~ Core.Tx era,
     State (Core.EraRule "LEDGER" era) ~ LedgerState era,
-    PrettyA (PredicateFailure (Core.EraRule "LEDGER" era))
+    PrettyA (PredicateFailure (Core.EraRule "LEDGER" era)),
+    PrettyCore era
   ) =>
   Proof era ->
   Box era ->
   Property
-testTxValidForLEDGER proof (Box _ (trc@(TRC (_, ledgerState, vtx))) _genstate _ _) =
+testTxValidForLEDGER proof (Box _ (trc@(TRC (_, ledgerState, vtx))) _genstate _) =
   ( if False
       then trace (show (txSummary proof vtx))
       else id
@@ -145,7 +146,7 @@ testTxValidForLEDGER proof (Box _ (trc@(TRC (_, ledgerState, vtx))) _genstate _ 
       Left errs ->
         counterexample
           ( show (pcLedgerState proof ledgerState) ++ "\n\n"
-              ++ show (pcTx proof vtx)
+              ++ show (prettyTx vtx)
               ++ "\n\n"
               ++ show (ppList prettyA errs)
           )
@@ -330,3 +331,17 @@ main3 :: IO ()
 main3 = runTest (\_x -> (fromMUtxo . fst) <$> genUTxO) action (Alonzo Mock)
   where
     action (UTxO x) = putStrLn ("Size = " ++ show (Map.size x))
+
+test' :: IO ()
+test' =
+  do
+    let proof = Babbage Mock
+    putStrLn "\n\n\n\n----- GENERATING -----"
+    (Box _ trc@(TRC (_, ledgerState, vtx)) _ _) <- generate $ genTxAndLEDGERState proof def
+    case applySTSByProof proof trc of
+      Left err -> do
+        print $ pcLedgerState proof ledgerState
+        print $ prettyTx vtx
+        print err
+      Right _ -> do
+        test'

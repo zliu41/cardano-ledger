@@ -50,7 +50,7 @@ import Cardano.Ledger.Shelley.API
     Credential (..),
     RewardAcnt (..),
     StakeReference (..),
-    Wdrl (..),
+    Wdrl (..), WitVKey
   )
 import Cardano.Ledger.Shelley.LedgerState (RewardAccounts)
 import qualified Cardano.Ledger.Shelley.PParams as Shelley (PParams' (..))
@@ -115,7 +115,7 @@ import Test.Cardano.Ledger.Generic.GenState
     runGenRS,
     small,
   )
-import Test.Cardano.Ledger.Generic.GenericWitnesses (neededDataHashes, neededRedeemers, rdptrInv', txOutLookupDatum, witsVKeyNeeded')
+import Test.Cardano.Ledger.Generic.GenericWitnesses (neededDataHashes, neededRedeemers, rdptrInv', txOutLookupDatum, witsVKeyNeeded', neededInlineScripts)
 import Test.Cardano.Ledger.Generic.ModelState
   ( MUtxo,
     ModelNewEpochState (..),
@@ -124,13 +124,14 @@ import Test.Cardano.Ledger.Generic.ModelState
     pcModelNewEpochState,
     toMUtxo,
   )
-import Test.Cardano.Ledger.Generic.PrettyCore (pcTx, pcUTxO, pcWitnesses)
+import Test.Cardano.Ledger.Generic.PrettyCore (pcTx, pcUTxO, pcWitnesses, ppCoreScript)
 import Test.Cardano.Ledger.Generic.Proof hiding (lift)
 import Test.Cardano.Ledger.Generic.Updaters hiding (first)
 import Test.Cardano.Ledger.Shelley.Generator.Core (genNatural)
 import Test.Cardano.Ledger.Shelley.Serialisation.EraIndepGenerators ()
 import Test.Cardano.Ledger.Shelley.Utils (runShelleyBase)
 import Test.QuickCheck
+import Debug.Trace (traceShowM, traceM)
 
 -- ===================================================
 -- Assembing lists of Fields in to (Core.XX era)
@@ -721,14 +722,14 @@ timeToLive (ValidityInterval _ SNothing) = SlotNo maxBound
 
 -- ============================================================================
 
-genValidatedTx :: forall era. Reflect era => Proof era -> GenRS era (UTxO era, Core.Tx era, CC.Witnesses era, CC.Witnesses era)
+genValidatedTx :: forall era. (Reflect era) => Proof era -> GenRS era (UTxO era, Core.Tx era, CC.Witnesses era)
 genValidatedTx proof = do
-  (utxo, tx, _fee, _old, old, new) <- genValidatedTxAndInfo proof
-  pure (utxo, tx, old, new)
+  (utxo, tx, _fee, _old, new) <- genValidatedTxAndInfo proof
+  pure (utxo, tx, new)
 
 genValidatedTxAndInfo ::
   forall era.
-  Reflect era =>
+  (Reflect era) =>
   Proof era ->
   GenRS
     era
@@ -736,7 +737,6 @@ genValidatedTxAndInfo ::
       Core.Tx era,
       UtxoEntry era, -- The fee key
       Maybe (UtxoEntry era), -- from oldUtxO
-      CC.Witnesses era,
       CC.Witnesses era
     )
 genValidatedTxAndInfo proof = do
@@ -764,7 +764,7 @@ genValidatedTxAndInfo proof = do
   recipients <- genRecipientsFrom toSpendNoCollateralTxOuts
 
   --  mkPaymentWits :: ExUnits -> [WitnessesField era]
-  (IsValid v1, mkPaymentWits) <-
+  (IsValid v1, _) <-
     redeemerWitnessMaker
       Spend
       [ (\dh cred -> (lookupByKeyM "datum" dh gsDatums, cred))
@@ -780,28 +780,15 @@ genValidatedTxAndInfo proof = do
   (wdrls@(Wdrl wdrlMap), newRewards) <- genWithdrawals
   rewardsWithdrawalTxOut <- coreTxOut proof <$> genTxOut proof (inject $ F.fold wdrlMap)
   let wdrlCreds = map (getRwdCred . fst) $ Map.toAscList wdrlMap
-  (IsValid v2, mkWdrlWits) <-
+  (IsValid v2, _) <-
     redeemerWitnessMaker Rewrd $ map (Just . (,) genDatum) wdrlCreds
 
   dcerts <- genDCerts
   let dcertCreds = map getDCertCredential dcerts
-  (IsValid v3, mkCertsWits) <-
+  (IsValid v3, _) <-
     redeemerWitnessMaker Cert $ map ((,) genDatum <$>) dcertCreds
 
   let isValid = IsValid (v1 && v2 && v3)
-      mkWits :: [ExUnits -> [WitnessesField era]]
-      mkWits = mkPaymentWits ++ mkCertsWits ++ mkWdrlWits
-  exUnits <- genExUnits proof (length mkWits)
-
-  let redeemerWitsList :: [WitnessesField era]
-      redeemerWitsList = concat (zipWith ($) mkWits exUnits)
-  datumWitsList <- concat <$> mapM (makeDatumWitness proof) (Map.elems toSpendNoCollateral)
-  keyWitsMakers <-
-    mapM
-      (genTxOutKeyWitness proof (Just Spend))
-      (toSpendNoCollateralTxOuts ++ Map.elems refInputsUtxo)
-  dcertWitsMakers <- mapM (genCredKeyWit proof (Just Cert)) $ catMaybes dcertCreds
-  rwdrsWitsMakers <- mapM (genCredKeyWit proof (Just Rewrd)) wdrlCreds
 
   -- 5. Estimate inputs that will be used as collateral
   maxCollateralCount <-
@@ -818,8 +805,7 @@ genValidatedTxAndInfo proof = do
   networkId <- lift $ elements [SNothing, SJust Testnet]
 
   -- 6. Estimate the fee
-  let redeemerDatumWits = (redeemerWitsList ++ datumWitsList)
-      bogusIntegrityHash = hashScriptIntegrity' proof gePParams mempty (Redeemers mempty) mempty
+  let bogusIntegrityHash = hashScriptIntegrity' proof gePParams mempty (Redeemers mempty) mempty
       inputSet = Map.keysSet toSpendNoCollateral
       outputList = (rewardsWithdrawalTxOut : recipients)
       txBodyNoFee =
@@ -843,8 +829,6 @@ genValidatedTxAndInfo proof = do
             AdHash' [],
             Txnetworkid networkId
           ]
-      witsMakers :: [SafeHash (Crypto era) EraIndependentTxBody -> [WitnessesField era]]
-      witsMakers = keyWitsMakers ++ dcertWitsMakers ++ rwdrsWitsMakers
   --bogusNeededScripts = scriptsNeeded' proof utxoNoCollateral txBodyNoFee
   --noFeeWits :: [WitnessesField era]
   --noFeeWits =
@@ -854,7 +838,7 @@ genValidatedTxAndInfo proof = do
   svks <- scriptVKeys proof (UTxO utxoChoices) txBodyNoFee
   rdmrs <- allRedeemerWits proof (UTxO utxoChoices) txBodyNoFee
   let pureAllWitnesses utxo txbody genState =
-        [ witVKeys,
+        [ AddrWits witVKeys,
           allScriptWits,
           DataWits dataWits,
           RdmrWits rdmrs
@@ -887,8 +871,6 @@ genValidatedTxAndInfo proof = do
 
   -- 8. Generate utxos that will be used as collateral
   (utxo, collMap) <- genCollateralUTxO collateralAddresses fee utxoFeeAdjusted
-  collateralKeyWitsMakers <-
-    mapM (genTxOutKeyWitness proof Nothing) $ Map.elems collMap
 
   -- 9. Construct the correct Tx with valid fee and collaterals
   allPlutusScripts <- gsPlutusScripts <$> get
@@ -915,11 +897,6 @@ genValidatedTxAndInfo proof = do
           txBodyNoHash
           [WppHash mIntegrityHash]
       wits' = pureAllWitnesses utxo' txBody genState
-      neededScripts = scriptsNeeded' proof utxo txBody
-      wits =
-        onlyNecessaryScripts proof neededScripts $
-          redeemerDatumWits
-            <> foldMap ($ txBodyHash) (witsMakers ++ collateralKeyWitsMakers)
 
   let validTx =
         coreTx
@@ -947,12 +924,12 @@ genValidatedTxAndInfo proof = do
             mUTxO = utxo -- This is the UTxO that will run this Tx,
           }
     )
-  pure (fromMUtxo utxo, validTx, feepair, maybeoldpair, assembleWits proof wits, assembleWits proof wits')
+  pure (fromMUtxo utxo, validTx, feepair, maybeoldpair, assembleWits proof wits')
 
 testWitnesses :: IO ()
 testWitnesses =
   do
-    ((utxo, tx@(ValidatedTx txbody _ _ _), _, _, _, _), _) <- ioGenRS (Babbage Mock) small (genValidatedTxAndInfo (Babbage Mock))
+    ((utxo, tx@(ValidatedTx txbody _ _ _), _, _, _), _) <- ioGenRS (Babbage Mock) small (genValidatedTxAndInfo (Babbage Mock))
     let inputs =
           Set.unions
             [ spendInputs' txbody,
@@ -998,7 +975,7 @@ mkTxdats fields = TxDats (List.foldl' accum Map.empty fields)
 -- An encapsulation of the Top level types we generate,
 -- but that has its own Show instance that we can control.
 
-data Box era = Box (Proof era) (TRC (Core.EraRule "LEDGER" era)) (GenState era) (CC.Witnesses era) (CC.Witnesses era)
+data Box era = Box (Proof era) (TRC (Core.EraRule "LEDGER" era)) (GenState era) (CC.Witnesses era)
 
 instance
   ( Era era,
@@ -1010,12 +987,11 @@ instance
   ) =>
   Show (Box era)
   where
-  show (Box _proof (TRC (_env, _state, _sig)) _gs old new) =
+  show (Box _proof (TRC (_env, _state, _sig)) _gs new) =
     show $
       ppRecord
         "Box"
-        [ ("OldWitnesses", pcWitnesses _proof old),
-          ("NewWitnesses", pcWitnesses _proof new)
+        [ ("Witnesses", pcWitnesses _proof new)
         ]
 
 -- Sample things we might use in the Box
@@ -1027,7 +1003,7 @@ instance
 testTx :: IO ()
 testTx = do
   let proof = Babbage Mock
-  ((_utxo, tx, _feepair, _, _, _), genstate) <- generate $ runGenRS proof def (genValidatedTxAndInfo proof)
+  ((_utxo, tx, _feepair, _, _), genstate) <- generate $ runGenRS proof def (genValidatedTxAndInfo proof)
   let m = gsModel genstate
   putStrLn (show (pcTx proof tx))
   putStrLn (show (pcModelNewEpochState proof m))
@@ -1069,6 +1045,7 @@ genExUnits era n = do
       | otherwise = snd <$> F.foldlM (genUpTo maxVal) (maxVal, []) [1 .. n]
 
 scriptVKeys ::
+  forall era.
   ( Reflect era
   ) =>
   Proof era ->
@@ -1079,8 +1056,14 @@ scriptVKeys proof utxo txbody =
   do
     genState <- get
     let scriptHashes = scriptsNeeded' proof (toMUtxo utxo) txbody
-        scriptWits = Map.restrictKeys (gsScripts genState) scriptHashes
-    sequence $ genGenericScriptWitness proof Nothing <$> Map.elems scriptWits
+    traceM "script hashes:"
+    traceShowM scriptHashes
+    let scriptWits = Map.restrictKeys (gsScripts genState) scriptHashes
+        inlineScripts = neededInlineScripts proof utxo txbody
+        --rwrdScripts = neededRewardScripts proof utxo txbody
+    traceM "inline scripts: "
+    traceShowM $ ppCoreScript proof <$> inlineScripts
+    sequence $ genGenericScriptWitness proof Nothing <$> Map.elems scriptWits <> inlineScripts
 
 genRdmrData ::
   Era era =>
@@ -1128,8 +1111,8 @@ allWitnessVKeys ::
   Core.TxBody era ->
   SafeHash (Crypto era) EraIndependentTxBody ->
   GenState era ->
-  WitnessesField era
-allWitnessVKeys proof utxo txbody hash genState = AddrWits $ Set.foldl' vkAccum Set.empty keyHashes
+  Set (WitVKey 'Witness (Crypto era))
+allWitnessVKeys proof utxo txbody hash genState = Set.foldl' vkAccum Set.empty keyHashes
   where
     keyHashes = witsVKeyNeeded' proof utxo txbody (GenDelegs mempty)
     vkAccum s kh = case Map.lookup kh (gsKeys genState) of
@@ -1212,9 +1195,10 @@ allNeededWitnesses proof utxo txbody =
     redeemerWits <- allRedeemerWits proof utxo txbody
     svks <- scriptVKeys proof utxo txbody
     return $
-      [ witVKeys,
+      [ AddrWits witVKeys,
         allScriptWits,
         DataWits dataWits,
         RdmrWits redeemerWits
       ]
         ++ join (svks <*> [hash])
+
