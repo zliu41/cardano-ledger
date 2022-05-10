@@ -56,7 +56,7 @@ import Cardano.Ledger.Shelley.LedgerState (RewardAccounts)
 import qualified Cardano.Ledger.Shelley.PParams as Shelley (PParams' (..))
 import qualified Cardano.Ledger.Shelley.Scripts as Shelley (MultiSig (..))
 import Cardano.Ledger.Shelley.TxBody (DCert (..), DelegCert (..), Delegation (..))
-import Cardano.Ledger.Shelley.UTxO (UTxO (..), makeWitnessVKey)
+import Cardano.Ledger.Shelley.UTxO (UTxO (..), makeWitnessVKey, scriptStakeCred)
 import Cardano.Ledger.ShelleyMA.Timelocks (Timelock (..), ValidityInterval (..))
 import Cardano.Ledger.TxIn (TxId (..), TxIn (..))
 import Cardano.Ledger.Val
@@ -1056,14 +1056,9 @@ scriptVKeys proof utxo txbody =
   do
     genState <- get
     let scriptHashes = scriptsNeeded' proof (toMUtxo utxo) txbody
-    traceM "script hashes:"
-    traceShowM scriptHashes
     let scriptWits = Map.elems $ Map.restrictKeys (gsScripts genState) scriptHashes
         inlineScripts = neededInlineScripts proof utxo txbody
         refScripts = neededRefScripts proof utxo txbody
-        --rwrdScripts = neededRewardScripts proof utxo txbody
-    traceM "inline scripts: "
-    traceShowM $ ppCoreScript proof <$> inlineScripts
     sequence $ genGenericScriptWitness proof Nothing <$> scriptWits <> inlineScripts <> refScripts
 
 genRdmrData ::
@@ -1076,6 +1071,7 @@ genRdmrData ::
 genRdmrData proof utxo txbody ptr@(RdmrPtr tag _) =
   do
     genState <- get
+    traceM "test"
     case strictMaybeToMaybe $ rdptrInv' proof txbody ptr of
       Just (Spending x) ->
         do
@@ -1085,9 +1081,11 @@ genRdmrData proof utxo txbody ptr@(RdmrPtr tag _) =
               Babbage.DatumHash dh -> return $ Map.lookup dh (gsDatums genState)
               Babbage.Datum d -> return . Just $ binaryDataToData d
             Nothing -> return Nothing
-      Just (Certifying (DCertDeleg (Delegate (Delegation (ScriptHashObj sh) _)))) ->
+      Just (Certifying cert) ->
         do
-          case Map.lookup (sh, tag) (gsPlutusScripts genState) of
+          let sh = scriptStakeCred cert
+              lkp x = Map.lookup (x, tag) (gsPlutusScripts genState)
+          case lkp =<< sh of
             Just _ -> Just <$> genDatum
             Nothing -> return Nothing
       Just (Rewarding (RewardAcnt _ (ScriptHashObj sh))) ->
@@ -1167,6 +1165,9 @@ allRedeemerWits proof utxo txbody =
     let neededRdmrs = neededRedeemers proof utxo txbody
     exUnits <- genExUnits proof $ length neededRdmrs
     scriptData <- traverse (genRdmrData proof utxo txbody) neededRdmrs
+    traceM $ "neededRdmrs:\n" ++ unlines (show <$> neededRdmrs)
+    traceM $ "exUnits:\n" ++ unlines (show <$> exUnits)
+    traceM $ "scriptData:\n" ++ unlines (show <$> scriptData)
     return . Redeemers $ case proof of
       Alonzo _ -> Map.fromList $ do
         (rptr, Just dat, eu) <- zip3 neededRdmrs scriptData exUnits

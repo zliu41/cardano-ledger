@@ -16,7 +16,6 @@ module Test.Cardano.Ledger.Generic.GenericWitnesses
     txOutLookupDatum,
     rdptrInv',
     neededInlineScripts,
-    neededRewardScripts,
     neededRefScripts,
   )
 where
@@ -117,11 +116,6 @@ neededInlineScripts (Babbage _) (UTxO utxom) txbody =
       Map.elems $ Map.restrictKeys utxom (txins txbody)
     return script
 neededInlineScripts _ _ _ = []
-
-neededRewardScripts ::
-  Proof era ->
-  [Script era]
-neededRewardScripts = undefined
 
 neededRefScripts ::
   Proof era ->
