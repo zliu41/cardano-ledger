@@ -115,7 +115,7 @@ import Test.Cardano.Ledger.Generic.GenState
     runGenRS,
     small,
   )
-import Test.Cardano.Ledger.Generic.GenericWitnesses (neededDataHashes, neededRedeemers, rdptrInv', txOutLookupDatum, witsVKeyNeeded', neededInlineScripts)
+import Test.Cardano.Ledger.Generic.GenericWitnesses (neededDataHashes, neededRedeemers, rdptrInv', txOutLookupDatum, witsVKeyNeeded', neededInlineScripts, neededRefScripts)
 import Test.Cardano.Ledger.Generic.ModelState
   ( MUtxo,
     ModelNewEpochState (..),
@@ -1058,12 +1058,13 @@ scriptVKeys proof utxo txbody =
     let scriptHashes = scriptsNeeded' proof (toMUtxo utxo) txbody
     traceM "script hashes:"
     traceShowM scriptHashes
-    let scriptWits = Map.restrictKeys (gsScripts genState) scriptHashes
+    let scriptWits = Map.elems $ Map.restrictKeys (gsScripts genState) scriptHashes
         inlineScripts = neededInlineScripts proof utxo txbody
+        refScripts = neededRefScripts proof utxo txbody
         --rwrdScripts = neededRewardScripts proof utxo txbody
     traceM "inline scripts: "
     traceShowM $ ppCoreScript proof <$> inlineScripts
-    sequence $ genGenericScriptWitness proof Nothing <$> Map.elems scriptWits <> inlineScripts
+    sequence $ genGenericScriptWitness proof Nothing <$> scriptWits <> inlineScripts <> refScripts
 
 genRdmrData ::
   Era era =>

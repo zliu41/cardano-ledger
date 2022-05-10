@@ -16,6 +16,8 @@ module Test.Cardano.Ledger.Generic.GenericWitnesses
     txOutLookupDatum,
     rdptrInv',
     neededInlineScripts,
+    neededRewardScripts,
+    neededRefScripts,
   )
 where
 
@@ -26,11 +28,11 @@ import Cardano.Ledger.Alonzo.Tx (ScriptPurpose, alonzoInputHashes, rdptr)
 import qualified Cardano.Ledger.Alonzo.Tx as AlonzoTx
 import qualified Cardano.Ledger.Alonzo.TxBody as Alonzo
 import Cardano.Ledger.Alonzo.TxWitness (RdmrPtr)
-import Cardano.Ledger.Babbage.Tx (ValidatedTx (..), babbageInputHashes)
+import Cardano.Ledger.Babbage.Tx (ValidatedTx (..), babbageInputHashes, TxBody (referenceInputs))
 import qualified Cardano.Ledger.Babbage.Tx as BabbageTx
 import Cardano.Ledger.Babbage.TxBody (Datum)
 import qualified Cardano.Ledger.Babbage.TxBody as Babbage
-import Cardano.Ledger.Core (Script, TxBody, TxOut)
+import Cardano.Ledger.Core (Script, TxOut)
 import qualified Cardano.Ledger.Core as Core
 import Cardano.Ledger.Era (Era (..))
 import Cardano.Ledger.Hashes (DataHash, ScriptHash)
@@ -51,6 +53,7 @@ import Data.Set (Set)
 import Test.Cardano.Ledger.Generic.Fields (TxField (Body), initialTx)
 import Test.Cardano.Ledger.Generic.Proof (Proof (..))
 import Test.Cardano.Ledger.Generic.Updaters (updateTx)
+import Data.Foldable (toList)
 
 witsVKeyNeeded' ::
   forall era.
@@ -72,7 +75,7 @@ witsVKeyNeeded' proof utxo' txbody gd =
 neededDataHashes ::
   Proof era ->
   Map.Map (ScriptHash (Crypto era)) (Core.Script era) ->
-  TxBody era ->
+  Core.TxBody era ->
   UTxO era ->
   Set (DataHash (Crypto era))
 neededDataHashes proof m txbody utxo =
@@ -85,7 +88,7 @@ neededDataHashes proof m txbody utxo =
 neededRedeemers ::
   Proof era ->
   UTxO era ->
-  TxBody era ->
+  Core.TxBody era ->
   [RdmrPtr]
 neededRedeemers proof utxo txbody = case proof of
   Babbage _ -> catMaybes (tryGetRdmrPtr <$> scriptsNeededFromBody utxo txbody)
@@ -112,6 +115,20 @@ neededRewardScripts ::
   Proof era ->
   [Script era]
 neededRewardScripts = undefined
+
+neededRefScripts ::
+  Proof era ->
+  UTxO era ->
+  Core.TxBody era ->
+  [Script era]
+neededRefScripts (Babbage _) (UTxO utxo) txbody =
+  do
+    txin <- toList $ referenceInputs txbody
+    case Map.lookup txin utxo of
+      Just (Babbage.TxOut _ _ _ (SJust script)) -> return script
+      Just _ -> []
+      Nothing -> error "txout not found"
+neededRefScripts _ _ _ = []
 
 txOutLookupDatum :: Proof era -> TxOut era -> Datum era
 txOutLookupDatum (Babbage _) (Babbage.TxOut _ _ d _) = d
