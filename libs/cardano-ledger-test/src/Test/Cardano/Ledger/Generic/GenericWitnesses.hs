@@ -28,11 +28,11 @@ import Cardano.Ledger.Alonzo.Tx (ScriptPurpose, alonzoInputHashes, rdptr)
 import qualified Cardano.Ledger.Alonzo.Tx as AlonzoTx
 import qualified Cardano.Ledger.Alonzo.TxBody as Alonzo
 import Cardano.Ledger.Alonzo.TxWitness (RdmrPtr)
-import Cardano.Ledger.Babbage.Tx (ValidatedTx (..), babbageInputHashes, TxBody (referenceInputs))
+import Cardano.Ledger.Babbage.Tx (ValidatedTx (..), babbageInputHashes, TxBody (referenceInputs, outputs))
 import qualified Cardano.Ledger.Babbage.Tx as BabbageTx
-import Cardano.Ledger.Babbage.TxBody (Datum)
+import Cardano.Ledger.Babbage.TxBody (Datum (DatumHash), TxOut (TxOut))
 import qualified Cardano.Ledger.Babbage.TxBody as Babbage
-import Cardano.Ledger.Core (Script, TxOut)
+import Cardano.Ledger.Core (Script)
 import qualified Cardano.Ledger.Core as Core
 import Cardano.Ledger.Era (Era (..))
 import Cardano.Ledger.Hashes (DataHash, ScriptHash)
@@ -54,6 +54,7 @@ import Test.Cardano.Ledger.Generic.Fields (TxField (Body), initialTx)
 import Test.Cardano.Ledger.Generic.Proof (Proof (..))
 import Test.Cardano.Ledger.Generic.Updaters (updateTx)
 import Data.Foldable (toList)
+import qualified Data.Set as Set
 
 witsVKeyNeeded' ::
   forall era.
@@ -81,7 +82,13 @@ neededDataHashes ::
 neededDataHashes proof m txbody utxo =
   let tx = updateTx proof (initialTx proof) $ Body txbody
    in case proof of
-        (Babbage _) -> fst $ babbageInputHashes m tx utxo
+        (Babbage _) -> 
+          let
+            inputHashes = fst $ babbageInputHashes m tx utxo
+            outputDatumHashes = Set.fromList $ do
+              (TxOut _ _ (DatumHash dh) _) <- toList $ outputs txbody
+              return dh
+          in inputHashes <> outputDatumHashes
         (Alonzo _) -> fst $ alonzoInputHashes m tx utxo
         _ -> mempty
 
@@ -130,7 +137,7 @@ neededRefScripts (Babbage _) (UTxO utxo) txbody =
       Nothing -> error "txout not found"
 neededRefScripts _ _ _ = []
 
-txOutLookupDatum :: Proof era -> TxOut era -> Datum era
+txOutLookupDatum :: Proof era -> Core.TxOut era -> Datum era
 txOutLookupDatum (Babbage _) (Babbage.TxOut _ _ d _) = d
 txOutLookupDatum (Alonzo _) (Alonzo.TxOut _ _ d) = case d of
   SJust d' -> Babbage.DatumHash d'
