@@ -124,14 +124,13 @@ import Test.Cardano.Ledger.Generic.ModelState
     pcModelNewEpochState,
     toMUtxo,
   )
-import Test.Cardano.Ledger.Generic.PrettyCore (pcTx, pcUTxO, pcWitnesses, ppCoreScript)
+import Test.Cardano.Ledger.Generic.PrettyCore (pcTx, pcUTxO, pcWitnesses)
 import Test.Cardano.Ledger.Generic.Proof hiding (lift)
 import Test.Cardano.Ledger.Generic.Updaters hiding (first)
 import Test.Cardano.Ledger.Shelley.Generator.Core (genNatural)
 import Test.Cardano.Ledger.Shelley.Serialisation.EraIndepGenerators ()
 import Test.Cardano.Ledger.Shelley.Utils (runShelleyBase)
 import Test.QuickCheck
-import Debug.Trace (traceShowM, traceM)
 
 -- ===================================================
 -- Assembing lists of Fields in to (Core.XX era)
@@ -1071,7 +1070,6 @@ genRdmrData ::
 genRdmrData proof utxo txbody ptr@(RdmrPtr tag _) =
   do
     genState <- get
-    traceM "test"
     case strictMaybeToMaybe $ rdptrInv' proof txbody ptr of
       Just (Spending x) ->
         do
@@ -1153,6 +1151,7 @@ allDataWits proof utxo txbody genState = TxDats $ Map.restrictKeys (gsDatums gen
     plutusScriptWits = allPlutusScriptWits proof utxo txbody genState
     dataHashes = neededDataHashes proof plutusScriptWits txbody utxo
 
+
 allRedeemerWits ::
   forall era.
   Era era =>
@@ -1165,9 +1164,9 @@ allRedeemerWits proof utxo txbody =
     let neededRdmrs = neededRedeemers proof utxo txbody
     exUnits <- genExUnits proof $ length neededRdmrs
     scriptData <- traverse (genRdmrData proof utxo txbody) neededRdmrs
-    traceM $ "neededRdmrs:\n" ++ unlines (show <$> neededRdmrs)
-    traceM $ "exUnits:\n" ++ unlines (show <$> exUnits)
-    traceM $ "scriptData:\n" ++ unlines (show <$> scriptData)
+    --traceM $ "neededRdmrs:\n" ++ unlines (show <$> neededRdmrs)
+    --traceM $ "exUnits:\n" ++ unlines (show <$> exUnits)
+    --traceM $ "scriptData:\n" ++ unlines (show <$> scriptData)
     return . Redeemers $ case proof of
       Alonzo _ -> Map.fromList $ do
         (rptr, Just dat, eu) <- zip3 neededRdmrs scriptData exUnits

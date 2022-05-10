@@ -8,6 +8,7 @@
 {-# LANGUAGE ScopedTypeVariables #-}
 {-# LANGUAGE TypeFamilies #-}
 {-# LANGUAGE UndecidableInstances #-}
+{-# LANGUAGE TypeApplications #-}
 
 module Test.Cardano.Ledger.Generic.GenericWitnesses
   ( witsVKeyNeeded',
@@ -27,7 +28,7 @@ import Cardano.Ledger.Alonzo.Tx (ScriptPurpose, alonzoInputHashes, rdptr)
 import qualified Cardano.Ledger.Alonzo.Tx as AlonzoTx
 import qualified Cardano.Ledger.Alonzo.TxBody as Alonzo
 import Cardano.Ledger.Alonzo.TxWitness (RdmrPtr)
-import Cardano.Ledger.Babbage.Tx (ValidatedTx (..), babbageInputHashes, TxBody (referenceInputs, outputs))
+import Cardano.Ledger.Babbage.Tx (ValidatedTx (..), TxBody (referenceInputs, outputs, inputs))
 import qualified Cardano.Ledger.Babbage.Tx as BabbageTx
 import Cardano.Ledger.Babbage.TxBody (Datum (DatumHash), TxOut (TxOut))
 import qualified Cardano.Ledger.Babbage.TxBody as Babbage
@@ -36,7 +37,7 @@ import qualified Cardano.Ledger.Core as Core
 import Cardano.Ledger.Era (Era (..))
 import Cardano.Ledger.Hashes (DataHash, ScriptHash)
 import Cardano.Ledger.Keys (GenDelegs, KeyRole (Witness))
-import Cardano.Ledger.Shelley.API (KeyHash)
+import Cardano.Ledger.Shelley.API (KeyHash, TxIn)
 import Cardano.Ledger.Shelley.LedgerState
   ( WitHashes (..),
   )
@@ -54,6 +55,9 @@ import Test.Cardano.Ledger.Generic.Proof (Proof (..))
 import Test.Cardano.Ledger.Generic.Updaters (updateTx)
 import Data.Foldable (toList)
 import qualified Data.Set as Set
+import qualified Data.Compact.SplitMap as SplitMap
+import GHC.Records (HasField(getField))
+import Cardano.Ledger.Babbage (BabbageEra)
 
 witsVKeyNeeded' ::
   forall era.
@@ -83,7 +87,14 @@ neededDataHashes proof m txbody utxo =
    in case proof of
         (Babbage _) -> 
           let
-            inputHashes = fst $ babbageInputHashes m tx utxo
+            spendinputs = inputs txbody
+            UTxO mp = utxo
+            smallUtxo = spendinputs SplitMap.◁ mp
+            accum hashSet txout =
+              case txout of
+                (TxOut _ _ (DatumHash dhash) _) -> Set.insert dhash hashSet
+                _ -> hashSet
+            inputHashes = SplitMap.foldl' accum Set.empty smallUtxo
             outputDatumHashes = Set.fromList $ do
               (TxOut _ _ (DatumHash dh) _) <- toList $ outputs txbody
               return dh
