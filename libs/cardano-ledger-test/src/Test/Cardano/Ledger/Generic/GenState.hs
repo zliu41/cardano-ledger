@@ -1,3 +1,4 @@
+{-# LANGUAGE BangPatterns #-}
 {-# LANGUAGE DataKinds #-}
 {-# LANGUAGE FlexibleContexts #-}
 {-# LANGUAGE FlexibleInstances #-}
@@ -9,7 +10,6 @@
 {-# LANGUAGE ScopedTypeVariables #-}
 {-# LANGUAGE TypeApplications #-}
 {-# LANGUAGE TypeFamilies #-}
-{-# LANGUAGE BangPatterns #-}
 
 -- | Strategy for Generic Tests
 --   Make the GenState include a Mode of the NewEpochState, modify
@@ -217,8 +217,8 @@ genMapElem :: Map k a -> Gen (Maybe (k, a))
 genMapElem m
   | n == 0 = pure Nothing
   | otherwise = do
-    i <- choose (0, n - 1)
-    pure $ Just $ Map.elemAt i m
+      i <- choose (0, n - 1)
+      pure $ Just $ Map.elemAt i m
   where
     n = Map.size m
 
@@ -226,8 +226,8 @@ genSetElem :: Set a -> Gen (Maybe a)
 genSetElem m
   | n == 0 = pure Nothing
   | otherwise = do
-    i <- choose (0, n - 1)
-    pure $ Just $ Set.elemAt i m
+      i <- choose (0, n - 1)
+      pure $ Just $ Set.elemAt i m
   where
     n = Set.size m
 
@@ -540,8 +540,8 @@ genTimelockScript proof = do
   -- diverge. It also has to stay very shallow because it grows too fast.
   let genNestedTimelock k
         | k > 0 =
-          elementsT $
-            nonRecTimelocks ++ [requireAllOf k, requireAnyOf k, requireMOf k]
+            elementsT $
+              nonRecTimelocks ++ [requireAllOf k, requireAnyOf k, requireMOf k]
         | otherwise = elementsT nonRecTimelocks
       nonRecTimelocks :: [GenRS era (Timelock (Crypto era))]
       nonRecTimelocks =
@@ -586,8 +586,8 @@ genMultiSigScript :: forall era. Reflect era => Proof era -> GenRS era (ScriptHa
 genMultiSigScript proof = do
   let genNestedMultiSig k
         | k > 0 =
-          elementsT $
-            nonRecTimelocks ++ [requireAllOf k, requireAnyOf k, requireMOf k]
+            elementsT $
+              nonRecTimelocks ++ [requireAllOf k, requireAnyOf k, requireMOf k]
         | otherwise = elementsT nonRecTimelocks
       nonRecTimelocks = [requireSignature]
       requireSignature = Shelley.RequireSignature <$> genKeyHash
@@ -690,4 +690,3 @@ initialLedgerState gstate = LedgerState utxostate dpstate
         (gePParams (gsGenEnv gstate))
         (gsInitialRewards gstate)
         (gsInitialPoolParams gstate)
-

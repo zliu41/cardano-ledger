@@ -152,6 +152,28 @@ testTxValidForLEDGER proof (Box _ (trc@(TRC (_, ledgerState, vtx))) _genstate _)
           )
           (property False)
 
+-- ===============================================================
+-- Tools for generating other things from a GenEnv. This way one can
+-- test individual functions in this file.
+
+-- | Construct a random (Gen b)
+makeGen :: Reflect era => Proof era -> (Proof era -> GenRS era b) -> Gen b
+makeGen proof computeWith = fst <$> runGenRS proof def (computeWith proof)
+
+runTest :: (Reflect era, PrettyC a era) => (Proof era -> GenRS era a) -> (a -> IO ()) -> Proof era -> IO ()
+runTest computeWith action proof = do
+  ans <- generate (makeGen proof computeWith)
+  putStrLn (show (prettyC proof ans))
+  action ans
+
+-- main2 :: IO ()
+-- main2 = runTest (\x -> fst <$> genValidatedTx x) (const (pure ())) (Alonzo Mock)
+
+main3 :: IO ()
+main3 = runTest (\_x -> (fromMUtxo . fst) <$> genUTxO) action (Alonzo Mock)
+  where
+    action (UTxO x) = putStrLn ("Size = " ++ show (Map.size x))
+
 -- =============================================
 -- Make some property tests
 

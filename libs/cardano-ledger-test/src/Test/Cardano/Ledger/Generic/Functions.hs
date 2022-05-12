@@ -67,6 +67,7 @@ import Data.Sequence.Strict (StrictSeq)
 import Data.Set (Set)
 import qualified Data.Set as Set
 import qualified Data.UMap as UMap
+import Debug.Trace (trace)
 import GHC.Records (HasField (getField))
 import Numeric.Natural
 import Test.Cardano.Ledger.Alonzo.Scripts (alwaysFails, alwaysSucceeds)
@@ -75,7 +76,6 @@ import Test.Cardano.Ledger.Generic.ModelState (MUtxo, fromMUtxo)
 import Test.Cardano.Ledger.Generic.Proof
 import Test.Cardano.Ledger.Generic.Scriptic (Scriptic (..))
 import Test.Cardano.Ledger.Generic.Updaters (updateTx)
-import Debug.Trace (trace)
 
 -- ====================================================================
 -- Era agnostic actions on (Core.PParams era) (Core.TxOut era) and
@@ -160,7 +160,6 @@ scriptsNeeded' (Babbage _) utxo txbody = trace refMsg $ regularScripts `Set.diff
     inputs = spendInputs' txbody `Set.union` refInputs
     inlineScripts = keysSet $ refScripts inputs theUtxo
     regularScripts = Set.fromList (map snd (scriptsNeededFromBody theUtxo txbody))
-
 scriptsNeeded' (Alonzo _) utxo txbody = Set.fromList (map snd (scriptsNeededFromBody (fromMUtxo utxo) txbody))
 scriptsNeeded' p@(Mary _) utxo txbody = scriptsNeeded (fromMUtxo utxo) (updateTx p (initialTx p) (Body txbody))
 scriptsNeeded' p@(Allegra _) utxo txbody = scriptsNeeded (fromMUtxo utxo) (updateTx p (initialTx p) (Body txbody))

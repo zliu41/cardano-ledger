@@ -17,7 +17,8 @@ import Cardano.Ledger.Alonzo.Rules.Utxow
     hasExactSetOfRedeemers,
     missingRequiredDatums,
     ppViewHashesMatch,
-    requiredSignersAreWitnessed, witsVKeyNeeded
+    requiredSignersAreWitnessed,
+    witsVKeyNeeded,
   )
 import Cardano.Ledger.Alonzo.Scripts (Script)
 import Cardano.Ledger.Alonzo.Tx (ValidatedTx (..))

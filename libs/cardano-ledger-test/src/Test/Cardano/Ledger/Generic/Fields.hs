@@ -1,13 +1,13 @@
 -- fromMap and toMap for Scripts
 {-# LANGUAGE AllowAmbiguousTypes #-}
 {-# LANGUAGE DataKinds #-}
+{-# LANGUAGE FlexibleContexts #-}
 {-# LANGUAGE GADTs #-}
 {-# LANGUAGE PatternSynonyms #-}
 {-# LANGUAGE ScopedTypeVariables #-}
 {-# LANGUAGE TypeApplications #-}
-{-# LANGUAGE ViewPatterns #-}
-{-# LANGUAGE FlexibleContexts #-}
 {-# LANGUAGE UndecidableInstances #-}
+{-# LANGUAGE ViewPatterns #-}
 
 module Test.Cardano.Ledger.Generic.Fields
   ( TxField (.., AuxData', Valid'),
@@ -56,6 +56,7 @@ import Cardano.Ledger.BaseTypes (Network (..), NonNegativeInterval, Nonce, ProtV
 import Cardano.Ledger.Coin (Coin (..))
 import qualified Cardano.Ledger.Core as Core
 import Cardano.Ledger.Credential (Credential (..), StakeReference (..))
+import qualified Cardano.Ledger.Crypto as CC
 import Cardano.Ledger.Era (Era (..), ValidateScript, hashScript)
 import Cardano.Ledger.Keys (KeyHash, KeyPair (..), KeyRole (..), hashKey)
 import qualified Cardano.Ledger.Mary.Value as Mary (Value (..))
@@ -81,7 +82,6 @@ import qualified Data.Set as Set
 import Numeric.Natural (Natural)
 import Test.Cardano.Ledger.Generic.Indexed (theKeyPair)
 import Test.Cardano.Ledger.Generic.Proof
-import qualified Cardano.Ledger.Crypto as CC
 
 -- =======================================================
 -- Fields are used to hold a single field of record. So the Field

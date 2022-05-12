@@ -6,9 +6,9 @@
 {-# LANGUAGE MultiParamTypeClasses #-}
 {-# LANGUAGE PartialTypeSignatures #-}
 {-# LANGUAGE ScopedTypeVariables #-}
+{-# LANGUAGE TypeApplications #-}
 {-# LANGUAGE TypeFamilies #-}
 {-# LANGUAGE UndecidableInstances #-}
-{-# LANGUAGE TypeApplications #-}
 
 module Test.Cardano.Ledger.Generic.GenericWitnesses
   ( witsVKeyNeeded',
@@ -28,7 +28,8 @@ import Cardano.Ledger.Alonzo.Tx (ScriptPurpose, alonzoInputHashes, rdptr)
 import qualified Cardano.Ledger.Alonzo.Tx as AlonzoTx
 import qualified Cardano.Ledger.Alonzo.TxBody as Alonzo
 import Cardano.Ledger.Alonzo.TxWitness (RdmrPtr)
-import Cardano.Ledger.Babbage.Tx (ValidatedTx (..), TxBody (referenceInputs, outputs, inputs))
+import Cardano.Ledger.Babbage (BabbageEra)
+import Cardano.Ledger.Babbage.Tx (TxBody (inputs, outputs, referenceInputs), ValidatedTx (..))
 import qualified Cardano.Ledger.Babbage.Tx as BabbageTx
 import Cardano.Ledger.Babbage.TxBody (Datum (DatumHash), TxOut (TxOut))
 import qualified Cardano.Ledger.Babbage.TxBody as Babbage
@@ -43,6 +44,8 @@ import Cardano.Ledger.Shelley.LedgerState
   )
 import qualified Cardano.Ledger.Shelley.Rules.Utxow as Shelley
 import Cardano.Ledger.Shelley.UTxO (UTxO (UTxO), txins)
+import qualified Data.Compact.SplitMap as SplitMap
+import Data.Foldable (toList)
 import qualified Data.Map as Map
 import Data.Maybe (catMaybes)
 import Data.Maybe.Strict
@@ -50,14 +53,11 @@ import Data.Maybe.Strict
     strictMaybeToMaybe,
   )
 import Data.Set (Set)
+import qualified Data.Set as Set
+import GHC.Records (HasField (getField))
 import Test.Cardano.Ledger.Generic.Fields (TxField (Body), initialTx)
 import Test.Cardano.Ledger.Generic.Proof (Proof (..))
 import Test.Cardano.Ledger.Generic.Updaters (updateTx)
-import Data.Foldable (toList)
-import qualified Data.Set as Set
-import qualified Data.Compact.SplitMap as SplitMap
-import GHC.Records (HasField(getField))
-import Cardano.Ledger.Babbage (BabbageEra)
 
 witsVKeyNeeded' ::
   forall era.
@@ -85,20 +85,19 @@ neededDataHashes ::
 neededDataHashes proof m txbody utxo =
   let tx = updateTx proof (initialTx proof) $ Body txbody
    in case proof of
-        (Babbage _) -> 
-          let
-            spendinputs = inputs txbody
-            UTxO mp = utxo
-            smallUtxo = spendinputs SplitMap.◁ mp
-            accum hashSet txout =
-              case txout of
-                (TxOut _ _ (DatumHash dhash) _) -> Set.insert dhash hashSet
-                _ -> hashSet
-            inputHashes = SplitMap.foldl' accum Set.empty smallUtxo
-            outputDatumHashes = Set.fromList $ do
-              (TxOut _ _ (DatumHash dh) _) <- toList $ outputs txbody
-              return dh
-          in inputHashes <> outputDatumHashes
+        (Babbage _) ->
+          let spendinputs = inputs txbody
+              UTxO mp = utxo
+              smallUtxo = spendinputs SplitMap.◁ mp
+              accum hashSet txout =
+                case txout of
+                  (TxOut _ _ (DatumHash dhash) _) -> Set.insert dhash hashSet
+                  _ -> hashSet
+              inputHashes = SplitMap.foldl' accum Set.empty smallUtxo
+              outputDatumHashes = Set.fromList $ do
+                (TxOut _ _ (DatumHash dh) _) <- toList $ outputs txbody
+                return dh
+           in inputHashes <> outputDatumHashes
         (Alonzo _) -> fst $ alonzoInputHashes m tx utxo
         _ -> mempty
 

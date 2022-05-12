@@ -50,7 +50,8 @@ import Cardano.Ledger.Shelley.API
     Credential (..),
     RewardAcnt (..),
     StakeReference (..),
-    Wdrl (..), WitVKey
+    Wdrl (..),
+    WitVKey,
   )
 import Cardano.Ledger.Shelley.LedgerState (RewardAccounts)
 import qualified Cardano.Ledger.Shelley.PParams as Shelley (PParams' (..))
@@ -115,7 +116,7 @@ import Test.Cardano.Ledger.Generic.GenState
     runGenRS,
     small,
   )
-import Test.Cardano.Ledger.Generic.GenericWitnesses (neededDataHashes, neededRedeemers, rdptrInv', txOutLookupDatum, witsVKeyNeeded', neededInlineScripts, neededRefScripts)
+import Test.Cardano.Ledger.Generic.GenericWitnesses (neededDataHashes, neededInlineScripts, neededRedeemers, neededRefScripts, rdptrInv', txOutLookupDatum, witsVKeyNeeded')
 import Test.Cardano.Ledger.Generic.ModelState
   ( MUtxo,
     ModelNewEpochState (..),
@@ -174,7 +175,7 @@ lookupScript scriptHash mTag = do
     Just script -> pure $ Just script
     Nothing
       | Just tag <- mTag ->
-        Just . snd <$> lookupByKeyM "plutusScript" (scriptHash, tag) gsPlutusScripts
+          Just . snd <$> lookupByKeyM "plutusScript" (scriptHash, tag) gsPlutusScripts
     _ -> pure Nothing
 
 -- ========================================================================
@@ -544,40 +545,40 @@ genDCerts = do
         -- so if a duplicate might be generated, we don't do that generation
         let insertIfNotPresent dcs' regCreds' mKey mScriptHash
               | Just (_, scriptHash) <- mScriptHash =
-                if (scriptHash, mKey) `Set.member` ss
-                  then (dcs, ss, regCreds)
-                  else (dc : dcs', Set.insert (scriptHash, mKey) ss, regCreds')
+                  if (scriptHash, mKey) `Set.member` ss
+                    then (dcs, ss, regCreds)
+                    else (dc : dcs', Set.insert (scriptHash, mKey) ss, regCreds')
               | otherwise = (dc : dcs', ss, regCreds')
         -- Generate registration and de-registration delegation certificates,
         -- while ensuring the proper registered/unregistered state in DState
         case dc of
           DCertDeleg d
             | RegKey regCred <- d ->
-              if regCred `Map.member` regCreds -- Can't register if it is already registered
-                then pure (dcs, ss, regCreds)
-                else pure (dc : dcs, ss, Map.insert regCred (Coin 99) regCreds) -- 99 is a NonZero Value
+                if regCred `Map.member` regCreds -- Can't register if it is already registered
+                  then pure (dcs, ss, regCreds)
+                  else pure (dc : dcs, ss, Map.insert regCred (Coin 99) regCreds) -- 99 is a NonZero Value
             | DeRegKey deregCred <- d ->
-              -- We can't make DeRegKey certificate if deregCred is not already registered
-              -- or if the Rewards balance for deregCred is not 0
-              case Map.lookup deregCred regCreds of
-                Nothing -> pure (dcs, ss, regCreds)
-                -- No credential, skip making certificate
-                Just (Coin 0) ->
-                  -- Ok to make certificate, rewards balance is 0
-                  insertIfNotPresent dcs (Map.delete deregCred regCreds) Nothing
-                    <$> lookupPlutusScript deregCred Cert
-                Just (Coin _) -> pure (dcs, ss, regCreds)
+                -- We can't make DeRegKey certificate if deregCred is not already registered
+                -- or if the Rewards balance for deregCred is not 0
+                case Map.lookup deregCred regCreds of
+                  Nothing -> pure (dcs, ss, regCreds)
+                  -- No credential, skip making certificate
+                  Just (Coin 0) ->
+                    -- Ok to make certificate, rewards balance is 0
+                    insertIfNotPresent dcs (Map.delete deregCred regCreds) Nothing
+                      <$> lookupPlutusScript deregCred Cert
+                  Just (Coin _) -> pure (dcs, ss, regCreds)
             -- Either Reward balance is not zero, or no Credential, so skip making certificate
             | Delegate (Delegation delegCred delegKey) <- d ->
-              let (dcs', regCreds')
-                    | delegCred `Map.member` regCreds = (dcs, regCreds)
-                    | otherwise -- In order to Delegate, the delegCred must exist in rewards.
-                    -- so if it is not there, we put it there, otherwise we may
-                    -- never generate a valid delegation.
-                      =
-                      (DCertDeleg (RegKey delegCred) : dcs, Map.insert delegCred (Coin 99) regCreds)
-               in insertIfNotPresent dcs' regCreds' (Just delegKey)
-                    <$> lookupPlutusScript delegCred Cert
+                let (dcs', regCreds')
+                      | delegCred `Map.member` regCreds = (dcs, regCreds)
+                      | otherwise -- In order to Delegate, the delegCred must exist in rewards.
+                      -- so if it is not there, we put it there, otherwise we may
+                      -- never generate a valid delegation.
+                        =
+                          (DCertDeleg (RegKey delegCred) : dcs, Map.insert delegCred (Coin 99) regCreds)
+                 in insertIfNotPresent dcs' regCreds' (Just delegKey)
+                      <$> lookupPlutusScript delegCred Cert
           _ -> pure (dc : dcs, ss, regCreds)
   maxcert <- gets getCertificateMax
   n <- lift $ choose (0, maxcert)
@@ -619,10 +620,10 @@ genCollateralUTxO collateralAddresses (Coin fee) utxo = do
       genCollateral addr coll um
         | Map.null um = genNewCollateral addr coll um =<< lift genPositiveVal
         | otherwise = do
-          i <- lift $ chooseInt (0, Map.size um - 1)
-          let (txIn, txOut) = Map.elemAt i um
-              val = getTxOutVal reify txOut
-          pure (Map.deleteAt i um, Map.insert txIn txOut coll, coin val)
+            i <- lift $ chooseInt (0, Map.size um - 1)
+            let (txIn, txOut) = Map.elemAt i um
+                val = getTxOutVal reify txOut
+            pure (Map.deleteAt i um, Map.insert txIn txOut coll, coin val)
       -- Recursively either pick existing key spend only outputs or generate new ones that
       -- will be later added to the UTxO map
       go ::
@@ -637,14 +638,10 @@ genCollateralUTxO collateralAddresses (Coin fee) utxo = do
         | ec : ecs' <- ecs = do
             (um', coll', c) <-
               if null ecs'
-                then -- This is the last input, so most of the time, put something (val > 0)
-                -- extra in it or we will always have a ColReturn with zero in it.
-                do
-                  excess <- lift genPositiveVal
-                  genNewCollateral ec coll um ((minCollTotal <-> curCollTotal) <+> excess)
+                then genNewCollateral ec coll um (minCollTotal <-> curCollTotal)
                 else elementsT [genCollateral ec coll Map.empty, genCollateral ec coll um]
             go ecs' coll' (curCollTotal <+> c) um'
-  (collaterals, excessColCoin) <-
+  collaterals <-
     go collateralAddresses Map.empty (Coin 0) $
       SplitMap.toMap $ SplitMap.filter spendOnly utxo
   pure (Map.union collaterals utxo, collaterals, excessColCoin)
@@ -799,7 +796,7 @@ genValidatedTxAndInfo proof = do
             | i <- [1 .. 10 :: Int] -- [maxBound, maxBound - 1 .. maxBound - maxCollateralCount - 1]
           ]
   collateralAddresses <- replicateM maxCollateralCount genNoScriptRecipient
-  --bogusCollateralKeyWitsMakers <-
+  -- bogusCollateralKeyWitsMakers <-
   --  mapM (\a -> genTxOutKeyWitness proof Nothing (coreTxOut proof [Address a, Amount (inject maxCoin)])) collateralAddresses
   networkId <- lift $ elements [SNothing, SJust Testnet]
 
@@ -828,9 +825,9 @@ genValidatedTxAndInfo proof = do
             AdHash' [],
             Txnetworkid networkId
           ]
-  --bogusNeededScripts = scriptsNeeded' proof utxoNoCollateral txBodyNoFee
-  --noFeeWits :: [WitnessesField era]
-  --noFeeWits =
+  -- bogusNeededScripts = scriptsNeeded' proof utxoNoCollateral txBodyNoFee
+  -- noFeeWits :: [WitnessesField era]
+  -- noFeeWits =
   --  onlyNecessaryScripts proof bogusNeededScripts $
   --    redeemerDatumWits
   --      <> foldMap ($ txBodyNoFeeHash) (witsMakers ++ bogusCollateralKeyWitsMakers)
@@ -951,8 +948,8 @@ onlyNecessaryScripts proof hashes (ScriptWits m : xs) =
   ScriptWits (Map.restrictKeys m hashes) : onlyNecessaryScripts proof hashes xs
 onlyNecessaryScripts proof hashes (x : xs) = x : onlyNecessaryScripts proof hashes xs
 
---onlyNecessaryKeys :: Proof era -> []
---onlyNecessaryKeys proof = undefined
+-- onlyNecessaryKeys :: Proof era -> []
+-- onlyNecessaryKeys proof = undefined
 
 -- | Scan though the fields unioning all the RdrmWits fields into one Redeemer map
 mkTxrdmrs :: forall era. Era era => [WitnessesField era] -> Redeemers era
@@ -1037,8 +1034,8 @@ genExUnits era n = do
     genUpTo maxVal (!totalLeft, !acc) _
       | totalLeft == 0 = pure (0, 0 : acc)
       | otherwise = do
-        x <- min totalLeft . round . (% un) <$> genNatural 0 maxVal
-        pure (totalLeft - x, x : acc)
+          x <- min totalLeft . round . (% un) <$> genNatural 0 maxVal
+          pure (totalLeft - x, x : acc)
     genSequenceSum maxVal
       | maxVal == 0 = pure $ replicate n 0
       | otherwise = snd <$> F.foldlM (genUpTo maxVal) (maxVal, []) [1 .. n]
@@ -1151,7 +1148,6 @@ allDataWits proof utxo txbody genState = TxDats $ Map.restrictKeys (gsDatums gen
     plutusScriptWits = allPlutusScriptWits proof utxo txbody genState
     dataHashes = neededDataHashes proof plutusScriptWits txbody utxo
 
-
 allRedeemerWits ::
   forall era.
   Era era =>
@@ -1164,9 +1160,9 @@ allRedeemerWits proof utxo txbody =
     let neededRdmrs = neededRedeemers proof utxo txbody
     exUnits <- genExUnits proof $ length neededRdmrs
     scriptData <- traverse (genRdmrData proof utxo txbody) neededRdmrs
-    --traceM $ "neededRdmrs:\n" ++ unlines (show <$> neededRdmrs)
-    --traceM $ "exUnits:\n" ++ unlines (show <$> exUnits)
-    --traceM $ "scriptData:\n" ++ unlines (show <$> scriptData)
+    -- traceM $ "neededRdmrs:\n" ++ unlines (show <$> neededRdmrs)
+    -- traceM $ "exUnits:\n" ++ unlines (show <$> exUnits)
+    -- traceM $ "scriptData:\n" ++ unlines (show <$> scriptData)
     return . Redeemers $ case proof of
       Alonzo _ -> Map.fromList $ do
         (rptr, Just dat, eu) <- zip3 neededRdmrs scriptData exUnits
@@ -1202,4 +1198,3 @@ allNeededWitnesses proof utxo txbody =
         RdmrWits redeemerWits
       ]
         ++ join (svks <*> [hash])
-
