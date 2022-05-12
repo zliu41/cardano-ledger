@@ -76,7 +76,7 @@ import Test.Cardano.Ledger.Generic.Functions
     alwaysTrue,
     obligation',
     primaryLanguage,
-    scriptsNeeded'
+    scriptsNeeded',
     protocolVersion,
     primaryLanguage,
     scriptsNeeded',

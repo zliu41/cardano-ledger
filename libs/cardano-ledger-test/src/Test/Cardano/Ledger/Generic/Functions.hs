@@ -1,10 +1,7 @@
 {-# LANGUAGE DataKinds #-}
 {-# LANGUAGE FlexibleContexts #-}
 {-# LANGUAGE FlexibleInstances #-}
-{-# LANGUAGE LambdaCase #-}
-{-# LANGUAGE NamedFieldPuns #-}
 {-# LANGUAGE ScopedTypeVariables #-}
-{-# LANGUAGE StandaloneDeriving #-}
 {-# LANGUAGE TypeApplications #-}
 {-# LANGUAGE TypeFamilies #-}
 
@@ -67,7 +64,6 @@ import Data.Sequence.Strict (StrictSeq)
 import Data.Set (Set)
 import qualified Data.Set as Set
 import qualified Data.UMap as UMap
-import Debug.Trace (trace)
 import GHC.Records (HasField (getField))
 import Numeric.Natural
 import Test.Cardano.Ledger.Alonzo.Scripts (alwaysFails, alwaysSucceeds)
@@ -76,6 +72,7 @@ import Test.Cardano.Ledger.Generic.ModelState (MUtxo, fromMUtxo)
 import Test.Cardano.Ledger.Generic.Proof
 import Test.Cardano.Ledger.Generic.Scriptic (Scriptic (..))
 import Test.Cardano.Ledger.Generic.Updaters (updateTx)
+import qualified Data.Compact.SplitMap as SplitMap
 
 -- ====================================================================
 -- Era agnostic actions on (Core.PParams era) (Core.TxOut era) and
@@ -152,11 +149,10 @@ keyPoolDeposits proof pp = case proof of
 -- | Compute the set of ScriptHashes for which there should be ScriptWitnesses. In Babbage
 --  Era and later, where inline Scripts are allowed, they should not appear in this set.
 scriptsNeeded' :: Proof era -> MUtxo era -> Core.TxBody era -> Set (ScriptHash (Crypto era))
-scriptsNeeded' (Babbage _) utxo txbody = trace refMsg $ regularScripts `Set.difference` inlineScripts
+scriptsNeeded' (Babbage _) utxo txbody = regularScripts `Set.difference` inlineScripts
   where
     theUtxo = fromMUtxo utxo
     refInputs = referenceInputs' txbody
-    refMsg = "refInputs:\n" ++ unlines (show <$> toList refInputs)
     inputs = spendInputs' txbody `Set.union` refInputs
     inlineScripts = keysSet $ refScripts inputs theUtxo
     regularScripts = Set.fromList (map snd (scriptsNeededFromBody theUtxo txbody))

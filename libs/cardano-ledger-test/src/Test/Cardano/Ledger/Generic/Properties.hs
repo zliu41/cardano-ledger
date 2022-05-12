@@ -1,15 +1,9 @@
-{-# LANGUAGE BangPatterns #-}
 {-# LANGUAGE DataKinds #-}
 {-# LANGUAGE FlexibleContexts #-}
 {-# LANGUAGE FlexibleInstances #-}
-{-# LANGUAGE LambdaCase #-}
-{-# LANGUAGE NamedFieldPuns #-}
 {-# LANGUAGE OverloadedStrings #-}
 {-# LANGUAGE RankNTypes #-}
-{-# LANGUAGE RecordWildCards #-}
 {-# LANGUAGE ScopedTypeVariables #-}
-{-# LANGUAGE StandaloneDeriving #-}
-{-# LANGUAGE TupleSections #-}
 {-# LANGUAGE TypeApplications #-}
 {-# LANGUAGE TypeFamilies #-}
 {-# LANGUAGE UndecidableInstances #-}
@@ -29,7 +23,6 @@ import Cardano.Ledger.Shelley.LedgerState
     EpochState (..),
     LedgerState (..),
     NewEpochState (..),
-    DPState (..),
     UTxOState (..),
     updateStakeDistribution,
   )
@@ -133,7 +126,7 @@ testTxValidForLEDGER ::
   Proof era ->
   Box era ->
   Property
-testTxValidForLEDGER proof (Box _ (trc@(TRC (_, ledgerState, vtx))) _genstate _) =
+testTxValidForLEDGER proof (Box _ trc@(TRC (_, ledgerState, vtx)) _genstate _) =
   ( if False
       then trace (show (txSummary proof vtx))
       else id
@@ -151,28 +144,6 @@ testTxValidForLEDGER proof (Box _ (trc@(TRC (_, ledgerState, vtx))) _genstate _)
               ++ show (ppList prettyA errs)
           )
           (property False)
-
--- ===============================================================
--- Tools for generating other things from a GenEnv. This way one can
--- test individual functions in this file.
-
--- | Construct a random (Gen b)
-makeGen :: Reflect era => Proof era -> (Proof era -> GenRS era b) -> Gen b
-makeGen proof computeWith = fst <$> runGenRS proof def (computeWith proof)
-
-runTest :: (Reflect era, PrettyC a era) => (Proof era -> GenRS era a) -> (a -> IO ()) -> Proof era -> IO ()
-runTest computeWith action proof = do
-  ans <- generate (makeGen proof computeWith)
-  putStrLn (show (prettyC proof ans))
-  action ans
-
--- main2 :: IO ()
--- main2 = runTest (\x -> fst <$> genValidatedTx x) (const (pure ())) (Alonzo Mock)
-
-main3 :: IO ()
-main3 = runTest (\_x -> (fromMUtxo . fst) <$> genUTxO) action (Alonzo Mock)
-  where
-    action (UTxO x) = putStrLn ("Size = " ++ show (Map.size x))
 
 -- =============================================
 -- Make some property tests
@@ -278,7 +249,7 @@ adaIsPreservedBabbage = adaIsPreserved (Babbage Mock)
 
 -- | The incremental Stake invaraint is preserved over a trace of length 100
 stakeInvariant :: Era era => MockChainState era -> MockChainState era -> Property
-stakeInvariant (MockChainState _ _ _) (MockChainState nes _ _) =
+stakeInvariant MockChainState{} (MockChainState nes _ _) =
   case (lsUTxOState . esLState . nesEs) nes of
     (UTxOState utxo _ _ _ istake) -> istake === updateStakeDistribution mempty mempty utxo
 
@@ -347,10 +318,10 @@ runTest computeWith action proof = do
   action ans
 
 main2 :: IO ()
-main2 = runTest (\x -> fst <$> genValidatedTx x) (const (pure ())) (Babbage Mock)
+main2 = runTest (fmap (\(x, _, _) -> x) . genValidatedTx) (const (pure ())) (Babbage Mock)
 
 main3 :: IO ()
-main3 = runTest (\_x -> (fromMUtxo . fst) <$> genUTxO) action (Alonzo Mock)
+main3 = runTest (\_x -> fromMUtxo . fst <$> genUTxO) action (Alonzo Mock)
   where
     action (UTxO x) = putStrLn ("Size = " ++ show (Map.size x))
 

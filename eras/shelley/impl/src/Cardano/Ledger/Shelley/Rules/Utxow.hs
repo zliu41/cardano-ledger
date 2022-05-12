@@ -29,7 +29,6 @@ module Cardano.Ledger.Shelley.Rules.Utxow
     validateMetadata,
     validateMIRInsufficientGenesisSigs,
     validateNeededWitnesses,
-    witsVKeyNeeded,
   )
 where
 

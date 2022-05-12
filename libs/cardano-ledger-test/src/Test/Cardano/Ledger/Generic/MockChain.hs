@@ -9,6 +9,7 @@
 {-# LANGUAGE TypeApplications #-}
 {-# LANGUAGE TypeFamilies #-}
 {-# LANGUAGE UndecidableInstances #-}
+{-# OPTIONS_GHC -Wno-unused-matches #-}
 
 module Test.Cardano.Ledger.Generic.MockChain where
 
@@ -59,11 +60,10 @@ import Data.Maybe.Strict (StrictMaybe)
 import Data.Sequence.Strict (StrictSeq (..), fromStrict)
 import Test.Cardano.Ledger.Generic.Functions (TotalAda (..))
 import Test.Cardano.Ledger.Generic.PrettyCore
-  ( pcNewEpochState,
-    ppLedgersPredicateFailure,
+  ( ppLedgersPredicateFailure,
     ppTickPredicateFailure,
   )
-import Test.Cardano.Ledger.Generic.Proof (Proof (..), Reflect (reify))
+import Test.Cardano.Ledger.Generic.Proof (Proof (..), Reflect)
 
 -- ================================================
 
@@ -215,14 +215,12 @@ deriving instance
   (Eq (TickPredicateFailure era), Eq (LedgersPredicateFailure era)) => Eq (MockChainFailure era)
 
 ppMockChainState ::
-  Reflect era =>
   MockChainState era ->
   PDoc
-ppMockChainState (MockChainState nes sl count) =
+ppMockChainState (MockChainState _ sl count) =
   ppRecord
     "MockChainState"
-    [ ("NewEpochState", pcNewEpochState reify nes),
-      ("LastBlock", ppSlotNo sl),
+    [ ("LastBlock", ppSlotNo sl),
       ("Count", ppInt count)
     ]
 

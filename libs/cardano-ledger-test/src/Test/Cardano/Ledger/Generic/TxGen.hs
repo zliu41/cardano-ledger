@@ -81,12 +81,10 @@ import Data.Monoid (All (..))
 import Data.Ratio ((%))
 import Data.Set (Set)
 import qualified Data.Set as Set
-import Data.Word (Word16)
 import Data.Typeable (Typeable)
 import GHC.Stack
 import Test.Cardano.Ledger.Alonzo.Serialisation.Generators ()
 import Test.Cardano.Ledger.Babbage.Serialisation.Generators ()
-import Test.Cardano.Ledger.Generic.ApplyTx (applyTx)
 import Test.Cardano.Ledger.Generic.Fields hiding (Mint)
 import qualified Test.Cardano.Ledger.Generic.Fields as Generic (TxBodyField (Mint))
 import Test.Cardano.Ledger.Generic.Functions
@@ -641,7 +639,7 @@ genCollateralUTxO collateralAddresses (Coin fee) utxo = do
                 then genNewCollateral ec coll um (minCollTotal <-> curCollTotal)
                 else elementsT [genCollateral ec coll Map.empty, genCollateral ec coll um]
             go ecs' coll' (curCollTotal <+> c) um'
-  collaterals <-
+  (collaterals, excessColCoin) <-
     go collateralAddresses Map.empty (Coin 0) $
       SplitMap.toMap $ SplitMap.filter spendOnly utxo
   pure (Map.union collaterals utxo, collaterals, excessColCoin)
@@ -866,7 +864,7 @@ genValidatedTxAndInfo proof = do
   let utxoFeeAdjusted = Map.adjust (injectFee proof (fee <+> deposits)) feeKey utxoNoCollateral
 
   -- 8. Generate utxos that will be used as collateral
-  (utxo, collMap) <- genCollateralUTxO collateralAddresses fee utxoFeeAdjusted
+  (utxo, collMap, _) <- genCollateralUTxO collateralAddresses fee utxoFeeAdjusted
 
   -- 9. Construct the correct Tx with valid fee and collaterals
   allPlutusScripts <- gsPlutusScripts <$> get

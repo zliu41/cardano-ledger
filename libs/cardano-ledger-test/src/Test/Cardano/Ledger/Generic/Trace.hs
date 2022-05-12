@@ -1,18 +1,11 @@
-{-# LANGUAGE BangPatterns #-}
 {-# LANGUAGE ConstraintKinds #-}
 {-# LANGUAGE DataKinds #-}
 {-# LANGUAGE FlexibleContexts #-}
 {-# LANGUAGE FlexibleInstances #-}
-{-# LANGUAGE InstanceSigs #-}
-{-# LANGUAGE LambdaCase #-}
 {-# LANGUAGE MultiParamTypeClasses #-}
-{-# LANGUAGE NamedFieldPuns #-}
 {-# LANGUAGE OverloadedStrings #-}
 {-# LANGUAGE RankNTypes #-}
-{-# LANGUAGE RecordWildCards #-}
 {-# LANGUAGE ScopedTypeVariables #-}
-{-# LANGUAGE StandaloneDeriving #-}
-{-# LANGUAGE TupleSections #-}
 {-# LANGUAGE TypeApplications #-}
 {-# LANGUAGE TypeFamilies #-}
 {-# LANGUAGE UndecidableInstances #-}
@@ -69,7 +62,7 @@ import Data.Maybe.Strict (StrictMaybe (..))
 import Data.Sequence.Strict (StrictSeq)
 import qualified Data.Sequence.Strict as SS
 import qualified Data.Set as Set
-import Data.Sequence as Seq hiding (reverse)
+import qualified Data.Sequence as Seq hiding (reverse)
 import qualified Data.UMap as UM
 import Data.Vector (Vector, (!))
 import qualified Data.Vector as Vector
@@ -92,7 +85,6 @@ import Test.Cardano.Ledger.Generic.GenState
     oldUtxoPercent,
     runGenRS,
     small,
-    startslot,
   )
 import Test.Cardano.Ledger.Generic.MockChain
 import Test.Cardano.Ledger.Generic.ModelState
@@ -116,7 +108,7 @@ import Test.Tasty.QuickCheck (Gen, choose, frequency, generate, testProperty)
 --   has been applied. That model can be used to generate the next Tx
 genRsTxAndModel :: Reflect era => Proof era -> Word64 -> GenRS era (Core.Tx era)
 genRsTxAndModel proof n = do
-  (_, tx) <- genValidatedTx proof
+  (_, tx, _) <- genValidatedTx proof
   tx <$ modifyModel (\model -> applyTx proof (fromIntegral n) model tx)
 
 -- | Generate a Vector of (StrictSeq (Core.Tx era))  representing a (Vector Block)
@@ -202,11 +194,11 @@ makeEpochState gstate ledgerstate =
 -- | Turn a UTxO into a smaller UTxO, with only entries mentioned in
 --   the inputs of 'txs' ,  then pretty print it.
 pcSmallUTxO :: Proof era -> UTxO era -> [Core.Tx era] -> PDoc
-pcSmallUTxO proof u txs = ppMap pcTxIn (pcCoin . getTxOutCoin proof) m
+pcSmallUTxO proof (UTxO mutxo) txs = ppMap pcTxIn (pcCoin . getTxOutCoin proof) m
   where
     keys = Set.unions (map f txs)
     f tx = allInputs proof (getBody proof tx)
-    m = Map.restrictKeys (toMUtxo u) keys
+    m = Map.restrictKeys mutxo keys
 
 raiseMockError ::
   (UsesValue era, Reflect era) =>
