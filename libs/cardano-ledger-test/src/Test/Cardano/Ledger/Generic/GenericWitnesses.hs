@@ -6,7 +6,6 @@
 {-# LANGUAGE MultiParamTypeClasses #-}
 {-# LANGUAGE PartialTypeSignatures #-}
 {-# LANGUAGE ScopedTypeVariables #-}
-{-# LANGUAGE TypeApplications #-}
 {-# LANGUAGE TypeFamilies #-}
 {-# LANGUAGE UndecidableInstances #-}
 
@@ -28,7 +27,6 @@ import Cardano.Ledger.Alonzo.Tx (ScriptPurpose, alonzoInputHashes, rdptr)
 import qualified Cardano.Ledger.Alonzo.Tx as AlonzoTx
 import qualified Cardano.Ledger.Alonzo.TxBody as Alonzo
 import Cardano.Ledger.Alonzo.TxWitness (RdmrPtr)
-import Cardano.Ledger.Babbage (BabbageEra)
 import Cardano.Ledger.Babbage.Tx (TxBody (inputs, outputs, referenceInputs), ValidatedTx (..))
 import qualified Cardano.Ledger.Babbage.Tx as BabbageTx
 import Cardano.Ledger.Babbage.TxBody (Datum (DatumHash), TxOut (TxOut))
@@ -38,11 +36,10 @@ import qualified Cardano.Ledger.Core as Core
 import Cardano.Ledger.Era (Era (..))
 import Cardano.Ledger.Hashes (DataHash, ScriptHash)
 import Cardano.Ledger.Keys (GenDelegs, KeyRole (Witness))
-import Cardano.Ledger.Shelley.API (KeyHash, TxIn)
+import Cardano.Ledger.Shelley.API (KeyHash)
 import Cardano.Ledger.Shelley.LedgerState
   ( WitHashes (..),
   )
-import qualified Cardano.Ledger.Shelley.Rules.Utxow as Shelley
 import Cardano.Ledger.Shelley.UTxO (UTxO (UTxO), txins)
 import qualified Data.Compact.SplitMap as SplitMap
 import Data.Foldable (toList)
@@ -54,10 +51,10 @@ import Data.Maybe.Strict
   )
 import Data.Set (Set)
 import qualified Data.Set as Set
-import GHC.Records (HasField (getField))
 import Test.Cardano.Ledger.Generic.Fields (TxField (Body), initialTx)
 import Test.Cardano.Ledger.Generic.Proof (Proof (..))
 import Test.Cardano.Ledger.Generic.Updaters (updateTx)
+import qualified Cardano.Ledger.Shelley.Rules.Utxow as Shelley
 
 witsVKeyNeeded' ::
   forall era.
