@@ -194,7 +194,6 @@ test-suite cardano-ledger-shelley-test
       scientific,
       cardano-ledger-shelley-test,
       cardano-ledger-shelley,
-      set-algebra,
       small-steps-test,
       small-steps,
       strict-containers,

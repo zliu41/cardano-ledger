@@ -22,20 +22,17 @@ import Cardano.Crypto.Hash (Blake2b_256, hashToBytes)
 import Cardano.Crypto.Seed (mkSeedFromBytes)
 import qualified Cardano.Crypto.VRF as Crypto
 import Cardano.Ledger.BaseTypes
-  ( ActiveSlotCoeff,
-    BlocksMade (..),
-    BoundedRational (..),
+  ( BlocksMade (..),
     Globals (..),
     Network (..),
     ProtVer (..),
     ShelleyBase,
     StrictMaybe (..),
     UnitInterval,
-    activeSlotVal,
     epochInfoPure,
     mkActiveSlotCoeff,
   )
-import Cardano.Ledger.Coin (Coin (..), DeltaCoin (..), rationalToCoinViaFloor, toDeltaCoin)
+import Cardano.Ledger.Coin (Coin (..))
 import Cardano.Ledger.Compactible
 import qualified Cardano.Ledger.Core as Core
 import Cardano.Ledger.Credential (Credential (..))
@@ -54,40 +51,24 @@ import Cardano.Ledger.Keys
 import Cardano.Ledger.Pretty (PDoc, PrettyA (..), ppMap, ppReward, ppSet)
 import Cardano.Ledger.Shelley.API.Wallet (getRewardProvenance)
 import Cardano.Ledger.Shelley.EpochBoundary
-  ( SnapShot (..),
-    SnapShots (..),
-    Stake (..),
-    maxPool,
+  ( Stake (..),
     poolStake,
     sumAllStake,
     sumStakePerPool,
   )
-import qualified Cardano.Ledger.Shelley.HardForks as HardForks
 import Cardano.Ledger.Shelley.LedgerState
-  ( AccountState (..),
-    DPState (..),
-    EpochState (..),
-    LedgerState (..),
+  ( EpochState (..),
     NewEpochState (..),
     PulsingRewUpdate (..),
     RewardUpdate (..),
-    circulation,
     completeRupd,
     createRUpd,
     filterAllRewards,
-    rewards,
-    updateNonMyopic,
   )
 import Cardano.Ledger.Shelley.PParams
   ( PParams,
     PParams' (..),
     emptyPParams,
-  )
-import Cardano.Ledger.Shelley.PoolRank
-  ( Likelihood,
-    NonMyopic,
-    leaderProbability,
-    likelihood,
   )
 import Cardano.Ledger.Shelley.RewardUpdate
   ( FreeVars (..),
@@ -98,11 +79,7 @@ import Cardano.Ledger.Shelley.RewardUpdate
   )
 import Cardano.Ledger.Shelley.Rewards
   ( Reward (rewardAmount),
-    StakeShare (..),
     aggregateRewards,
-    leaderRew,
-    memberRew,
-    mkApparentPerformance,
     mkPoolRewardInfo,
   )
 import Cardano.Ledger.Shelley.Rules.NewEpoch (NewEpochEvent (DeltaRewardEvent, TotalRewardEvent))
@@ -110,25 +87,22 @@ import Cardano.Ledger.Shelley.Rules.Rupd (RupdEvent (..))
 import qualified Cardano.Ledger.Shelley.Rules.Tick as Tick
 import Cardano.Ledger.Shelley.TxBody (PoolParams (..), RewardAcnt (..))
 import Cardano.Ledger.Slot (epochInfoSize)
-import Cardano.Ledger.Val (invert, (<+>), (<->))
 import Cardano.Slotting.Slot (EpochSize (..))
 import Control.Monad (replicateM)
-import Control.Monad.Trans.Reader (asks, runReader)
+import Control.Monad.Trans.Reader (runReader)
 import Control.Provenance (preservesJust, preservesNothing, runProvM, runWithProvM)
-import Control.SetAlgebra (eval, (◁))
 import Control.State.Transition.Trace (SourceSignalTarget (..), getEvents, sourceSignalTargets)
 import Data.Default.Class (Default (def))
 import Data.Foldable (fold, foldl')
 import Data.Map (Map)
 import qualified Data.Map.Strict as Map
-import Data.Maybe (fromMaybe, mapMaybe)
+import Data.Maybe (fromMaybe)
 import Data.Proxy
 import Data.Pulse (Pulsable (..))
 import Data.Ratio ((%))
 import qualified Data.Sequence.Strict as StrictSeq
 import Data.Set (Set)
 import qualified Data.Set as Set
-import qualified Data.UMap as UM
 import qualified Data.VMap as VMap
 import Data.Word (Word64)
 import GHC.Stack
@@ -159,6 +133,7 @@ import Test.Tasty.QuickCheck
     withMaxSuccess,
     (===),
   )
+import Cardano.Ledger.Shelley.TestUtils (RewardUpdateOld(rsOld), createRUpdOld)
 
 -- ========================================================================
 -- Bounds and Constants --
@@ -456,208 +431,6 @@ justInJustOut newepochstate =
 -- ====================================================================================
 -- To demonstrate that the code we wrote that enables provenance collection does not
 -- change the result of reward calculation. we reproduce the old style functions here.
-
-rewardOnePool ::
-  PParams era ->
-  Coin ->
-  Natural ->
-  Natural ->
-  PoolParams (Crypto era) ->
-  Stake (Crypto era) ->
-  Rational ->
-  Rational ->
-  Coin ->
-  Set.Set (Credential 'Staking (Crypto era)) ->
-  Map (Credential 'Staking (Crypto era)) Coin
-rewardOnePool
-  pp
-  r
-  blocksN
-  blocksTotal
-  pool
-  (Stake stake)
-  sigma
-  sigmaA
-  (Coin totalStake)
-  addrsRew =
-    rewards'
-    where
-      Coin ostake =
-        Set.foldl'
-          (\c o -> maybe c (mappend c . fromCompact) $ VMap.lookup (KeyHashObj o) stake)
-          mempty
-          (_poolOwners pool)
-      Coin pledge = _poolPledge pool
-      pr = fromIntegral pledge % fromIntegral totalStake
-      Coin maxP =
-        if pledge <= ostake
-          then maxPool pp r sigma pr
-          else mempty
-      appPerf = mkApparentPerformance (_d pp) sigmaA blocksN blocksTotal
-      poolR = rationalToCoinViaFloor (appPerf * fromIntegral maxP)
-      tot = fromIntegral totalStake
-      mRewards =
-        Map.fromList
-          [ ( hk,
-              memberRew
-                poolR
-                pool
-                (StakeShare (unCoin (fromCompact c) % tot))
-                (StakeShare sigma)
-            )
-            | (hk, c) <- VMap.toAscList stake,
-              notPoolOwner hk
-          ]
-      notPoolOwner (KeyHashObj hk) = hk `Set.notMember` _poolOwners pool
-      notPoolOwner (ScriptHashObj _) = HardForks.allowScriptStakeCredsToEarnRewards pp
-      lReward =
-        leaderRew
-          poolR
-          pool
-          (StakeShare $ fromIntegral ostake % tot)
-          (StakeShare sigma)
-      f =
-        if HardForks.aggregatedRewards pp
-          then Map.insertWith (<>)
-          else Map.insert
-      potentialRewards =
-        f (getRwdCred $ _poolRAcnt pool) lReward mRewards
-      potentialRewards' =
-        if HardForks.forgoRewardPrefilter pp
-          then potentialRewards
-          else eval (addrsRew ◁ potentialRewards)
-      rewards' = Map.filter (/= Coin 0) potentialRewards'
-
-rewardOld ::
-  forall era.
-  PParams era ->
-  BlocksMade (Crypto era) ->
-  Coin ->
-  Set.Set (Credential 'Staking (Crypto era)) ->
-  VMap.VMap VMap.VB VMap.VB (KeyHash 'StakePool (Crypto era)) (PoolParams (Crypto era)) ->
-  Stake (Crypto era) ->
-  VMap.VMap VMap.VB VMap.VB (Credential 'Staking (Crypto era)) (KeyHash 'StakePool (Crypto era)) ->
-  Coin ->
-  ActiveSlotCoeff ->
-  EpochSize ->
-  ( Map
-      (Credential 'Staking (Crypto era))
-      Coin,
-    Map (KeyHash 'StakePool (Crypto era)) Likelihood
-  )
-rewardOld
-  pp
-  (BlocksMade b)
-  r
-  addrsRew
-  poolParams
-  stake
-  delegs
-  (Coin totalStake)
-  asc
-  slotsPerEpoch = (rewards', hs)
-    where
-      totalBlocks = sum b
-      Coin activeStake = sumAllStake stake
-      results :: [(KeyHash 'StakePool (Crypto era), Maybe (Map (Credential 'Staking (Crypto era)) Coin), Likelihood)]
-      results = do
-        (hk, pparams) <- VMap.toAscList poolParams
-        let sigma = if totalStake == 0 then 0 else fromIntegral pstake % fromIntegral totalStake
-            sigmaA = if activeStake == 0 then 0 else fromIntegral pstake % fromIntegral activeStake
-            blocksProduced = Map.lookup hk b
-            actgr = poolStake hk delegs stake
-            Coin pstake = sumAllStake actgr
-            rewardMap = case blocksProduced of
-              Nothing -> Nothing -- This is equivalent to calling rewarOnePool with n = 0
-              Just n ->
-                Just $
-                  rewardOnePool
-                    pp
-                    r
-                    n
-                    totalBlocks
-                    pparams
-                    actgr
-                    sigma
-                    sigmaA
-                    (Coin totalStake)
-                    addrsRew
-            ls =
-              likelihood
-                (fromMaybe 0 blocksProduced)
-                (leaderProbability asc sigma (_d pp))
-                slotsPerEpoch
-        pure (hk, rewardMap, ls)
-      f =
-        if HardForks.aggregatedRewards pp
-          then Map.unionsWith (<>)
-          else Map.unions
-      rewards' = f $ mapMaybe (\(_, x, _) -> x) results
-      hs = Map.fromList $ fmap (\(hk, _, l) -> (hk, l)) results
-
-data RewardUpdateOld crypto = RewardUpdateOld
-  { deltaTOld :: !DeltaCoin,
-    deltaROld :: !DeltaCoin,
-    rsOld :: !(Map (Credential 'Staking crypto) Coin),
-    deltaFOld :: !DeltaCoin,
-    nonMyopicOld :: !(NonMyopic crypto)
-  }
-  deriving (Show, Eq)
-
-createRUpdOld ::
-  forall era.
-  (Core.PParams era ~ PParams era) =>
-  EpochSize ->
-  BlocksMade (Crypto era) ->
-  EpochState era ->
-  Coin ->
-  ShelleyBase (RewardUpdateOld (Crypto era))
-createRUpdOld slotsPerEpoch b@(BlocksMade b') es@(EpochState acnt ss ls pr _ nm) maxSupply = do
-  asc <- asks activeSlotCoeff
-  let SnapShot stake' delegs' poolParams = _pstakeGo ss
-      Coin reserves = _reserves acnt
-      ds = dpsDState $ lsDPState ls
-      -- reserves and rewards change
-      deltaR1 =
-        rationalToCoinViaFloor $
-          min 1 eta
-            * unboundRational (_rho pr)
-            * fromIntegral reserves
-      d = unboundRational (_d pr)
-      expectedBlocks =
-        floor $
-          (1 - d) * unboundRational (activeSlotVal asc) * fromIntegral slotsPerEpoch
-      -- TODO asc is a global constant, and slotsPerEpoch should not change often at all,
-      -- it would be nice to not have to compute expectedBlocks every epoch
-      eta
-        | unboundRational (_d pr) >= 0.8 = 1
-        | otherwise = blocksMade % expectedBlocks
-      Coin rPot = _feeSS ss <> deltaR1
-      deltaT1 = floor $ unboundRational (_tau pr) * fromIntegral rPot
-      _R = Coin $ rPot - deltaT1
-      totalStake = circulation es maxSupply
-      (rs_, newLikelihoods) =
-        rewardOld
-          pr
-          b
-          _R
-          (UM.domain $ rewards ds)
-          poolParams
-          stake'
-          delegs'
-          totalStake
-          asc
-          slotsPerEpoch
-      deltaR2 = _R <-> Map.foldr (<+>) mempty rs_
-      blocksMade = fromIntegral $ Map.foldr (+) 0 b' :: Integer
-  pure $
-    RewardUpdateOld
-      { deltaTOld = DeltaCoin deltaT1,
-        deltaROld = invert (toDeltaCoin deltaR1) <> toDeltaCoin deltaR2,
-        rsOld = rs_,
-        deltaFOld = invert (toDeltaCoin $ _feeSS ss),
-        nonMyopicOld = updateNonMyopic nm _R newLikelihoods
-      }
 
 overrideProtocolVersionUsedInRewardCalc ::
   Core.PParams era ~ PParams era =>
