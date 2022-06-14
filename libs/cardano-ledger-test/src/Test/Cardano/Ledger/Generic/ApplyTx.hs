@@ -10,8 +10,6 @@
 
 module Test.Cardano.Ledger.Generic.ApplyTx where
 
--- computed from testGlobals
-
 import Cardano.Ledger.Alonzo.Tx (IsValid (..), ValidatedTx (..))
 import Cardano.Ledger.BaseTypes (TxIx, mkTxIxPartial)
 import Cardano.Ledger.Coin (Coin (..), addDeltaCoin)
@@ -56,8 +54,8 @@ import Test.Cardano.Ledger.Generic.ModelState
   )
 import Test.Cardano.Ledger.Generic.PrettyCore (pcCredential, pcTx)
 import Test.Cardano.Ledger.Generic.Proof hiding (lift)
-import Test.Cardano.Ledger.Shelley.Utils (epochFromSlotNo)
 import Test.Cardano.Ledger.Generic.Types (getTxOutCoin)
+import Test.Cardano.Ledger.Shelley.Utils (epochFromSlotNo)
 
 -- ========================================================================
 

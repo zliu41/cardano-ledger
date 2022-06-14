@@ -64,7 +64,7 @@ createRUpdOld ::
   EpochState era ->
   Coin ->
   ShelleyBase (RewardUpdateOld (Crypto era))
-createRUpdOld slotsPerEpoch b es@(EpochState acnt ss ls pr _ nm) maxSupply = 
+createRUpdOld slotsPerEpoch b es@(EpochState acnt ss ls pr _ nm) maxSupply =
   createRUpdOld_ @era slotsPerEpoch b ss reserves pr totalStake rs nm
   where
     ds = dpsDState $ lsDPState ls
@@ -72,7 +72,7 @@ createRUpdOld slotsPerEpoch b es@(EpochState acnt ss ls pr _ nm) maxSupply =
     reserves = _reserves acnt
     totalStake = circulation es maxSupply
 
-createRUpdOld_ :: 
+createRUpdOld_ ::
   forall era.
   ( HasField "_d" (Core.PParams era) UnitInterval,
     HasField "_rho" (Core.PParams era) UnitInterval,

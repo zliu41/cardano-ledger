@@ -85,6 +85,7 @@ import Cardano.Ledger.Shelley.Rewards
 import Cardano.Ledger.Shelley.Rules.NewEpoch (NewEpochEvent (DeltaRewardEvent, TotalRewardEvent))
 import Cardano.Ledger.Shelley.Rules.Rupd (RupdEvent (..))
 import qualified Cardano.Ledger.Shelley.Rules.Tick as Tick
+import Cardano.Ledger.Shelley.TestUtils (RewardUpdateOld (rsOld), createRUpdOld)
 import Cardano.Ledger.Shelley.TxBody (PoolParams (..), RewardAcnt (..))
 import Cardano.Ledger.Slot (epochInfoSize)
 import Cardano.Slotting.Slot (EpochSize (..))
@@ -133,7 +134,6 @@ import Test.Tasty.QuickCheck
     withMaxSuccess,
     (===),
   )
-import Cardano.Ledger.Shelley.TestUtils (RewardUpdateOld(rsOld), createRUpdOld)
 
 -- ========================================================================
 -- Bounds and Constants --

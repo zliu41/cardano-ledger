@@ -33,7 +33,7 @@ import Cardano.Ledger.Shelley.UTxO (UTxO (..))
 import Cardano.Slotting.Slot (SlotNo (..))
 import Control.Monad.Trans.RWS.Strict (gets)
 import Control.State.Transition.Extended hiding (Assertion)
-import Control.State.Transition.Trace (Trace(..), lastState)
+import Control.State.Transition.Trace (Trace (..), lastState)
 import Control.State.Transition.Trace.Generator.QuickCheck (HasTrace (..))
 import Data.Coerce (coerce)
 import Data.Default.Class (Default (def))
@@ -286,11 +286,11 @@ epochPreserveAda :: GenSize -> TestTree
 epochPreserveAda genSize =
   testGroup
     "Ada is preserved in each epoch"
-    [ adaIsPreservedInEachEpoch (Babbage Mock) genSize
-    , adaIsPreservedInEachEpoch (Alonzo Mock) genSize
-    , adaIsPreservedInEachEpoch (Mary Mock) genSize
-    , adaIsPreservedInEachEpoch (Allegra Mock) genSize
-    , adaIsPreservedInEachEpoch (Shelley Mock) genSize
+    [ adaIsPreservedInEachEpoch (Babbage Mock) genSize,
+      adaIsPreservedInEachEpoch (Alonzo Mock) genSize,
+      adaIsPreservedInEachEpoch (Mary Mock) genSize,
+      adaIsPreservedInEachEpoch (Allegra Mock) genSize,
+      adaIsPreservedInEachEpoch (Shelley Mock) genSize
     ]
 
 adaIsPreservedInEachEpoch ::

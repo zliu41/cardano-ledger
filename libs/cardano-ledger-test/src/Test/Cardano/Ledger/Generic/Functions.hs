@@ -50,6 +50,7 @@ import Cardano.Ledger.Val (Val (coin, inject, (<+>), (<->)))
 import Cardano.Slotting.EpochInfo.API (epochInfoSize)
 import Control.Monad.Reader (runReader)
 import Control.State.Transition.Extended (STS (State))
+import Control.State.Transition.Trace (Trace)
 import Data.Default.Class (Default (def))
 import Data.Foldable (toList)
 import qualified Data.List as List
@@ -59,19 +60,18 @@ import Data.Maybe.Strict (StrictMaybe (..))
 import Data.Sequence.Strict (StrictSeq)
 import Data.Set (Set)
 import qualified Data.Set as Set
+import Data.Word (Word64)
 import GHC.Records (HasField (getField))
 import Numeric.Natural
 import Test.Cardano.Ledger.Alonzo.Scripts (alwaysFails, alwaysSucceeds)
 import Test.Cardano.Ledger.Generic.Fields (TxField (..), TxOutField (..), initialTx)
+import Test.Cardano.Ledger.Generic.MockChain (MOCKCHAIN)
 import Test.Cardano.Ledger.Generic.ModelState (MUtxo, Model, ModelNewEpochState (..))
-import Test.Cardano.Ledger.Generic.Proof (Proof(..))
+import Test.Cardano.Ledger.Generic.Proof (Proof (..))
 import Test.Cardano.Ledger.Generic.Scriptic (Scriptic (..))
 import Test.Cardano.Ledger.Generic.Updaters (updateTx)
 import Test.Cardano.Ledger.Shelley.Utils (testGlobals)
-import Data.Word (Word64)
-import Control.State.Transition.Trace (Trace)
 import Test.Tasty.QuickCheck (Property)
-import Test.Cardano.Ledger.Generic.MockChain (MOCKCHAIN)
 
 -- ====================================================================
 -- Era agnostic actions on (Core.PParams era) (Core.TxOut era) and
@@ -390,12 +390,3 @@ languagesUsed proof tx utxo _plutusScripts = case proof of
   (Mary _) -> Set.empty
   (Alonzo _) -> Cardano.Ledger.Alonzo.TxInfo.languages tx utxo
   (Babbage _) -> Cardano.Ledger.Alonzo.TxInfo.languages tx utxo
-
-forEachEpochTrace ::
-  forall era prop.
-  Proof era ->
-  Int ->
-  Word64 ->
-  (Trace (MOCKCHAIN era) -> prop) ->
-  Property
-forEachEpochTrace = undefined

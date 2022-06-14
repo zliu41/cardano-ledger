@@ -1,6 +1,6 @@
 {-# LANGUAGE FlexibleContexts #-}
-{-# LANGUAGE UndecidableInstances #-}
 {-# LANGUAGE GADTs #-}
+{-# LANGUAGE UndecidableInstances #-}
 
 module Test.Cardano.Ledger.Generic.Types
   ( TotalAda (..),
@@ -8,17 +8,17 @@ module Test.Cardano.Ledger.Generic.Types
   )
 where
 
+import Cardano.Ledger.Alonzo.TxBody (TxOut (TxOut))
+import qualified Cardano.Ledger.Babbage.TxBody as Babbage
+import qualified Cardano.Ledger.Core as Core
 import Cardano.Ledger.Shelley.API (AccountState (AccountState), Coin, DPState (DPState), DState, EpochState (esAccountState, esLState), LedgerState (LedgerState), NewEpochState (nesEs), UTxO (UTxO), UTxOState (UTxOState))
+import qualified Cardano.Ledger.Shelley.API as Shelley
 import Cardano.Ledger.Shelley.LedgerState (_unified)
 import qualified Cardano.Ledger.UnifiedMap as UMap
-import Cardano.Ledger.Val (Val ((<+>), coin))
+import Cardano.Ledger.Val (Val (coin, (<+>)))
 import qualified Data.Foldable as Fold
-import Test.Cardano.Ledger.Generic.Proof (Reflect (reify), Proof (..))
 import qualified Data.Map.Strict as Map
-import qualified Cardano.Ledger.Core as Core
-import qualified Cardano.Ledger.Babbage.TxBody as Babbage
-import qualified Cardano.Ledger.Shelley.API as Shelley
-import Cardano.Ledger.Alonzo.TxBody (TxOut(TxOut))
+import Test.Cardano.Ledger.Generic.Proof (Proof (..), Reflect (reify))
 
 getTxOutCoin :: Proof era -> Core.TxOut era -> Coin
 getTxOutCoin (Babbage _) (Babbage.TxOut _ v _ _) = coin v

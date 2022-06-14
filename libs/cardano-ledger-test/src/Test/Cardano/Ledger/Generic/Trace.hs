@@ -1,6 +1,5 @@
 {-# LANGUAGE ConstraintKinds #-}
 {-# LANGUAGE DataKinds #-}
-{-# LANGUAGE DeriveGeneric #-}
 {-# LANGUAGE FlexibleContexts #-}
 {-# LANGUAGE FlexibleInstances #-}
 {-# LANGUAGE GADTs #-}
@@ -12,7 +11,6 @@
 {-# LANGUAGE TypeApplications #-}
 {-# LANGUAGE TypeFamilies #-}
 {-# LANGUAGE UndecidableInstances #-}
-{-# LANGUAGE NamedFieldPuns #-}
 
 module Test.Cardano.Ledger.Generic.Trace where
 
@@ -48,12 +46,6 @@ import Cardano.Ledger.Pretty
 import Cardano.Ledger.SafeHash (hashAnnotated)
 import Cardano.Ledger.Shelley.AdaPots (totalAdaPotsES)
 import Cardano.Ledger.Shelley.Constraints (UsesValue)
--- import Cardano.Ledger.Shelley.EpochBoundary (SnapShots (..))
-
--- import Debug.Trace
-
--- pcIndividualPoolStake,
-
 import Cardano.Ledger.Shelley.EpochBoundary (SnapShots (..))
 import Cardano.Ledger.Shelley.LedgerState
   ( AccountState (..),
@@ -75,10 +67,6 @@ import Control.Monad (forM)
 import Control.Monad.Trans.Class (MonadTrans (lift))
 import Control.Monad.Trans.RWS.Strict (get, gets)
 import Control.Monad.Trans.Reader (ReaderT (..))
--- import Test.Cardano.Ledger.Generic.PrettyCore (pcCoin, pcTx, pcTxBody, pcTxIn)
-
--- import Test.Cardano.Ledger.Shelley.Rules.TestChain (stakeDistr)
-
 import qualified Control.State.Transition as STS
 import Control.State.Transition.Extended (IRC (), STS (..), TRC (..))
 import Control.State.Transition.Trace (Trace (..), lastState, splitTrace)
@@ -146,8 +134,6 @@ import Test.QuickCheck
 import Test.Tasty (TestTree, defaultMain, testGroup)
 import Test.Tasty.QuickCheck (testProperty)
 
--- import Cardano.Ledger.Pretty(ppSnapShot)
-
 -- ===========================================
 
 -- | Generate a Core.Tx and an internal Model of the state after the tx
@@ -205,7 +191,7 @@ initialMockChainState ::
   Reflect era =>
   Proof era ->
   GenState era ->
-  (MockChainState era)
+  MockChainState era
 initialMockChainState proof gstate =
   MockChainState newepochstate (getSlot gstate) 0
   where
@@ -426,9 +412,8 @@ instance
 --  shrinkSignal (MockBlock i s xs) = [MockBlock i s (SS.drop 1 xs), MockBlock i s (SS.take (SS.length xs - 1) xs)]
 
 mapProportion :: (EpochNo, Word64, Int) -> (v -> Int) -> Map.Map k v -> Gen k
-mapProportion (epochnum, lastSlot, count) toInt m =
-  if null pairs
-    then
+mapProportion (epochnum, lastSlot, count) toInt m
+  | null pairs =
       error
         ( "There are no stakepools to choose an issuer from"
             ++ "\n  epoch = "
@@ -438,11 +423,10 @@ mapProportion (epochnum, lastSlot, count) toInt m =
             ++ "\n  index of Tx in the trace = "
             ++ show count
         )
-    else
-      if all (\(n, _k) -> n == 0) pairs
-        then snd (head pairs)
-        else -- All stakepools have zero Stake, choose issuer arbitrarily. possible, but rare.
-          frequency pairs
+  | all (\(n, _k) -> n == 0) pairs = snd (head pairs)
+  | otherwise -- All stakepools have zero Stake, choose issuer arbitrarily. possible, but rare.
+    =
+      frequency pairs
   where
     pairs = [(toInt v, pure k) | (k, v) <- Map.toList m]
 
@@ -503,11 +487,11 @@ forEachEpochTrace ::
 forEachEpochTrace proof tracelen genSize f = do
   let newEpoch tr1 tr2 = nesEL (mcsNes tr1) /= nesEL (mcsNes tr2)
   trc <- case proof of
-           Babbage _ -> genTrace proof tracelen genSize (initStableFields proof)
-           Alonzo _ -> genTrace proof tracelen genSize (initStableFields proof)
-           Allegra _ -> genTrace proof tracelen genSize (initStableFields proof)
-           Mary _ -> genTrace proof tracelen genSize (initStableFields proof)
-           Shelley _ -> genTrace proof tracelen genSize (initStableFields proof)
+    Babbage _ -> genTrace proof tracelen genSize (initStableFields proof)
+    Alonzo _ -> genTrace proof tracelen genSize (initStableFields proof)
+    Allegra _ -> genTrace proof tracelen genSize (initStableFields proof)
+    Mary _ -> genTrace proof tracelen genSize (initStableFields proof)
+    Shelley _ -> genTrace proof tracelen genSize (initStableFields proof)
   let splits = splitTrace newEpoch trc
   return . conjoin $ f <$> init splits
 
@@ -604,7 +588,7 @@ main3 = showVector pretty
     pretty (Babbage Mock) xs slot =
       vsep
         [ ppSlotNo slot,
-          vsep (map (\tx -> ppList pcDCert (Fold.toList (certs' (body tx)))) xs)
+          vsep (map (ppList pcDCert . Fold.toList . certs' . body) xs)
         ]
     pretty p _ _ = ppString ("main3 does not work in era " ++ show p)
 

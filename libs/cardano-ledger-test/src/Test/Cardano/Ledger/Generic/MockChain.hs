@@ -57,13 +57,13 @@ import Control.State.Transition
 import qualified Data.Map.Strict as Map
 import Data.Maybe.Strict (StrictMaybe)
 import Data.Sequence.Strict (StrictSeq (..), fromStrict)
+import Test.Cardano.Ledger.Generic.Functions (TotalAda (..))
 import Test.Cardano.Ledger.Generic.PrettyCore
   ( pcNewEpochState,
     ppLedgersPredicateFailure,
     ppTickPredicateFailure,
   )
 import Test.Cardano.Ledger.Generic.Proof (Proof (..), Reflect (reify))
-import Test.Cardano.Ledger.Generic.Types (TotalAda, totalAda)
 
 -- ================================================
 
