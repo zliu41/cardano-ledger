@@ -47,7 +47,7 @@ import qualified Data.Set as Set
 import GHC.Stack (HasCallStack)
 import Test.Cardano.Ledger.Examples.BabbageFeatures (collateralOutputTx, initUTxO)
 import Test.Cardano.Ledger.Generic.Fields (TxBodyField (..), TxField (..), abstractTx, abstractTxBody)
-import Test.Cardano.Ledger.Generic.Functions (aggregateRewards', createRUpdNonPulsing', getBody, getOutputs, getTxOutCoin, keyPoolDeposits, ppProtocolVersion, txInBalance)
+import Test.Cardano.Ledger.Generic.Functions (aggregateRewards', createRUpdNonPulsing', getBody, getOutputs, keyPoolDeposits, ppProtocolVersion, txInBalance)
 import Test.Cardano.Ledger.Generic.ModelState
   ( Model,
     ModelNewEpochState (..),
@@ -57,6 +57,7 @@ import Test.Cardano.Ledger.Generic.ModelState
 import Test.Cardano.Ledger.Generic.PrettyCore (pcCredential, pcTx)
 import Test.Cardano.Ledger.Generic.Proof hiding (lift)
 import Test.Cardano.Ledger.Shelley.Utils (epochFromSlotNo)
+import Test.Cardano.Ledger.Generic.Types (getTxOutCoin)
 
 -- ========================================================================
 

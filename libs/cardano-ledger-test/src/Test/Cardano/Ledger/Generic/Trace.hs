@@ -1,5 +1,6 @@
 {-# LANGUAGE ConstraintKinds #-}
 {-# LANGUAGE DataKinds #-}
+{-# LANGUAGE DeriveGeneric #-}
 {-# LANGUAGE FlexibleContexts #-}
 {-# LANGUAGE FlexibleInstances #-}
 {-# LANGUAGE GADTs #-}
@@ -11,6 +12,7 @@
 {-# LANGUAGE TypeApplications #-}
 {-# LANGUAGE TypeFamilies #-}
 {-# LANGUAGE UndecidableInstances #-}
+{-# LANGUAGE NamedFieldPuns #-}
 
 module Test.Cardano.Ledger.Generic.Trace where
 
@@ -73,8 +75,13 @@ import Control.Monad (forM)
 import Control.Monad.Trans.Class (MonadTrans (lift))
 import Control.Monad.Trans.RWS.Strict (get, gets)
 import Control.Monad.Trans.Reader (ReaderT (..))
-import Control.State.Transition.Extended (STS (..), TRC (..))
-import Control.State.Transition.Trace (Trace (..), lastState)
+-- import Test.Cardano.Ledger.Generic.PrettyCore (pcCoin, pcTx, pcTxBody, pcTxIn)
+
+-- import Test.Cardano.Ledger.Shelley.Rules.TestChain (stakeDistr)
+
+import qualified Control.State.Transition as STS
+import Control.State.Transition.Extended (IRC (), STS (..), TRC (..))
+import Control.State.Transition.Trace (Trace (..), lastState, splitTrace)
 import Control.State.Transition.Trace.Generator.QuickCheck (HasTrace (..), traceFromInitState)
 import Data.Default.Class (Default (def))
 import qualified Data.Foldable as Fold
@@ -82,7 +89,7 @@ import Data.Functor.Identity (Identity (runIdentity))
 import Data.IORef (IORef, newIORef, readIORef, writeIORef)
 import qualified Data.Map.Strict as Map
 import Data.Maybe.Strict (StrictMaybe (..))
-import Data.Sequence.Strict (StrictSeq)
+import Data.Sequence.Strict (StrictSeq (..))
 import qualified Data.Sequence.Strict as SS
 import qualified Data.Set as Set
 import Data.Vector (Vector, (!))
@@ -97,10 +104,8 @@ import Test.Cardano.Ledger.Generic.Functions
   ( allInputs,
     getBody,
     getScriptWits,
-    getTxOutCoin,
     getWitnesses,
     isValid',
-    totalAda,
     txoutFields,
   )
 import Test.Cardano.Ledger.Generic.GenState
@@ -132,11 +137,10 @@ import Test.Cardano.Ledger.Generic.PrettyCore
     pcTxIn,
     scriptSummary,
   )
--- import Test.Cardano.Ledger.Generic.PrettyCore (pcCoin, pcTx, pcTxBody, pcTxIn)
 import Test.Cardano.Ledger.Generic.Proof hiding (lift)
 import Test.Cardano.Ledger.Generic.TxGen (genValidatedTx)
+import Test.Cardano.Ledger.Generic.Types (TotalAda (totalAda), getTxOutCoin)
 import Test.Cardano.Ledger.Shelley.Rules.TestChain (stakeDistr)
--- import Test.Cardano.Ledger.Shelley.Rules.TestChain (stakeDistr)
 import Test.Cardano.Ledger.Shelley.Utils (applySTSTest, runShelleyBase, testGlobals)
 import Test.QuickCheck
 import Test.Tasty (TestTree, defaultMain, testGroup)
@@ -485,6 +489,49 @@ traceProp ::
 traceProp proof numTxInTrace gsize f = do
   trace1 <- genTrace proof numTxInTrace gsize (initStableFields proof)
   pure (f (_traceInitState trace1) (lastState trace1))
+
+forEachEpochTrace ::
+  forall era prop.
+  ( Testable prop,
+    Reflect era
+  ) =>
+  Proof era ->
+  Int ->
+  GenSize ->
+  (Trace (MOCKCHAIN era) -> prop) ->
+  Gen Property
+forEachEpochTrace proof tracelen genSize f = do
+  let newEpoch tr1 tr2 = nesEL (mcsNes tr1) /= nesEL (mcsNes tr2)
+  trc <- case proof of
+           Babbage _ -> genTrace proof tracelen genSize (initStableFields proof)
+           Alonzo _ -> genTrace proof tracelen genSize (initStableFields proof)
+           Allegra _ -> genTrace proof tracelen genSize (initStableFields proof)
+           Mary _ -> genTrace proof tracelen genSize (initStableFields proof)
+           Shelley _ -> genTrace proof tracelen genSize (initStableFields proof)
+  let splits = splitTrace newEpoch trc
+  return . conjoin $ f <$> init splits
+
+-- | Check a property on the 'sts' traces.
+--
+-- Takes an optional generator for initial state of the STS.
+forAllTraceFromInitState ::
+  forall sts traceGenEnv prop.
+  ( HasTrace sts traceGenEnv,
+    Testable prop,
+    Show (Environment sts)
+  ) =>
+  BaseEnv sts ->
+  -- | Maximum trace length.
+  Word64 ->
+  traceGenEnv ->
+  -- | Optional generator of STS initial state
+  Maybe (IRC sts -> Gen (Either [STS.PredicateFailure sts] (State sts))) ->
+  (Trace sts -> prop) ->
+  Property
+forAllTraceFromInitState baseEnv maxTraceLength traceGenEnv genSt0 =
+  forAllShrinkBlind
+    (traceFromInitState @sts @traceGenEnv baseEnv maxTraceLength traceGenEnv genSt0)
+    (const [])
 
 -- =========================================================================
 -- Test for just making a trace

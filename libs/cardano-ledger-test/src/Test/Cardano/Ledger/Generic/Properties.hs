@@ -33,12 +33,13 @@ import Cardano.Ledger.Shelley.UTxO (UTxO (..))
 import Cardano.Slotting.Slot (SlotNo (..))
 import Control.Monad.Trans.RWS.Strict (gets)
 import Control.State.Transition.Extended hiding (Assertion)
+import Control.State.Transition.Trace (Trace(..), lastState)
 import Control.State.Transition.Trace.Generator.QuickCheck (HasTrace (..))
 import Data.Coerce (coerce)
 import Data.Default.Class (Default (def))
 import qualified Data.Map.Strict as Map
 import Test.Cardano.Ledger.Generic.Fields (abstractTx, abstractTxBody, abstractTxOut, abstractWitnesses)
-import Test.Cardano.Ledger.Generic.Functions (TotalAda (..), isValid')
+import Test.Cardano.Ledger.Generic.Functions (isValid')
 import Test.Cardano.Ledger.Generic.GenState
   ( GenEnv (..),
     GenRS,
@@ -53,7 +54,7 @@ import Test.Cardano.Ledger.Generic.MockChain (MOCKCHAIN, MockChainState (..))
 import Test.Cardano.Ledger.Generic.ModelState
 import Test.Cardano.Ledger.Generic.PrettyCore (PrettyC (..), pcLedgerState, pcTx)
 import Test.Cardano.Ledger.Generic.Proof hiding (lift)
-import Test.Cardano.Ledger.Generic.Trace (Gen1, testTraces, traceProp)
+import Test.Cardano.Ledger.Generic.Trace (Gen1, forEachEpochTrace, testTraces, traceProp)
 import Test.Cardano.Ledger.Generic.TxGen
   ( Box (..),
     applySTSByProof,
@@ -64,6 +65,7 @@ import Test.Cardano.Ledger.Generic.TxGen
     genUTxO,
     genValidatedTx,
   )
+import Test.Cardano.Ledger.Generic.Types (TotalAda (totalAda))
 import Test.Cardano.Ledger.Shelley.Serialisation.EraIndepGenerators ()
 import Test.QuickCheck
 import Test.Tasty (TestTree, defaultMain, testGroup)
@@ -204,19 +206,19 @@ coreTypesRoundTrip =
 
 -- | A single Tx preserves Ada
 txPreserveAda :: GenSize -> TestTree
-txPreserveAda gensize =
+txPreserveAda genSize =
   testGroup
     "Individual Tx's preserve Ada"
     [ testProperty "Shelley Tx preserves ADA" $
-        forAll (genTxAndLEDGERState (Shelley Mock) gensize) (testTxValidForLEDGER (Shelley Mock)),
+        forAll (genTxAndLEDGERState (Shelley Mock) genSize) (testTxValidForLEDGER (Shelley Mock)),
       testProperty "Allegra Tx preserves ADA" $
-        forAll (genTxAndLEDGERState (Allegra Mock) gensize) (testTxValidForLEDGER (Allegra Mock)),
+        forAll (genTxAndLEDGERState (Allegra Mock) genSize) (testTxValidForLEDGER (Allegra Mock)),
       testProperty "Mary Tx preserves ADA" $
-        forAll (genTxAndLEDGERState (Mary Mock) gensize) (testTxValidForLEDGER (Mary Mock)),
+        forAll (genTxAndLEDGERState (Mary Mock) genSize) (testTxValidForLEDGER (Mary Mock)),
       testProperty "Alonzo ValidTx preserves ADA" $
-        forAll (genTxAndLEDGERState (Alonzo Mock) gensize) (testTxValidForLEDGER (Alonzo Mock)),
+        forAll (genTxAndLEDGERState (Alonzo Mock) genSize) (testTxValidForLEDGER (Alonzo Mock)),
       testProperty "Babbage ValidTx preserves ADA" $
-        forAll (genTxAndLEDGERState (Babbage Mock) gensize) (testTxValidForLEDGER (Babbage Mock))
+        forAll (genTxAndLEDGERState (Babbage Mock) genSize) (testTxValidForLEDGER (Babbage Mock))
     ]
 
 -- | Ada is preserved over a trace of length 45
@@ -228,23 +230,23 @@ adaIsPreserved ::
   Int ->
   GenSize ->
   TestTree
-adaIsPreserved proof numTx gensize =
+adaIsPreserved proof numTx genSize =
   testProperty (show proof ++ " era. Trace length = " ++ show numTx) $
-    traceProp proof numTx gensize (\firstSt lastSt -> totalAda firstSt === totalAda lastSt)
+    traceProp proof numTx genSize (\firstSt lastSt -> totalAda firstSt === totalAda lastSt)
 
 tracePreserveAda :: Int -> GenSize -> TestTree
-tracePreserveAda numTx gensize =
+tracePreserveAda numTx genSize =
   testGroup
     ("Total Ada is preserved over traces of length " ++ show numTx)
-    [ adaIsPreservedBabbage numTx gensize,
-      adaIsPreserved (Alonzo Mock) numTx gensize,
-      adaIsPreserved (Mary Mock) numTx gensize,
-      adaIsPreserved (Allegra Mock) numTx gensize,
-      adaIsPreserved (Shelley Mock) numTx gensize
+    [ adaIsPreservedBabbage numTx genSize,
+      adaIsPreserved (Alonzo Mock) numTx genSize,
+      adaIsPreserved (Mary Mock) numTx genSize,
+      adaIsPreserved (Allegra Mock) numTx genSize,
+      adaIsPreserved (Shelley Mock) numTx genSize
     ]
 
 adaIsPreservedBabbage :: Int -> GenSize -> TestTree
-adaIsPreservedBabbage numTx gensize = adaIsPreserved (Babbage Mock) numTx gensize
+adaIsPreservedBabbage numTx genSize = adaIsPreserved (Babbage Mock) numTx genSize
 
 -- | The incremental Stake invaraint is preserved over a trace of length 45
 stakeInvariant :: Era era => MockChainState era -> MockChainState era -> Property
@@ -253,31 +255,60 @@ stakeInvariant (MockChainState _ _ _) (MockChainState nes _ _) =
     (UTxOState utxo _ _ _ istake) -> istake === updateStakeDistribution mempty mempty utxo
 
 incrementStakeInvariant :: (Reflect era, HasTrace (MOCKCHAIN era) (Gen1 era)) => Proof era -> GenSize -> TestTree
-incrementStakeInvariant proof gensize =
+incrementStakeInvariant proof genSize =
   testProperty (show proof ++ " era. Trace length = 45") $
-    traceProp proof 45 gensize stakeInvariant
+    traceProp proof 45 genSize stakeInvariant
 
 incrementalStake :: GenSize -> TestTree
-incrementalStake gensize =
+incrementalStake genSize =
   testGroup
     "Incremental Stake invariant holds"
-    [ incrementStakeInvariant (Babbage Mock) gensize,
-      incrementStakeInvariant (Alonzo Mock) gensize,
-      incrementStakeInvariant (Mary Mock) gensize,
-      incrementStakeInvariant (Allegra Mock) gensize,
-      incrementStakeInvariant (Shelley Mock) gensize
+    [ incrementStakeInvariant (Babbage Mock) genSize,
+      incrementStakeInvariant (Alonzo Mock) genSize,
+      incrementStakeInvariant (Mary Mock) genSize,
+      incrementStakeInvariant (Allegra Mock) genSize,
+      incrementStakeInvariant (Shelley Mock) genSize
     ]
 
 genericProperties :: GenSize -> TestTree
-genericProperties gensize =
+genericProperties genSize =
   testGroup
     "Generic Property tests"
     [ coreTypesRoundTrip,
-      txPreserveAda gensize,
-      tracePreserveAda 45 gensize,
-      incrementalStake gensize,
-      testTraces 45
+      txPreserveAda genSize,
+      tracePreserveAda 45 genSize,
+      incrementalStake genSize,
+      testTraces 45,
+      epochPreserveAda genSize
     ]
+
+epochPreserveAda :: GenSize -> TestTree
+epochPreserveAda genSize =
+  testGroup
+    "Ada is preserved in each epoch"
+    [ adaIsPreservedInEachEpoch (Babbage Mock) genSize
+    , adaIsPreservedInEachEpoch (Alonzo Mock) genSize
+    , adaIsPreservedInEachEpoch (Mary Mock) genSize
+    , adaIsPreservedInEachEpoch (Allegra Mock) genSize
+    , adaIsPreservedInEachEpoch (Shelley Mock) genSize
+    ]
+
+adaIsPreservedInEachEpoch ::
+  forall era.
+  ( Reflect era
+  ) =>
+  Proof era ->
+  GenSize ->
+  TestTree
+adaIsPreservedInEachEpoch proof genSize =
+  testProperty (show proof) $
+    forEachEpochTrace proof 200 genSize withTrace
+  where
+    withTrace :: Trace (MOCKCHAIN era) -> Property
+    withTrace trc = totalAda trcInit === totalAda trcLast
+      where
+        trcInit = _traceInitState trc
+        trcLast = lastState trc
 
 -- ==============================================================
 -- Infrastrucure for running individual tests, with easy replay.

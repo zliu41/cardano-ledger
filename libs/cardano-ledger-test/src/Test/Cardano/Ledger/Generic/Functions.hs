@@ -35,12 +35,6 @@ import Cardano.Ledger.Keys (KeyHash (..), KeyRole (..))
 import Cardano.Ledger.Shelley.EpochBoundary (obligation)
 import Cardano.Ledger.Shelley.LedgerState
   ( AccountState (..),
-    DPState (..),
-    DState (..),
-    EpochState (..),
-    LedgerState (..),
-    NewEpochState (..),
-    UTxOState (..),
   )
 import qualified Cardano.Ledger.Shelley.LedgerState as Shelley (minfee)
 import qualified Cardano.Ledger.Shelley.PParams as Shelley (PParams, PParams' (..))
@@ -58,7 +52,6 @@ import Control.Monad.Reader (runReader)
 import Control.State.Transition.Extended (STS (State))
 import Data.Default.Class (Default (def))
 import Data.Foldable (toList)
-import qualified Data.Foldable as Fold
 import qualified Data.List as List
 import Data.Map (Map, keysSet, restrictKeys)
 import qualified Data.Map.Strict as Map
@@ -66,16 +59,19 @@ import Data.Maybe.Strict (StrictMaybe (..))
 import Data.Sequence.Strict (StrictSeq)
 import Data.Set (Set)
 import qualified Data.Set as Set
-import qualified Data.UMap as UMap
 import GHC.Records (HasField (getField))
 import Numeric.Natural
 import Test.Cardano.Ledger.Alonzo.Scripts (alwaysFails, alwaysSucceeds)
 import Test.Cardano.Ledger.Generic.Fields (TxField (..), TxOutField (..), initialTx)
 import Test.Cardano.Ledger.Generic.ModelState (MUtxo, Model, ModelNewEpochState (..))
-import Test.Cardano.Ledger.Generic.Proof
+import Test.Cardano.Ledger.Generic.Proof (Proof(..))
 import Test.Cardano.Ledger.Generic.Scriptic (Scriptic (..))
 import Test.Cardano.Ledger.Generic.Updaters (updateTx)
 import Test.Cardano.Ledger.Shelley.Utils (testGlobals)
+import Data.Word (Word64)
+import Control.State.Transition.Trace (Trace)
+import Test.Tasty.QuickCheck (Property)
+import Test.Cardano.Ledger.Generic.MockChain (MOCKCHAIN)
 
 -- ====================================================================
 -- Era agnostic actions on (Core.PParams era) (Core.TxOut era) and
@@ -225,13 +221,6 @@ getTxOutVal (Alonzo _) (TxOut _ v _) = v
 getTxOutVal (Mary _) (Shelley.TxOut _ v) = v
 getTxOutVal (Allegra _) (Shelley.TxOut _ v) = v
 getTxOutVal (Shelley _) (Shelley.TxOut _ v) = v
-
-getTxOutCoin :: Proof era -> Core.TxOut era -> Coin
-getTxOutCoin (Babbage _) (Babbage.TxOut _ v _ _) = coin v
-getTxOutCoin (Alonzo _) (TxOut _ v _) = coin v
-getTxOutCoin (Mary _) (Shelley.TxOut _ v) = coin v
-getTxOutCoin (Allegra _) (Shelley.TxOut _ v) = coin v
-getTxOutCoin (Shelley _) (Shelley.TxOut _ v) = coin v
 
 getTxOutRefScript :: Proof era -> Core.TxOut era -> StrictMaybe (Core.Script era)
 getTxOutRefScript (Babbage _) (Babbage.TxOut _ _ _ ms) = ms
@@ -402,32 +391,11 @@ languagesUsed proof tx utxo _plutusScripts = case proof of
   (Alonzo _) -> Cardano.Ledger.Alonzo.TxInfo.languages tx utxo
   (Babbage _) -> Cardano.Ledger.Alonzo.TxInfo.languages tx utxo
 
--- | Compute the total Ada from Ada pots within 't'
-class TotalAda t where
-  totalAda :: t -> Coin
-
-instance TotalAda AccountState where
-  totalAda (AccountState treasury reserves) = treasury <+> reserves
-
-instance Reflect era => TotalAda (UTxOState era) where
-  totalAda (UTxOState utxo deposits fees _ _) = totalAda utxo <+> deposits <+> fees
-
-instance Reflect era => TotalAda (UTxO era) where
-  totalAda (UTxO m) = Map.foldl' accum mempty m
-    where
-      accum ans txout = getTxOutCoin reify txout <+> ans
-
-instance TotalAda (DState era) where
-  totalAda dstate = Fold.foldl' (<+>) mempty (UMap.Rewards (_unified dstate))
-
-instance TotalAda (DPState era) where
-  totalAda (DPState ds _) = totalAda ds
-
-instance Reflect era => TotalAda (LedgerState era) where
-  totalAda (LedgerState utxos dps) = totalAda utxos <+> totalAda dps
-
-instance Reflect era => TotalAda (EpochState era) where
-  totalAda eps = totalAda (esLState eps) <+> totalAda (esAccountState eps)
-
-instance Reflect era => TotalAda (NewEpochState era) where
-  totalAda nes = totalAda (nesEs nes)
+forEachEpochTrace ::
+  forall era prop.
+  Proof era ->
+  Int ->
+  Word64 ->
+  (Trace (MOCKCHAIN era) -> prop) ->
+  Property
+forEachEpochTrace = undefined
