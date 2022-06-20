@@ -47,22 +47,18 @@ import Cardano.Ledger.Address
 import Cardano.Ledger.BaseTypes
   ( Network,
     ShelleyBase,
-    StrictMaybe,
     invalidKey,
     networkId,
   )
 import Cardano.Ledger.Coin (Coin (..))
 import qualified Cardano.Ledger.Core as Core
 import qualified Cardano.Ledger.Crypto as CC
-import Cardano.Ledger.Era (Era (..), getTxOutBootstrapAddress)
+import Cardano.Ledger.Era (Era (..), getTxOutAddr, getTxOutBootstrapAddress)
 import Cardano.Ledger.Keys (GenDelegs, KeyHash, KeyRole (..))
 import Cardano.Ledger.Rules.ValidationMode (Inject (..), Test, runTest)
 import Cardano.Ledger.Shelley.Constraints
-  ( TransValue,
-    UsesAuxiliary,
-    UsesPParams,
+  ( UsesPParams,
     UsesScript,
-    UsesTxOut,
     UsesValue,
   )
 import Cardano.Ledger.Shelley.LedgerState
@@ -78,15 +74,14 @@ import Cardano.Ledger.Shelley.PParams (PParams, PParams' (..), Update)
 import Cardano.Ledger.Shelley.Rules.Ppup (PPUP, PPUPEnv (..), PpupEvent, PpupPredicateFailure)
 import Cardano.Ledger.Shelley.Tx (Tx (..), TxIn, TxOut (..))
 import Cardano.Ledger.Shelley.TxBody
-  ( DCert,
-    PoolParams,
+  ( PoolParams,
     RewardAcnt,
+    ShelleyEraTxBody (..),
     TxBody (..),
     Wdrl (..),
   )
 import Cardano.Ledger.Shelley.UTxO
-  ( TransUTxO,
-    UTxO (..),
+  ( UTxO (..),
     balance,
     totalDeposits,
     txouts,
@@ -120,13 +115,13 @@ import Data.Foldable (foldl', toList)
 import Data.Map.Strict (Map)
 import qualified Data.Map.Strict as Map
 import Data.MapExtras (extractKeys)
-import Data.Sequence.Strict (StrictSeq)
 import Data.Set (Set)
 import qualified Data.Set as Set
 import Data.Typeable (Typeable)
 import Data.Word (Word8)
 import GHC.Generics (Generic)
 import GHC.Records (HasField (..))
+import Lens.Micro
 import NoThunks.Class (NoThunks (..))
 import Numeric.Natural (Natural)
 import Validation (failureUnless)
@@ -244,10 +239,8 @@ instance
         <> encodeFoldable outs
 
 instance
-  ( TransValue FromCBOR era,
-    TransUTxO FromCBOR era,
-    Val.DecodeNonNegative (Core.Value era),
-    Show (Core.Value era),
+  ( Core.EraTxOut era,
+    FromCBOR (Core.TxOut era),
     FromCBOR (PredicateFailure (Core.EraRule "PPUP" era))
   ) =>
   FromCBOR (UtxoPredicateFailure era)
@@ -295,17 +288,18 @@ instance
         k -> invalidKey k
 
 instance
-  ( UsesTxOut era,
+  ( Core.EraTx era,
+    ShelleyEraTxBody era,
     Core.TxOut era ~ TxOut era,
     UsesValue era,
     UsesScript era,
-    UsesAuxiliary era,
     UsesPParams era,
     Show (Core.Witnesses era),
     Core.TxBody era ~ TxBody era,
     Core.PParams era ~ PParams era,
     Core.Tx era ~ Tx era,
     Core.Value era ~ Coin,
+    Show (Tx era),
     Eq (PredicateFailure (Core.EraRule "PPUP" era)),
     Embed (Core.EraRule "PPUP" era) (UTXO era),
     Environment (Core.EraRule "PPUP" era) ~ PPUPEnv era,
@@ -342,19 +336,19 @@ instance
         (\_ st' -> _deposited st' >= mempty),
       let utxoBalance us = Val.inject (_deposited us <> _fees us) <> balance (_utxo us)
           withdrawals :: TxBody era -> Core.Value era
-          withdrawals txb = Val.inject $ foldl' (<>) mempty $ unWdrl $ _wdrls txb
+          withdrawals txb = Val.inject $ foldl' (<>) mempty $ unWdrl $ txb ^. txBodyWdrlsG
        in PostCondition
             "Should preserve value in the UTxO state"
             ( \(TRC (_, us, tx)) us' ->
-                utxoBalance us <> withdrawals (getField @"body" tx) == utxoBalance us'
+                utxoBalance us <> withdrawals (tx ^. Core.txBodyG) == utxoBalance us'
             )
     ]
 
 utxoInductive ::
   forall era utxo.
-  ( Core.TxOut era ~ TxOut era,
-    Core.Value era ~ Coin,
-    UsesAuxiliary era,
+  ( Core.EraTx era,
+    ShelleyEraTxBody era,
+    Core.TxOut era ~ TxOut era,
     STS (utxo era),
     Embed (Core.EraRule "PPUP" era) (utxo era),
     BaseM (utxo era) ~ ShelleyBase,
@@ -366,11 +360,6 @@ utxoInductive ::
     Environment (Core.EraRule "PPUP" era) ~ PPUPEnv era,
     State (Core.EraRule "PPUP" era) ~ PPUPState era,
     Signal (Core.EraRule "PPUP" era) ~ Maybe (Update era),
-    HasField "certs" (Core.TxBody era) (StrictSeq (DCert (Crypto era))),
-    HasField "inputs" (Core.TxBody era) (Set (TxIn (Crypto era))),
-    HasField "wdrls" (Core.TxBody era) (Wdrl (Crypto era)),
-    HasField "ttl" (Core.TxBody era) SlotNo,
-    HasField "update" (Core.TxBody era) (StrictMaybe (Update era)),
     HasField "_minfeeA" (Core.PParams era) Natural,
     HasField "_minfeeB" (Core.PParams era) Natural,
     HasField "_keyDeposit" (Core.PParams era) Coin,
@@ -382,7 +371,7 @@ utxoInductive ::
 utxoInductive = do
   TRC (UtxoEnv slot pp stakepools genDelegs, u, tx) <- judgmentContext
   let UTxOState utxo _ _ ppup _ = u
-  let txb = getField @"body" tx
+  let txb = tx ^. Core.txBodyG
 
   {- txttl txb ≥ slot -}
   runTest $ validateTimeToLive txb slot
@@ -394,12 +383,12 @@ utxoInductive = do
   runTest $ validateFeeTooSmallUTxO pp tx
 
   {- txins txb ⊆ dom utxo -}
-  runTest $ validateBadInputsUTxO utxo $ getField @"inputs" txb
+  runTest $ validateBadInputsUTxO utxo $ txb ^. Core.txBodyInputsG
 
   netId <- liftSTS $ asks networkId
 
   {- ∀(_ → (a, _)) ∈ txouts txb, netId a = NetworkId -}
-  runTest . validateWrongNetwork netId . toList $ getField @"outputs" txb
+  runTest . validateWrongNetwork netId . toList $ txb ^. Core.txBodyOutputsG
 
   {- ∀(a → ) ∈ txwdrls txb, netId a = NetworkId -}
   runTest $ validateWrongNetworkWithdrawal netId txb
@@ -421,7 +410,7 @@ utxoInductive = do
   runTest $ validateMaxTxSizeUTxO pp tx
 
   let refunded = keyRefunds pp txb
-  let txCerts = toList $ getField @"certs" txb
+  let txCerts = toList $ txb ^. txBodyCertsG
   let totalDeposits' = totalDeposits pp (`Map.notMember` stakepools) txCerts
   tellEvent $ TotalDeposits totalDeposits'
   let depositChange = totalDeposits' <-> refunded
@@ -432,35 +421,33 @@ utxoInductive = do
 --
 -- > txttl txb ≥ slot
 validateTimeToLive ::
-  HasField "ttl" (Core.TxBody era) SlotNo =>
+  ShelleyEraTxBody era =>
   Core.TxBody era ->
   SlotNo ->
   Test (UtxoPredicateFailure era)
 validateTimeToLive txb slot = failureUnless (ttl >= slot) $ ExpiredUTxO ttl slot
   where
-    ttl = getField @"ttl" txb
+    ttl = txb ^. txBodyTtlG
 
 -- | Ensure that there is at least one input in the `Core.TxBody`
 --
 -- > txins txb ≠ ∅
 validateInputSetEmptyUTxO ::
-  HasField "inputs" (Core.TxBody era) (Set (TxIn (Crypto era))) =>
+  Core.EraTxBody era =>
   Core.TxBody era ->
   Test (UtxoPredicateFailure era)
 validateInputSetEmptyUTxO txb =
-  failureUnless (txins txb /= Set.empty) InputSetEmptyUTxO
+  failureUnless (txins /= Set.empty) InputSetEmptyUTxO
   where
-    txins = getField @"inputs"
+    txins = txb ^. Core.txBodyInputsG
 
 -- | Ensure that the fee is at least the amount specified by the `minfee`
 --
 -- > minfee pp tx ≤ txfee txb
 validateFeeTooSmallUTxO ::
-  ( HasField "body" (Core.Tx era) (Core.TxBody era),
-    HasField "txfee" (Core.TxBody era) Coin,
+  ( Core.EraTx era,
     HasField "_minfeeA" (Core.PParams era) Natural,
-    HasField "_minfeeB" (Core.PParams era) Natural,
-    HasField "txsize" (Core.Tx era) Integer
+    HasField "_minfeeB" (Core.PParams era) Natural
   ) =>
   Core.PParams era ->
   Core.Tx era ->
@@ -469,8 +456,8 @@ validateFeeTooSmallUTxO pp tx =
   failureUnless (minFee <= txFee) $ FeeTooSmallUTxO minFee txFee
   where
     minFee = minfee pp tx
-    txFee = getField @"txfee" txb
-    txb = getField @"body" tx
+    txFee = txb ^. Core.txBodyTxFeeG
+    txb = tx ^. Core.txBodyG
 
 -- | Ensure all transaction inputs are present in `UTxO`
 --
@@ -489,7 +476,7 @@ validateBadInputsUTxO utxo txins =
 --
 -- > ∀(_ → (a, _)) ∈ txouts txb, netId a = NetworkId
 validateWrongNetwork ::
-  Era era =>
+  Core.EraTxOut era =>
   Network ->
   [Core.TxOut era] ->
   Test (UtxoPredicateFailure era)
@@ -505,7 +492,7 @@ validateWrongNetwork netId outs =
 --
 -- > ∀(a → ) ∈ txwdrls txb, netId a = NetworkId
 validateWrongNetworkWithdrawal ::
-  (HasField "wdrls" (Core.TxBody era) (Wdrl (Crypto era))) =>
+  ShelleyEraTxBody era =>
   Network ->
   Core.TxBody era ->
   Test (UtxoPredicateFailure era)
@@ -516,18 +503,15 @@ validateWrongNetworkWithdrawal netId txb =
     wdrlsWrongNetwork =
       filter
         (\a -> getRwdNetwork a /= netId)
-        (Map.keys . unWdrl . getField @"wdrls" $ txb)
+        (Map.keys . unWdrl $ txb ^. txBodyWdrlsG)
 
 -- | Ensure that value consumed and produced matches up exactly
 --
 -- > consumed pp utxo txb = produced pp poolParams txb
 validateValueNotConservedUTxO ::
-  ( Era era,
+  ( ShelleyEraTxBody era,
     HasField "_keyDeposit" (Core.PParams era) Coin,
-    HasField "_poolDeposit" (Core.PParams era) Coin,
-    HasField "certs" (Core.TxBody era) (StrictSeq (DCert (Crypto era))),
-    HasField "inputs" (Core.TxBody era) (Set (TxIn (Crypto era))),
-    HasField "wdrls" (Core.TxBody era) (Wdrl (Crypto era))
+    HasField "_poolDeposit" (Core.PParams era) Coin
   ) =>
   Core.PParams era ->
   UTxO era ->
@@ -546,7 +530,7 @@ validateValueNotConservedUTxO pp utxo stakepools txb =
 -- > ∀(_ → (_, c)) ∈ txouts txb, c ≥ (minUTxOValue pp)
 validateOutputTooSmallUTxO ::
   ( HasField "_minUTxOValue" (Core.PParams era) Coin,
-    HasField "value" (Core.TxOut era) Coin
+    Core.EraTxOut era
   ) =>
   Core.PParams era ->
   UTxO era ->
@@ -560,10 +544,7 @@ validateOutputTooSmallUTxO pp (UTxO outputs) =
     -- amounts are non-negative)
     outputsTooSmall =
       filter
-        ( \x ->
-            let c = getField @"value" x
-             in c < minUTxOValue
-        )
+        (\txOut -> txOut ^. Core.txOutCoinL < minUTxOValue)
         (Map.elems outputs)
 
 -- | Bootstrap (i.e. Byron) addresses have variable sized attributes in them.
@@ -571,7 +552,7 @@ validateOutputTooSmallUTxO pp (UTxO outputs) =
 --
 -- > ∀ ( _ ↦ (a,_)) ∈ txoutstxb,  a ∈ Addrbootstrap → bootstrapAttrsSize a ≤ 64
 validateOutputBootAddrAttrsTooBig ::
-  Era era =>
+  Core.EraTxOut era =>
   UTxO era ->
   Test (UtxoPredicateFailure era)
 validateOutputBootAddrAttrsTooBig (UTxO outputs) =
@@ -591,7 +572,7 @@ validateOutputBootAddrAttrsTooBig (UTxO outputs) =
 -- > txsize tx ≤ maxTxSize pp
 validateMaxTxSizeUTxO ::
   ( HasField "_maxTxSize" (Core.PParams era) Natural,
-    HasField "txsize" (Core.Tx era) Integer
+    Core.EraTx era
   ) =>
   Core.PParams era ->
   Core.Tx era ->
@@ -600,10 +581,10 @@ validateMaxTxSizeUTxO pp tx =
   failureUnless (txSize <= maxTxSize) $ MaxTxSizeUTxO txSize maxTxSize
   where
     maxTxSize = toInteger (getField @"_maxTxSize" pp)
-    txSize = getField @"txsize" tx
+    txSize = tx ^. Core.txSizeG
 
 updateUTxOState ::
-  (Era era, HasField "inputs" (Core.TxBody era) (Set (TxIn (Crypto era)))) =>
+  Core.EraTxBody era =>
   UTxOState era ->
   Core.TxBody era ->
   Coin ->
@@ -613,14 +594,14 @@ updateUTxOState UTxOState {_utxo, _deposited, _fees, _stakeDistro} txb depositCh
   let UTxO utxo = _utxo
       !utxoAdd = txouts txb -- These will be inserted into the UTxO
       {- utxoDel  = txins txb ◁ utxo -}
-      !(utxoWithout, utxoDel) = extractKeys utxo (getField @"inputs" txb)
+      !(utxoWithout, utxoDel) = extractKeys utxo (txb ^. Core.txBodyInputsG)
       {- newUTxO = (txins txb ⋪ utxo) ∪ outs txb -}
       newUTxO = utxoWithout `Map.union` unUTxO utxoAdd
       newIncStakeDistro = updateStakeDistribution _stakeDistro (UTxO utxoDel) utxoAdd
    in UTxOState
         { _utxo = UTxO newUTxO,
           _deposited = _deposited <> depositChange,
-          _fees = _fees <> getField @"txfee" txb,
+          _fees = _fees <> txb ^. Core.txBodyTxFeeG,
           _ppups = ppups,
           _stakeDistro = newIncStakeDistro
         }

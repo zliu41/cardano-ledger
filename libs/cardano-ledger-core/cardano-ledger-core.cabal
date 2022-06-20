@@ -85,6 +85,7 @@ library
     groups,
     iproute,
     mtl,
+    microlens,
     network,
     nothunks,
     partial-order,

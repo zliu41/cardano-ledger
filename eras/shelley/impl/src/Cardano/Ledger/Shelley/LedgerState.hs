@@ -146,7 +146,6 @@ import Cardano.Ledger.Shelley.Address.Bootstrap
   ( BootstrapWitness (..),
     bootstrapWitKeyHash,
   )
-import Cardano.Ledger.Shelley.Constraints (TransValue)
 import Cardano.Ledger.Shelley.Delegation.Certificates (DCert (..), isDeRegKey)
 import Cardano.Ledger.Shelley.EpochBoundary
   ( SnapShot (..),
@@ -199,6 +198,7 @@ import Cardano.Ledger.Shelley.TxBody
     PoolParams (..),
     Ptr (..),
     RewardAcnt (..),
+    ShelleyEraTxBody (..),
     Wdrl (..),
     WitVKey (..),
     getRwdCred,
@@ -216,7 +216,7 @@ import Cardano.Ledger.Slot
     EpochSize (..),
     SlotNo (..),
   )
-import Cardano.Ledger.TxIn (TxIn (..))
+
 import Cardano.Ledger.UnifiedMap (Trip (..), Triple, UMap (..), UnifiedMap, View (..), ViewMap)
 import Cardano.Ledger.Val ((<+>), (<->), (<×>))
 import qualified Cardano.Ledger.Val as Val
@@ -249,10 +249,10 @@ import qualified Data.VMap as VMap
 import Data.Word (Word64)
 import GHC.Generics (Generic)
 import GHC.Records (HasField (..))
-import Lens.Micro (_1, _2)
+import Lens.Micro ((^.), _1, _2)
 import NoThunks.Class (NoThunks (..))
 import Numeric.Natural (Natural)
-import Quiet
+import Quiet (Quiet (Quiet))
 
 -- | Representation of a list of pairs of key pairs, e.g., pay and stake keys
 type KeyPairs crypto = [(KeyPair 'Payment crypto, KeyPair 'Staking crypto)]
@@ -523,8 +523,8 @@ instance
       <> toCBOR esNonMyopic
 
 instance
-  ( FromCBOR (Core.PParams era),
-    TransValue FromCBOR era,
+  ( FromCBOR (Core.Value era),
+    FromCBOR (Core.PParams era),
     HashAnnotated (Core.TxBody era) EraIndependentTxBody (Crypto era),
     FromSharedCBOR (Core.TxOut era),
     Share (Core.TxOut era) ~ Interns (Credential 'Staking (Crypto era)),
@@ -692,7 +692,7 @@ instance
     encodeListLen 5 <> toCBOR ut <> toCBOR dp <> toCBOR fs <> toCBOR us <> toCBOR sd
 
 instance
-  ( TransValue FromCBOR era,
+  ( CC.Crypto (Crypto era),
     FromCBOR (State (Core.EraRule "PPUP" era)),
     FromSharedCBOR (Core.TxOut era),
     Share (Core.TxOut era) ~ Interns (Credential 'Staking (Crypto era)),
@@ -811,7 +811,8 @@ instance
     Share (Core.TxOut era) ~ Interns (Credential 'Staking (Crypto era)),
     FromCBOR (Core.Value era),
     FromCBOR (State (Core.EraRule "PPUP" era)),
-    FromCBOR (StashedAVVMAddresses era)
+    FromCBOR (StashedAVVMAddresses era),
+    HashAnnotated (Core.TxBody era) EraIndependentTxBody (Crypto era)
   ) =>
   FromCBOR (NewEpochState era)
   where
@@ -930,14 +931,10 @@ genesisState genDelegs0 utxo0 =
 -- | Convenience Function to bound the txsize function.
 -- | It can be helpful for coin selection.
 txsizeBound ::
-  forall era out tx.
-  ( HasField "outputs" (Core.TxBody era) (StrictSeq out),
-    HasField "inputs" (Core.TxBody era) (Set (TxIn (Crypto era))),
-    HasField "body" tx (Core.TxBody era),
-    HasField "txsize" tx Integer
-  ) =>
+  forall era.
+  Core.EraTx era =>
   Proxy era ->
-  tx ->
+  Core.Tx era ->
   Integer
 txsizeBound Proxy tx = numInputs * inputSize + numOutputs * outputSize + rest
   where
@@ -948,32 +945,31 @@ txsizeBound Proxy tx = numInputs * inputSize + numOutputs * outputSize + rest
     addrHashLen = 28
     addrHeader = 1
     address = 2 + addrHeader + 2 * addrHashLen
-    txbody = getField @"body" tx
-    numInputs = toInteger . length . getField @"inputs" $ txbody
+    txbody = tx ^. Core.txBodyG
+    numInputs = toInteger . length $ txbody ^. Core.txBodyInputsG
     inputSize = smallArray + uint + hashObj
-    numOutputs = toInteger . length . getField @"outputs" $ txbody
+    numOutputs = toInteger . length $ txbody ^. Core.txBodyOutputsG
     outputSize = smallArray + uint + address
-    rest = getField @"txsize" tx
+    rest = tx ^. Core.txSizeG
 
 -- | Minimum fee calculation
 minfee ::
-  ( HasField "_minfeeA" pp Natural,
-    HasField "_minfeeB" pp Natural,
-    HasField "txsize" tx Integer
+  ( Core.EraTx era,
+    HasField "_minfeeA" pp Natural,
+    HasField "_minfeeB" pp Natural
   ) =>
   pp ->
-  tx ->
+  Core.Tx era ->
   Coin
 minfee pp tx =
   Coin $
     fromIntegral (getField @"_minfeeA" pp)
-      * getField @"txsize" tx + fromIntegral (getField @"_minfeeB" pp)
+      * tx ^. Core.txSizeG + fromIntegral (getField @"_minfeeB" pp)
 
 -- | Compute the lovelace which are created by the transaction
 produced ::
   forall era pp.
-  ( Era era,
-    HasField "certs" (Core.TxBody era) (StrictSeq (DCert (Crypto era))),
+  ( ShelleyEraTxBody era,
     HasField "_keyDeposit" pp Coin,
     HasField "_poolDeposit" pp Coin
   ) =>
@@ -981,47 +977,44 @@ produced ::
   (KeyHash 'StakePool (Crypto era) -> Bool) ->
   Core.TxBody era ->
   Core.Value era
-produced pp isNewPool tx =
-  balance (txouts tx)
+produced pp isNewPool txBody =
+  balance (txouts txBody)
     <+> Val.inject
-      ( getField @"txfee" tx
-          <+> totalDeposits pp isNewPool (toList $ getField @"certs" tx)
+      ( txBody ^. Core.txBodyTxFeeG
+          <+> totalDeposits pp isNewPool (toList $ txBody ^. txBodyCertsG)
       )
 
 -- | Compute the key deregistration refunds in a transaction
 keyRefunds ::
-  ( HasField "certs" txb (StrictSeq (DCert crypto)),
-    HasField "_keyDeposit" pp Coin
+  ( HasField "_keyDeposit" pp Coin,
+    ShelleyEraTxBody era
   ) =>
   pp ->
-  txb ->
+  Core.TxBody era ->
   Coin
 keyRefunds pp tx = length deregistrations <×> getField @"_keyDeposit" pp
   where
-    deregistrations = filter isDeRegKey (toList $ getField @"certs" tx)
+    deregistrations = filter isDeRegKey (toList $ tx ^. txBodyCertsG)
 
 -- | Compute the lovelace which are destroyed by the transaction
 consumed ::
   forall era pp.
-  ( Era era,
-    HasField "certs" (Core.TxBody era) (StrictSeq (DCert (Crypto era))),
-    HasField "inputs" (Core.TxBody era) (Set (TxIn (Crypto era))),
-    HasField "wdrls" (Core.TxBody era) (Wdrl (Crypto era)),
+  ( ShelleyEraTxBody era,
     HasField "_keyDeposit" pp Coin
   ) =>
   pp ->
   UTxO era ->
   Core.TxBody era ->
   Core.Value era
-consumed pp (UTxO u) tx =
+consumed pp (UTxO u) txBody =
   {- balance (txins tx ◁ u) + wbalance (txwdrls tx) + keyRefunds pp tx -}
-  Set.foldl' lookupAddTxOut mempty (txins @era tx)
+  Set.foldl' lookupAddTxOut mempty (txins @era txBody)
     <> Val.inject (refunds <+> withdrawals)
   where
     lookupAddTxOut acc txin = maybe acc (addTxOut acc) $ Map.lookup txin u
-    addTxOut !b out = getField @"value" out <+> b
-    refunds = keyRefunds pp tx
-    withdrawals = fold . unWdrl $ getField @"wdrls" tx
+    addTxOut !b out = out ^. Core.txOutValueL <+> b
+    refunds = keyRefunds pp txBody
+    withdrawals = fold . unWdrl $ txBody ^. txBodyWdrlsG
 
 -- ====================================================
 
@@ -1074,7 +1067,8 @@ propWits (Just (Update (ProposedPPUpdates pup) _)) (GenDelegs genDelegs) =
 
 -- | Calculate the change to the deposit pool for a given transaction.
 depositPoolChange ::
-  ( HasField "certs" (Core.TxBody era) (StrictSeq (DCert (Crypto era)))
+  ( HasField "certs" (Core.TxBody era) (StrictSeq (DCert (Crypto era))),
+    ShelleyEraTxBody era
   ) =>
   LedgerState era ->
   PParams era ->
@@ -1116,8 +1110,7 @@ compactCoinOrError c =
 
 -- | Incrementally add the inserts 'utxoAdd' and the deletes 'utxoDel' to the IncrementalStake.
 updateStakeDistribution ::
-  ( Era era
-  ) =>
+  Core.EraTxOut era =>
   IncrementalStake (Crypto era) ->
   UTxO era ->
   UTxO era ->
@@ -1135,7 +1128,7 @@ updateStakeDistribution incStake0 utxoDel utxoAdd = incStake2
 --   in a transaction, which is aways < 4096, not millions, and very often < 10).
 incrementalAggregateUtxoCoinByCredential ::
   forall era.
-  Era era =>
+  Core.EraTxOut era =>
   (Coin -> Coin) ->
   UTxO era ->
   IncrementalStake (Crypto era) ->
@@ -1152,8 +1145,8 @@ incrementalAggregateUtxoCoinByCredential mode (UTxO u) initial =
         Coin 0 -> Nothing
         final -> Just final
     accum ans@(IStake stake ptrs) out =
-      let c = Val.coin (getField @"value" out)
-       in case getTxOutAddr out of
+      let c = Val.coin (out ^. Core.txOutValueL)
+       in case out ^. Core.txOutAddrL of
             Addr _ _ (StakeRefPtr p) -> IStake stake (Map.alter (keepOrDelete c) p ptrs)
             Addr _ _ (StakeRefBase hk) -> IStake (Map.alter (keepOrDelete c) hk stake) ptrs
             _other -> ans
@@ -1265,8 +1258,7 @@ aggregateActiveStake tripmap incremental =
 --   which defeats the purpose of memoizing the _stakeDistro field. So use of this function should be
 --   restricted to tests and initializations, where the invariant should be maintained.
 smartUTxOState ::
-  ( Era era
-  ) =>
+  Core.EraTxOut era =>
   UTxO era ->
   Coin ->
   Coin ->
@@ -1327,7 +1319,7 @@ applyRUpd'
               delegState
                 { dpsDState =
                     dState
-                      { _unified = (rewards dState UM.∪+ registeredAggregated)
+                      { _unified = rewards dState UM.∪+ registeredAggregated
                       }
                 }
           }
@@ -1680,7 +1672,7 @@ updateNES
 
 returnRedeemAddrsToReserves ::
   forall era.
-  Era era =>
+  Core.EraTxOut era =>
   EpochState era ->
   EpochState era
 returnRedeemAddrsToReserves es = es {esAccountState = acnt', esLState = ls'}

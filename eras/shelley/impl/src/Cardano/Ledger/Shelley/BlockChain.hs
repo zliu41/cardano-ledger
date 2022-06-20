@@ -1,14 +1,10 @@
 {-# LANGUAGE ConstraintKinds #-}
 {-# LANGUAGE DataKinds #-}
-{-# LANGUAGE DeriveAnyClass #-}
 {-# LANGUAGE DeriveGeneric #-}
 {-# LANGUAGE DerivingVia #-}
 {-# LANGUAGE FlexibleContexts #-}
 {-# LANGUAGE FlexibleInstances #-}
-{-# LANGUAGE GeneralizedNewtypeDeriving #-}
-{-# LANGUAGE LambdaCase #-}
 {-# LANGUAGE MultiParamTypeClasses #-}
-{-# LANGUAGE NamedFieldPuns #-}
 {-# LANGUAGE OverloadedStrings #-}
 {-# LANGUAGE PatternSynonyms #-}
 {-# LANGUAGE RankNTypes #-}
@@ -78,7 +74,7 @@ import Data.Sequence.Strict (StrictSeq)
 import qualified Data.Sequence.Strict as StrictSeq
 import Data.Typeable
 import GHC.Generics (Generic)
-import GHC.Records (HasField (..))
+import Lens.Micro ((^.))
 import NoThunks.Class (AllowThunksIn (..), NoThunks (..))
 
 data TxSeq era = TxSeq'
@@ -112,44 +108,27 @@ deriving stock instance
 -- Getting bytes from pieces of a Core.Tx
 
 coreWitnessBytes ::
-  forall era.
-  ( SafeToHash (Core.Witnesses era)
-  ) =>
-  Tx era ->
+  (Core.EraTx era, SafeToHash (Core.Witnesses era)) =>
+  Core.Tx era ->
   ByteString
-coreWitnessBytes coretx =
-  originalBytes @(Core.Witnesses era) $
-    getField @"wits" coretx
+coreWitnessBytes coretx = originalBytes $ coretx ^. Core.txWitsG
 
-coreBodyBytes ::
-  forall era.
-  ( SafeToHash (Core.TxBody era)
-  ) =>
-  Tx era ->
-  ByteString
-coreBodyBytes coretx =
-  originalBytes @(Core.TxBody era) $
-    getField @"body" coretx
+coreBodyBytes :: Core.EraTx era => Core.Tx era -> ByteString
+coreBodyBytes coretx = originalBytes $ coretx ^. Core.txBodyG
 
-coreAuxDataBytes ::
-  forall era.
-  ( SafeToHash (Core.AuxiliaryData era)
-  ) =>
-  Tx era ->
-  StrictMaybe ByteString
-coreAuxDataBytes coretx = getbytes <$> getField @"auxiliaryData" coretx
-  where
-    getbytes auxdata = originalBytes @(Core.AuxiliaryData era) auxdata
+coreAuxDataBytes :: Core.EraTx era => Core.Tx era -> StrictMaybe ByteString
+coreAuxDataBytes coretx = originalBytes <$> coretx ^. Core.txAuxiliaryDataG
 
 -- ===========================
 
 -- | Constuct a TxSeq (with all it bytes) from just Core.Tx's
 pattern TxSeq ::
   forall era.
-  ( Era era,
+  ( Core.EraTx era,
+    Core.Tx era ~ Tx era,
     SafeToHash (Core.Witnesses era)
   ) =>
-  StrictSeq (Tx era) ->
+  StrictSeq (Core.Tx era) ->
   TxSeq era
 pattern TxSeq xs <-
   TxSeq' xs _ _ _

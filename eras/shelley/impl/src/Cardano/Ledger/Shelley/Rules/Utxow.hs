@@ -38,11 +38,7 @@ import Cardano.Binary
     encodeListLen,
   )
 import Cardano.Ledger.Address (Addr (..), bootstrapKeyHash)
-import Cardano.Ledger.AuxiliaryData
-  ( AuxiliaryDataHash,
-    ValidateAuxiliaryData (..),
-    hashAuxiliaryData,
-  )
+import Cardano.Ledger.AuxiliaryData (AuxiliaryDataHash)
 import Cardano.Ledger.BaseTypes
   ( ProtVer,
     ShelleyBase,
@@ -112,6 +108,7 @@ import Cardano.Ledger.Shelley.TxBody
     EraIndependentTxBody,
     PoolCert (..),
     PoolParams (..),
+    ShelleyEraTxBody (..),
     Wdrl,
     WitVKey (..),
     getRwdCred,
@@ -146,6 +143,7 @@ import Data.Typeable (Typeable)
 import Data.Word (Word64, Word8)
 import GHC.Generics (Generic)
 import GHC.Records (HasField, getField)
+import Lens.Micro
 import NoThunks.Class (NoThunks (..))
 import Validation
 
@@ -284,14 +282,7 @@ instance
 --  State Transition System Instances
 
 type ShelleyStyleWitnessNeeds era =
-  ( HasField "certs" (Core.TxBody era) (StrictSeq (DCert (Crypto era))),
-    HasField "inputs" (Core.TxBody era) (Set (TxIn (Crypto era))),
-    HasField "wdrls" (Core.TxBody era) (Wdrl (Crypto era)),
-    HasField "addrWits" (Core.Tx era) (Set (WitVKey 'Witness (Crypto era))),
-    HasField "bootWits" (Core.Tx era) (Set (BootstrapWitness (Crypto era))),
-    HasField "update" (Core.TxBody era) (StrictMaybe (Update era)),
-    HasField "_protocolVersion" (Core.PParams era) ProtVer,
-    ValidateAuxiliaryData era (Crypto era),
+  ( HasField "_protocolVersion" (Core.PParams era) ProtVer,
     ValidateScript era,
     DSignable (Crypto era) (Hash (Crypto era) EraIndependentTxBody)
   )
@@ -508,15 +499,11 @@ validateNeededWitnesses witsvkeyneeded genDelegs utxo tx witsKeyHashes =
 --  certificate authors, and withdrawal reward accounts.
 witsVKeyNeeded ::
   forall era tx.
-  ( Era era,
-    HasField "body" tx (Core.TxBody era),
-    HasField "wdrls" (Core.TxBody era) (Wdrl (Crypto era)),
-    HasField "certs" (Core.TxBody era) (StrictSeq (DCert (Crypto era))),
-    HasField "inputs" (Core.TxBody era) (Set (TxIn (Crypto era))),
-    HasField "update" (Core.TxBody era) (StrictMaybe (Update era))
+  ( Core.EraTx era,
+    ShelleyEraTxBody era
   ) =>
   UTxO era ->
-  tx ->
+  Core.Tx era ->
   GenDelegs (Crypto era) ->
   WitHashes (Crypto era)
 witsVKeyNeeded utxo' tx genDelegs =
@@ -527,14 +514,14 @@ witsVKeyNeeded utxo' tx genDelegs =
       `Set.union` wdrlAuthors
       `Set.union` updateKeys
   where
-    txbody = getField @"body" tx
+    txBody = tx ^. Core.txBodyG
     inputAuthors :: Set (KeyHash 'Witness (Crypto era))
-    inputAuthors = foldr accum Set.empty (getField @"inputs" txbody)
+    inputAuthors = foldr accum Set.empty (txBody ^. Core.txBodyInputsG)
       where
         accum txin ans =
           case txinLookup txin utxo' of
-            Just out ->
-              case getTxOutAddr out of
+            Just txOut ->
+              case txOut ^. Core.txOutAddrL of
                 Addr _ (KeyHashObj pay) _ -> Set.insert (asWitness pay) ans
                 AddrBootstrap bootAddr ->
                   Set.insert (asWitness (bootstrapKeyHash bootAddr)) ans
@@ -542,11 +529,11 @@ witsVKeyNeeded utxo' tx genDelegs =
             Nothing -> ans
 
     wdrlAuthors :: Set (KeyHash 'Witness (Crypto era))
-    wdrlAuthors = Map.foldrWithKey accum Set.empty (unWdrl (getField @"wdrls" txbody))
+    wdrlAuthors = Map.foldrWithKey accum Set.empty (unWdrl (txBody ^. txBodyWdrlsG))
       where
         accum key _ ans = Set.union (extractKeyHashWitnessSet [getRwdCred key]) ans
     owners :: Set (KeyHash 'Witness (Crypto era))
-    owners = foldr accum Set.empty (getField @"certs" txbody)
+    owners = foldr accum Set.empty (txBody ^. txBodyCertsG)
       where
         accum (DCertPool (RegPool pool)) ans =
           Set.union
@@ -561,7 +548,7 @@ witsVKeyNeeded utxo' tx genDelegs =
     -- before the call to `cwitness`, so this error should never be reached.
 
     certAuthors :: Set (KeyHash 'Witness (Crypto era))
-    certAuthors = foldr accum Set.empty (getField @"certs" txbody)
+    certAuthors = foldr accum Set.empty (txBody ^. txBodyCertsG)
       where
         accum cert ans | requiresVKeyWitness cert = Set.union (cwitness cert) ans
         accum _cert ans = ans
@@ -569,37 +556,34 @@ witsVKeyNeeded utxo' tx genDelegs =
     updateKeys =
       asWitness
         `Set.map` propWits
-          ( strictMaybeToMaybe $
-              getField @"update" txbody
-          )
+          (strictMaybeToMaybe $ txBody ^. txBodyUpdateG)
           genDelegs
 
 -- | check metadata hash
 --   ((adh = ◇) ∧ (ad= ◇)) ∨ (adh = hashAD ad)
 validateMetadata ::
   forall era.
-  ( Era era,
-    HasField "_protocolVersion" (Core.PParams era) ProtVer,
-    ValidateAuxiliaryData era (Crypto era)
+  ( Core.EraTx era,
+    HasField "_protocolVersion" (Core.PParams era) ProtVer
   ) =>
   Core.PParams era ->
   Core.Tx era ->
   Test (UtxowPredicateFailure era)
 validateMetadata pp tx =
-  let txbody = getField @"body" tx
+  let txBody = tx ^. Core.txBodyG
       pv = getField @"_protocolVersion" pp
-   in case (getField @"adHash" txbody, getField @"auxiliaryData" tx) of
+   in case (txBody ^. Core.txBodyAdHashG, tx ^. Core.txAuxiliaryDataG) of
         (SNothing, SNothing) -> pure ()
         (SJust mdh, SNothing) -> failure $ MissingTxMetadata mdh
         (SNothing, SJust md') ->
-          failure $ MissingTxBodyMetadataHash (hashAuxiliaryData @era md')
+          failure $ MissingTxBodyMetadataHash (Core.hashAuxiliaryData @era md')
         (SJust mdh, SJust md') ->
           sequenceA_
-            [ failureUnless (hashAuxiliaryData @era md' == mdh) $
-                ConflictingMetadataHash mdh (hashAuxiliaryData @era md'),
+            [ failureUnless (Core.hashAuxiliaryData @era md' == mdh) $
+                ConflictingMetadataHash mdh (Core.hashAuxiliaryData @era md'),
               -- check metadata value sizes
               when (SoftForks.validMetadata pp) $
-                failureUnless (validateAuxiliaryData @era pv md') InvalidMetadata
+                failureUnless (Core.validateAuxiliaryData @era pv md') InvalidMetadata
             ]
 
 -- | check genesis keys signatures for instantaneous rewards certificates

@@ -1,5 +1,4 @@
 {-# LANGUAGE AllowAmbiguousTypes #-}
-{-# LANGUAGE BangPatterns #-}
 {-# LANGUAGE ConstraintKinds #-}
 {-# LANGUAGE DataKinds #-}
 {-# LANGUAGE DeriveGeneric #-}
@@ -35,16 +34,14 @@ module Cardano.Ledger.Shelley.UTxO
     scriptsNeeded,
     scriptCred,
     scriptStakeCred,
-
-    -- * Utilities
-    TransUTxO,
   )
 where
 
 import Cardano.Binary (FromCBOR (..), ToCBOR (..))
 import qualified Cardano.Crypto.Hash as CH
 import Cardano.Ledger.Address (Addr (..))
-import Cardano.Ledger.BaseTypes (StrictMaybe, strictMaybeToMaybe)
+import Cardano.Ledger.BaseTypes (strictMaybeToMaybe)
+import Cardano.Ledger.Block (txid)
 import Cardano.Ledger.Coin (Coin (..))
 import qualified Cardano.Ledger.Core as Core
 import Cardano.Ledger.Credential (Credential (..))
@@ -72,7 +69,7 @@ import Cardano.Ledger.Shelley.TxBody
   ( EraIndependentTxBody,
     PoolCert (..),
     PoolParams (..),
-    TransTxId,
+    ShelleyEraTxBody (..),
     Wdrl (..),
     WitVKey (..),
     getRwdCred,
@@ -81,28 +78,25 @@ import Cardano.Ledger.Shelley.TxBody
     pattern Delegation,
   )
 import Cardano.Ledger.TxIn (TxIn (..))
-import qualified Cardano.Ledger.TxIn as Core (txid)
 import Cardano.Ledger.Val ((<+>), (<×>))
 import Control.DeepSeq (NFData)
 import Control.Monad ((<$!>))
 import Data.Coders (decodeMapNoDuplicates, encodeMap)
 import Data.Coerce (coerce)
-import Data.Constraint (Constraint)
 import Data.Default.Class (Default)
 import Data.Foldable (foldMap', toList)
-import Data.Kind (Type)
 import Data.Map.Strict (Map)
 import qualified Data.Map.Strict as Map
 import qualified Data.Maybe as Maybe
-import Data.Sequence.Strict (StrictSeq)
 import Data.Set (Set)
 import qualified Data.Set as Set
 import Data.Sharing
 import Data.Typeable (Typeable)
 import GHC.Generics (Generic)
 import GHC.Records (HasField (..))
+import Lens.Micro ((^.))
 import NoThunks.Class (NoThunks (..))
-import Quiet
+import Quiet (Quiet (Quiet))
 
 -- ===============================================
 
@@ -110,9 +104,7 @@ import Quiet
 newtype UTxO era = UTxO {unUTxO :: Map.Map (TxIn (Crypto era)) (Core.TxOut era)}
   deriving (Default, Generic, Semigroup)
 
-type TransUTxO (c :: Type -> Constraint) era = (c (Core.TxOut era), TransTxId c era)
-
-deriving instance TransUTxO NoThunks era => NoThunks (UTxO era)
+deriving instance NoThunks (Core.TxOut era) => NoThunks (UTxO era)
 
 deriving instance (Era era, NFData (Core.TxOut era)) => NFData (UTxO era)
 
@@ -153,26 +145,25 @@ deriving via
 -- | Compute the UTxO inputs of a transaction.
 -- txins has the same problems as txouts, see notes below.
 txins ::
-  ( HasField "inputs" (Core.TxBody era) (Set (TxIn (Crypto era)))
-  ) =>
+  Core.EraTxBody era =>
   Core.TxBody era ->
   Set (TxIn (Crypto era))
-txins = getField @"inputs"
+txins = (^. Core.txBodyInputsG)
 
 -- | Compute the transaction outputs of a transaction.
 txouts ::
   forall era.
-  Era era =>
+  Core.EraTxBody era =>
   Core.TxBody era ->
   UTxO era
 txouts txBody =
   UTxO $
     Map.fromList
       [ (TxIn transId idx, out)
-        | (out, idx) <- zip (toList $ getField @"outputs" txBody) [minBound ..]
+        | (out, idx) <- zip (toList $ txBody ^. Core.txBodyOutputsG) [minBound ..]
       ]
   where
-    transId = Core.txid txBody
+    transId = txid txBody
 
 -- | Lookup a txin for a given UTxO collection
 txinLookup ::
@@ -232,7 +223,7 @@ makeWitnessesFromScriptKeys txbodyHash hashKeyMap scriptHashes =
 -- | Determine the total balance contained in the UTxO.
 balance ::
   forall era.
-  Era era =>
+  Core.EraTxOut era =>
   UTxO era ->
   Core.Value era
 balance = sumAllValue @era . unUTxO
@@ -240,11 +231,11 @@ balance = sumAllValue @era . unUTxO
 
 -- | Sum all the value in any Foldable with elements that have a field "value"
 sumAllValue ::
-  forall era tx f.
-  (Foldable f, HasField "value" tx (Core.Value era), Monoid (Core.Value era)) =>
-  f tx ->
+  forall era f.
+  (Foldable f, Core.EraTxOut era) =>
+  f (Core.TxOut era) ->
   Core.Value era
-sumAllValue = foldMap' (getField @"value")
+sumAllValue = foldMap' (^. Core.txOutValueL)
 {-# INLINE sumAllValue #-}
 
 -- | Determine the total deposit amount needed.
@@ -272,53 +263,35 @@ totalDeposits pp isNewPool certs =
     numNewPools = length $ Set.filter isNewPool pools
 
 getKeyHashFromRegPool :: DCert crypto -> Maybe (KeyHash 'StakePool crypto)
-getKeyHashFromRegPool (DCertPool (RegPool p)) = Just . _poolId $ p
+getKeyHashFromRegPool (DCertPool (RegPool p)) = Just $ _poolId p
 getKeyHashFromRegPool _ = Nothing
 
-txup ::
-  forall era tx.
-  ( HasField "update" (Core.TxBody era) (StrictMaybe (Update era)),
-    HasField "body" tx (Core.TxBody era)
-  ) =>
-  tx ->
-  Maybe (Update era)
-txup tx = strictMaybeToMaybe (getField @"update" txbody)
-  where
-    txbody :: Core.TxBody era
-    txbody = getField @"body" tx
+txup :: (Core.EraTx era, ShelleyEraTxBody era) => Core.Tx era -> Maybe (Update era)
+txup tx = strictMaybeToMaybe (tx ^. Core.txBodyG . txBodyUpdateG)
 
 -- | Extract script hash from value address with script.
 getScriptHash :: Addr crypto -> Maybe (ScriptHash crypto)
 getScriptHash (Addr _ (ScriptHashObj hs) _) = Just hs
 getScriptHash _ = Nothing
 
-scriptStakeCred ::
-  DCert crypto ->
-  Maybe (ScriptHash crypto)
+scriptStakeCred :: DCert crypto -> Maybe (ScriptHash crypto)
 scriptStakeCred (DCertDeleg (DeRegKey (KeyHashObj _))) = Nothing
 scriptStakeCred (DCertDeleg (DeRegKey (ScriptHashObj hs))) = Just hs
 scriptStakeCred (DCertDeleg (Delegate (Delegation (KeyHashObj _) _))) = Nothing
 scriptStakeCred (DCertDeleg (Delegate (Delegation (ScriptHashObj hs) _))) = Just hs
 scriptStakeCred _ = Nothing
 
-scriptCred ::
-  Credential kr crypto ->
-  Maybe (ScriptHash crypto)
+scriptCred :: Credential kr crypto -> Maybe (ScriptHash crypto)
 scriptCred (KeyHashObj _) = Nothing
 scriptCred (ScriptHashObj hs) = Just hs
 
 -- | Computes the set of script hashes required to unlock the transcation inputs
 -- and the withdrawals.
 scriptsNeeded ::
-  forall era tx.
-  ( Era era,
-    HasField "body" tx (Core.TxBody era),
-    HasField "certs" (Core.TxBody era) (StrictSeq (DCert (Crypto era))),
-    HasField "wdrls" (Core.TxBody era) (Wdrl (Crypto era)),
-    HasField "inputs" (Core.TxBody era) (Set (TxIn (Crypto era)))
-  ) =>
+  forall era.
+  (Core.EraTx era, ShelleyEraTxBody era) =>
   UTxO era ->
-  tx ->
+  Core.Tx era ->
   Set (ScriptHash (Crypto era))
 scriptsNeeded u tx =
   scriptHashes
@@ -326,17 +299,17 @@ scriptsNeeded u tx =
       [sh | w <- withdrawals, Just sh <- [scriptCred (getRwdCred w)]]
     `Set.union` Set.fromList
       [sh | c <- certificates, requiresVKeyWitness c, Just sh <- [scriptStakeCred c]]
-    `Set.union` getField @"minted" txbody -- This might be Set.empty in some Eras.
+    `Set.union` (txbody ^. Core.txBodyMintedG) -- This might be Set.empty in some Eras.
   where
-    txbody = getField @"body" tx
-    withdrawals = Map.keys (unWdrl (getField @"wdrls" txbody))
-    scriptHashes = txinsScriptHashes (getField @"inputs" txbody) u
-    certificates = toList (getField @"certs" txbody)
+    txbody = tx ^. Core.txBodyG
+    withdrawals = Map.keys (unWdrl (txbody ^. txBodyWdrlsG))
+    scriptHashes = txinsScriptHashes (txbody ^. Core.txBodyInputsG) u
+    certificates = toList (txbody ^. txBodyCertsG)
 
 -- | Compute the subset of inputs of the set 'txInps' for which each input is
 -- locked by a script in the UTxO 'u'.
 txinsScriptHashes ::
-  Era era =>
+  Core.EraTxOut era =>
   Set (TxIn (Crypto era)) ->
   UTxO era ->
   Set (ScriptHash (Crypto era))
