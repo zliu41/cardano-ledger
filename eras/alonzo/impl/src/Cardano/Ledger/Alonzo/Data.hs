@@ -37,6 +37,7 @@ module Cardano.Ledger.Alonzo.Data
   )
 where
 
+import Cardano (HeapWords (..), heapWords0, heapWords1)
 import Cardano.Binary
   ( DecoderError (..),
     FromCBOR (..),
@@ -63,7 +64,6 @@ import Cardano.Ledger.SafeHash
   )
 import Cardano.Ledger.Serialization (mapFromCBOR)
 import Cardano.Ledger.Shelley.Metadata (Metadatum)
-import Cardano.Prelude (HeapWords (..), heapWords0, heapWords1)
 import qualified Codec.Serialise as Cborg (Serialise (..))
 import Control.DeepSeq (NFData)
 import Data.ByteString.Lazy (fromStrict, toStrict)
