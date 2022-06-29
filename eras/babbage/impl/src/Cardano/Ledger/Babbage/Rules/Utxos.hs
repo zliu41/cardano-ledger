@@ -175,7 +175,7 @@ scriptsYes = do
                 ValidationTagMismatch
                   (getField @"isValid" tx)
                   (FailedUnexpectedly (scriptFailuresToPredicateFailure fs))
-            Passes _ -> pure ()
+            Passes ps -> tellEvent (SuccessfulPlutusScriptsEvent ps)
     Left info -> failBecause (CollectErrors info)
 
   let !_ = traceEvent validEnd ()
